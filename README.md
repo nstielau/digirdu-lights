@@ -67,15 +67,176 @@ flags once per analysis frame. `attack` holds the event strength, then releases.
 Drone, growl and vocal envelopes have separate attack/release times. Timbre and
 centroid retain their last positions through silence while light decays.
 
-Calibration uses the lower 20th percentile of the first two seconds (excluding
-mic startup). Keep those two seconds quiet. Background rises over 120 seconds
-only near the existing noise floor, and falls over four seconds. Foreground
-frames cannot immediately raise it. The playing-level reference rises over
-12 seconds, falls over 45 seconds, and caps an observation's influence before
-updating. Vocal baseline learning freezes during strong vocal activity.
-Events use hysteresis, cooldowns and a decaying previous-event level to reduce
-repeat triggers from weaker echoes. Calibration and detected capture gaps
-suppress onset events briefly.
+### Algorithm, step by step
+
+The implementation is split between [spectral measurements](audio_spectrum.py),
+[feature detection](audio_features.py), and [rendering](animation.py). All
+numbers below describe the defaults in [config.py](config.py); per-node
+`OVERRIDES` can change the named parameters.
+
+```mermaid
+flowchart TD
+    PCM[I2S signed PCM] --> FFT[Remove DC, Hann window, FFT]
+    FFT --> Raw[Power bands, centroid, flux, noisiness, spread]
+    Raw --> Adapt[Background subtraction and adaptive level reference]
+    Adapt --> Features[Simultaneous drone, harmonics, timbre, growl, vocal]
+    Raw --> Events[Attack and yell onset gates]
+    Features --> Smooth[Separate attack and release envelopes]
+    Events --> Scene[Layered field, textures, ribbons and outward pulses]
+    Smooth --> Scene
+    Smooth --> Radio[ESP-NOW features and scene state]
+    Events --> Radio
+    Scene --> LEDs[Trails, brightness cap and GRB pixels]
+```
+
+**1. Turn each audio window into comparable spectral measurements.** Subtract
+its mean before applying the Hann window. For an FFT result `X[k]`, the
+one-sided power is `2 * gain² * |X[k]|² / (N * sum(window²))`; DC and Nyquist
+get half that factor because they have no separate negative-frequency partner.
+RMS is the square root of the sum of this power over all bins. Band energy is
+the sum over bins inside each configured interval (lower edge included, upper
+edge excluded). The spectrum's `total` used for spectral ratios covers 45 Hz
+up to, but excluding, Nyquist; it is distinct from the all-bin RMS power.
+
+Centroids use **power weighting**: `sum(frequency * power) / sum(power)`.
+The broad centroid becomes `centroid = clamp(centroid_hz / 3500)` before
+smoothing. A second centroid uses only 150–1000 Hz for mouth/formant movement.
+The drone estimate is the strongest FFT bin in 45–180 Hz; its concentration
+is the fraction of drone-band power in that bin and its immediate neighbors,
+clipped to the band. There is no harmonic pitch reconstruction or interpolation.
+
+Two different flux measures serve different purposes:
+
+- **Onset flux:** sum of positive changes in FFT magnitude, divided by the
+  larger of the previous/current magnitude sums over 45 Hz to Nyquist. It
+  responds to an amplitude jump as well as newly appearing frequencies.
+- **Shape flux:** half the sum of absolute differences between spectra after
+  each is normalized to unit magnitude sum. It responds to spectral
+  redistribution with much less sensitivity to uniform volume changes.
+
+Noisiness and frequency spread use 180–3500 Hz. The default participation
+ratio estimates the effective number of occupied power bins; subtract
+`noise_tonal_bins=2`, divide by `bin_count * noise_expected_fill` (default 0.5),
+and clamp to 0..1. Optional logarithmic flatness computes the geometric mean
+relative to the arithmetic mean, with a small numerical floor. Spread is the
+power-weighted standard deviation of frequency, in Hz. These are texture
+proxies: dense tonal harmonics can also occupy many bins.
+
+**2. Learn background slowly and normalize playing level separately.**
+Calibration lasts two seconds and ignores the first 0.2 seconds of microphone
+startup. It takes the lower 20th percentile of RMS and, independently, each
+band's power. The RMS noise floor cannot fall below 2 PCM units; each band has
+a minimum background power of `2² / 5`.
+
+During operation, the background updates only when `rms < 1.8 * noiseFloor`.
+It rises with a 120-second time constant and falls with a four-second time
+constant. Each band's learning target is also capped at twice its current
+estimate. A strong foreground event therefore cannot immediately become the
+new background. Continuous playing during calibration can still produce a bad
+starting floor; calibrate quietly.
+
+Let `S(a, b, x) = clamp((x-a)/(b-a), 0, 1)`. The shared activity gate is
+`g = S(1.6, 5.0, rms/noiseFloor)`. `active` turns on at a ratio of 2.8 and turns
+off after 0.45 seconds continuously below 1.6. This flag describes activity;
+the continuous gate and release envelopes control the lights.
+
+A separate playing-level reference starts at the larger of 120 PCM units or
+five times the calibrated noise floor. Only frames above the active-on ratio
+update it. Clamp each observation to between half and twice the reference,
+then follow it with a 12-second rise or 45-second fall. Volume is:
+
+```text
+volume_target = g * clamp(
+    log(1 + max(0, rms-noiseFloor)/noiseFloor)
+    / log(1 + 2*level_reference/noiseFloor), 0, 1)
+```
+
+This logarithmic response makes quiet detail visible while limiting one loud
+burst's influence. It is a rolling exponential reference, not a sliding-window
+maximum. Other features mostly use spectral ratios rather than this volume.
+
+**3. Calculate the continuous musical layers together.** Subtract the learned
+background from each of the five band powers and clamp at zero. Divide by the
+larger of their sum and the squared noise floor to obtain `bandRatio`.
+Consequently the ratios can sum to less than one near silence. Below, `m` is
+the combined 180–1000 Hz ratio, and all `S` outputs are bounded to 0..1.
+
+| Feature | Calculation before its final smoothing |
+| --- | --- |
+| Drone | `g * S(2,6,drone_snr) * S(0.4,0.85,concentration) * (0.6 + 0.4*pitch_stability)`. `drone_snr` is the square root of raw drone power divided by its learned background. Stability follows frame-to-frame fractional changes of the strongest low bin; a 30% change maps to zero instantaneous stability. |
+| Harmonics | `g * S(0.03,0.65,m)`: relative harmonic presence rather than loudness. |
+| Timbre position | `0.65*S(150,1000,timbre_centroid_hz) + 0.35*(450–1000 Hz ratio)/m`, with a protected denominator. This blends formant position and upper-mid balance. |
+| Roughness | `g * (0.55*noisiness + 0.25*modulation + 0.20*shape_flux)`, after mapping these inputs through their configured ranges. |
+| Growl | `roughness * S(0.08,0.55,m) * (0.6 + 0.4*S(200,1200,spread_hz))`. Mid energy must coexist with texture; level alone is insufficient. |
+| Vocal | Compute the ratio-based vocal base below, then multiply by `0.75 + 0.25*excess` relative to a slowly learned vocal share. |
+
+Modulation here is **variation of relative mid-band energy**, not a detected
+vibrato frequency: compare `m` with its 0.6-second reference, take the absolute
+difference, and smooth it over 0.16 seconds. Default scaling ranges are
+0.015–0.18 for modulation, 0.03–0.4 for noisiness, and 0.02–0.25 for shape flux.
+
+Vocal detection uses the overlapping **700–3500 Hz** range, including part of
+the mid/formant band; it does not use only the named 1000–3500 Hz band.
+Unlike `bandRatio`, these vocal ratios use raw spectral powers with noise-floor
+protection in the denominators:
+
+```text
+share = vocal_energy / max(total_energy, noiseFloor²)
+relative_to_drone = vocal_energy / max(drone_energy, noiseFloor²)
+vocal_base = g * sqrt(S(0.10,0.55,share) * S(0.12,1.50,relative_to_drone))
+excess = S(0.04,0.25,share-vocal_reference)
+vocal_target = vocal_base * (0.75 + 0.25*excess)
+```
+
+The vocal reference follows the share over 15 seconds only while the gate is
+open and `vocal_base < 0.25`. Strong vocals cannot train themselves away.
+Uniformly amplifying a clean drone preserves its spectral ratios, so it does
+not create the missing high-frequency share required for a yell.
+
+**4. Detect events without repeatedly firing on a sustained sound.**
+
+- ATTACK score is `g * (0.65*S(0.06,0.4,flux) + 0.35*S(0.08,0.6,rms_rise))`,
+  where `rms_rise = max(0, rms-previous_rms) / max(rms,noiseFloor)`. Fire at
+  score 0.5 or above; rearm only below 0.18, with a 0.18-second cooldown.
+- YELL fires when `vocal_base >= 0.58` **and** its rise from the previous frame
+  is at least 0.10. Rearm below 0.25, with a 0.6-second cooldown. These checks
+  use the unsmoothed base so a sustained vocal produces an envelope without
+  repeatedly creating events. A gradual vocal can have intensity without YELL.
+- Both events require the active-on RMS ratio and compare current RMS with
+  60% of their own previous-event RMS memory, which decays over 0.8 seconds.
+  This suppresses some weaker echoes; it cannot identify all reflected sounds
+  and may also reject intentionally softer articulations.
+- Calibration completion and detected capture gaps suppress events for 0.15
+  seconds. Partial capture, a reported overflow, or a gap over three hop periods
+  resets spectrum history. The first fresh spectrum has zero flux.
+
+`attackEvent` and `yellEvent` last one analysis frame. `attack` preserves the
+triggering score and decays with a 0.22-second time constant. ESP-NOW repeats
+recent event counters and ages so a missed packet need not lose the pulse.
+
+**5. Smooth features and let the scene ring out.** Every exponential smoother
+uses `target + (previous-target)*exp(-dt/tau)`, choosing the attack constant
+when rising and the release constant when falling. Times below are time
+constants: after one constant, about 37% of the old difference remains.
+
+| Envelope | Attack | Release |
+| --- | --- | --- |
+| Volume and harmonics | 0.09 s | 0.60 s |
+| Drone | 0.30 s | 1.80 s |
+| Growl and roughness | 0.16 s | 0.85 s |
+| Vocal | 0.08 s | 0.50 s |
+| Timbre and centroid | 0.22 s | 0.22 s; retain last position when the gate closes |
+
+The scene also retains `decay = max(volume_target, previous_decay*exp(-dt/3.5))`.
+The renderer builds a continuous field from drone, volume and this decay;
+harmonics change wave spacing and speed, timbre changes hue, growl adds moving
+texture, and vocal adds ribbons. Events enter a fixed eight-pulse pool and
+travel outward from the player's coordinate at 0.65 half-culvert lengths/s,
+with a 1.6-second intensity decay. These are artistic speeds, not sound speed.
+Per-channel trails release over 1.2 seconds. Contributions are capped before
+conversion to GRB bytes at brightness 0.15 (maximum channel value 38).
+The four effects change palette and layer parameters while preserving this
+shared detector and scene state.
 
 ## FeatherS2 wiring
 
@@ -188,12 +349,9 @@ first and clap during the test. The maximum RMS should exceed the quiet level;
 constant zero/span-zero data indicates a wiring or power problem. These are
 relative digital levels, not calibrated sound-pressure decibels.
 
-`make benchmark` measures five seconds of live capture, FFT, rendering and radio
-sending with LEDs off, reports mean/max work time, overruns and discontinuities,
-then resumes the app. Work should fit in the hop interval. The ESP32-S2 I2S
-driver does not expose every DMA overflow; a good timing result is not proof
-that no samples were ever dropped. Long capture gaps reset FFT overlap and
-suppress false onsets. Processing overruns are logged.
+`make benchmark` measures the producer's live audio/animation loop and then
+resumes the app. See [Benchmarking](#benchmarking) for its scope, interpretation,
+and recorded hardware results.
 
 `make console` shows `AUDIO rms=... drone=... growl=... vocal=...` plus
 `ATTACK strength=...` and `YELL vocal=...` lines. `clip=True` means the microphone
@@ -207,6 +365,101 @@ For multiple boards or a differently named mount:
 make deploy PORT=/dev/cu.usbmodem... MOUNT=/Volumes/CIRCUITPY
 # Linux example: PORT=/dev/ttyACM0 MOUNT=/media/yourname/CIRCUITPY
 ```
+
+## Benchmarking
+
+### Repeat the hardware measurement
+
+Connect the **microphone FeatherS2**, close other serial terminals, and run:
+
+```sh
+make ports
+make benchmark PORT=/dev/cu.usbmodem...
+```
+
+This invokes `code.benchmark(5)` on the board through the REPL. It stops the
+running app, creates fresh analysis/render/radio state, and runs for about five
+seconds including the initial two-second calibration. Stay quiet during
+calibration, then play or clap to exercise the feature and pulse layers. The
+benchmark calculates all pixel bytes but **does not write them to the wing**.
+It then restarts the normal app, which calibrates again. A standalone producer
+profile with `radio_role="off"` omits radio work; record the role with results.
+
+For comparisons, record board/firmware, deployed revision, node overrides,
+FFT/hop/rate, pixel count, radio role, effect, and the sound used. Compare quiet,
+steady-drone and attack/vocal-heavy runs separately: active pulses increase
+rendering work. Five seconds is a quick diagnostic with only about three
+seconds after calibration, not a sustained-load test. Re-run after changes to
+FFT overlap, pixel count, noisiness metric or effects; also inspect normal
+LED-enabled operation for timing warnings.
+
+### What the output measures
+
+| Field | Meaning |
+| --- | --- |
+| `frames` | Complete analyzed and rendered frames, including calibration frames |
+| `fps` | Frames divided by total loop wall time, including blocking microphone capture |
+| `work_mean_ms`, `work_max_ms` | Processing time **after** each `mic.record()` returns: FFT, feature updates, button polling, rendering, radio work, event/periodic logging and explicit garbage collection |
+| `budget_ms` | `1000 * hop_size / sample_rate`; 64 ms with the defaults |
+| `overruns` | Frames whose measured post-capture work exceeds that budget |
+| `discontinuities` | Detected incomplete captures, reported overflows, or capture-to-capture gaps longer than three hop periods |
+| `sent` | Broadcasts submitted without a synchronous send error; not consumer acknowledgements |
+| `errors` | Exceptions from send attempts |
+| `skipped` | Send opportunities skipped while the previous send is still pending |
+
+The work timer excludes the blocking capture call and its internal copying;
+it also excludes printing the over-budget warning itself. LED serialization
+is excluded in benchmark mode. Consequently a mean below 64 ms does **not**
+prove that the complete producer keeps up continuously. Normal operation uses
+the same timing loop with LED writes enabled. The ESP32-S2 driver does not
+report every DMA overflow: `discontinuities=0` is not proof of lossless capture.
+The nominal maximum is 15.625 windows/s; this is not a measured end-to-end
+sound-to-light latency. Capture, envelopes, radio scheduling and consumer
+rendering all contribute to perceived response.
+
+### Recorded results — September 15, 2026
+
+FeatherS2, ESP32-S2 at 240 MHz, CircuitPython 10.3.1, 16 kHz capture, 1024 FFT /
+1024 hop, 32-pixel renderer, participation noisiness, ESP-NOW producer enabled.
+The live sound varied and triggered ATTACK/YELL features; it was not a recorded,
+repeatable didgeridoo dataset. These measurements were taken during development
+of the implementation committed in `4ceb381`; no new hardware timing run is
+implied by this documentation update.
+
+```text
+AUDIO BENCH frames=72 fps=14.3 work_mean_ms=59.1 work_max_ms=97.7 budget_ms=64.0 overruns=20 discontinuities=0
+RADIO BENCH sent=48 errors=0 skipped=0
+```
+
+| Check | Measured result | Interpretation |
+| --- | --- | --- |
+| Live producer throughput | 14.3 frames/s versus nominal 15.625 | Below the intended capture-window cadence |
+| Post-capture work | 59.1 ms mean; 97.7 ms maximum | Average fits narrowly; peak exceeds the 64 ms budget |
+| Over-budget frames | 20 of 72 (about 28%) | Current configuration has intermittent processing overruns |
+| Radio submissions | 48; zero reported errors or pending-send skips | Sender path ran; submission success alone says nothing about reception |
+| Separate renderer stress check | Maximum 20.2 ms with all features/events and a full pulse pool | Renderer-only diagnostic, not total frame time; do not add it to the live measurement, which already includes rendering |
+| Native FFT sanity check | 93.75 Hz sine, amplitude 1000: RMS 706.65, drone-power share about 0.99998 | Agrees with the expected sine RMS near 707 and correct low-band placement |
+| Two-device radio check | ESP32 V2 accepted 94 packets in its first eight seconds, zero rejected; later restart/rejoin reached 256 accepted, zero rejected | Confirms actual reception and automatic rejoining at the tested location; not culvert-wide RF coverage |
+
+The implementation uses native `ulab` arrays for FFT, dot products and
+per-pixel math. Full-window hops reduce the number of FFTs per second;
+participation noisiness avoids per-bin logarithms; RMS reuses FFT power;
+frequency arrays are cached and the event pulse pool is bounded. These choices
+reduce work, but the measured overruns remain. Validate processing headroom on
+the actual sound/effect load before adding pixels or shortening the hop.
+
+### Algorithm checks versus musical accuracy
+
+`make check` runs 38 host tests using pinned NumPy and generated PCM, plus
+packet-state, renderer, button and deployment checks. Signal cases include
+50/93.75/140/175 Hz drones at different levels, equal-RMS timbre changes,
+modulated mid-band noise, vocals layered over drone, attacks and decaying tails,
+loud outliers, and a 60-second sustained drone that must not become background.
+They verify calculations and expected behavior under controlled inputs. Host
+execution time is not an ESP32 performance benchmark, and these tests do not
+provide precision/recall or classification accuracy on real didgeridoo playing.
+The earlier clap-reactive rainbow has visual confirmation; the musical layers
+still need an instrument trial in the culvert.
 
 ## Tune the installation
 
@@ -452,11 +705,8 @@ The original board's rainbow was deployed and visually confirmed on September
 - Producer deployment passed file readback and serial startup checks. Native
   FFT verification placed a 93.75 Hz tone almost entirely in the drone band,
   with RMS 706.65 for a 1000-amplitude sine. Native packet decoding passed.
-- A five-second live producer benchmark measured **14.3 frames/s**, mean work
-  **59.1 ms**, maximum **97.7 ms**, and 20 overruns against the 64 ms hop budget.
-  It sent 48 radio updates with no reported send errors. Work timing excludes
-  blocking capture/copy time; this is not guaranteed gapless audio processing.
-  The renderer's separate maximum-load check measured 20.2 ms per frame.
+- [Recorded benchmark results](#recorded-results--september-15-2026) document
+  producer timing, overruns, renderer stress, and the scope of radio evidence.
 - The earlier clap-reactive rainbow was visually confirmed. The new musical
   layers and simultaneous visual effect changes still need user confirmation.
   Culvert classification accuracy and RF coverage are unmeasured.
