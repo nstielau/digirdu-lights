@@ -15,7 +15,7 @@ NODE_CONFIG ?=
 BOARD_ARGS = --board '$(BOARD)' --port '$(PORT)' $(if $(MOUNT),--mount '$(MOUNT)')
 ROM_FIRMWARE := .artifacts/firmware/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).bin
 
-.PHONY: help setup ports firmware flash flash-rom deploy console check test-mic benchmark
+.PHONY: help setup ports firmware flash flash-rom deploy console check test-mic test-buttons benchmark
 help:
 	@echo 'make setup    Install host tools into .venv'
 	@echo 'make ports    List USB serial devices'
@@ -27,6 +27,7 @@ help:
 	@echo 'make console  Serial terminal (Ctrl-] exits; Ctrl-C stops; Ctrl-D restarts)'
 	@echo 'make check    Check Python syntax and whitespace without hardware'
 	@echo 'make test-mic Capture 10 seconds of microphone levels, then resume the app'
+	@echo 'make test-buttons Inspect producer button GPIO transitions for 20 seconds, then resume'
 	@echo 'make benchmark Measure live FFT/render timing for 5 seconds, then resume the app'
 	@echo 'Default board: unexpectedmaker_feathers2; old board: BOARD=adafruit_feather_esp32_v2'
 	@echo 'Optional: PORT=/dev/cu.usbserial-... overrides automatic port selection'
@@ -63,6 +64,9 @@ console: setup
 
 test-mic: setup
 	$(PY) tools/board.py test-mic $(BOARD_ARGS)
+
+test-buttons: setup
+	$(PY) tools/board.py test-buttons $(BOARD_ARGS)
 
 benchmark: setup
 	$(PY) tools/board.py benchmark $(BOARD_ARGS)

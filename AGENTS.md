@@ -72,6 +72,9 @@ Run `make check` after changes. For authorized hardware work, run `make deploy`
 and inspect readback and serial startup checks. `make test-mic` captures ten
 seconds of levels, then resumes the app. `make benchmark` measures live
 capture/FFT/render/radio work against the hop budget; keep timing warnings.
+`make test-buttons` polls the producer's configured GPIOs for 20 seconds with
+audio paused, logs raw levels and debounced presses, and resumes the app. Use
+it to distinguish physical input from effect handling before changing pins.
 The ESP32-S2 driver does not report every DMA overflow. Preserve gap recovery,
 bounded radio sends, duplicate/event protection and link-loss fading. Effect ID
 is repeated in every packet so lost changes self-correct. BOOT/IO0 advances

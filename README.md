@@ -629,6 +629,18 @@ enters the ROM download loader. For effect changes, press BOOT without RESET.
 See [Espressif's boot-pin description](https://docs.espressif.com/projects/esptool/en/latest/esp32s2/advanced-topics/boot-mode-selection.html).
 Use a deliberate ~0.2-second press so the audio loop can sample it twice.
 
+If even a one-second hold does not change the producer's wing, connect the
+microphone FeatherS2 to USB and run `make test-buttons PORT=/dev/cu.usbmodem...`.
+This temporarily stops audio/lighting and polls the configured button pins
+every 5 ms for 20 seconds, using the deployed debounce settings. Press and
+release BOOT several times after the host prompt. Results show the saved role,
+pin configuration, raw levels (`0=pressed`, `1=released`), transitions, and
+accepted presses; output appears after the test, then the normal app resumes.
+It needs no firmware/app update. No raw transitions means input, configuration,
+or physical button operation needs investigation; transitions and accepted
+presses isolate the remaining investigation to the normal app/effect path.
+Do not treat a received effect name by itself as proof a specific press worked.
+
 For later external buttons, set `button_next_gpio` and optionally
 `button_previous_gpio` in the producer profile. Each switch connects its GPIO
 to GND; the app enables internal pull-ups. Set a pin to `None` to disable that

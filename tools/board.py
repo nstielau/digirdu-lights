@@ -19,6 +19,50 @@ APP_FILES = ("node_config.py", "config.py", "sound_reactive.py", "audio_spectrum
              "audio_features.py", "animation.py", "effects.py", "radio_protocol.py",
              "wireless.py", "code.py")
 
+# Executed on the device, not imported by host Python. Works with the existing
+# producer app; no deployment is needed to inspect the physical button first.
+BUTTON_TEST_SOURCE = """
+import board, digitalio, time
+from config import CONFIG
+from effects import DebouncedButton
+def inspect_buttons():
+    inputs = []
+    print('BUTTON TEST role=%s next=%s previous=%s' %
+          (CONFIG.radio_role, CONFIG.button_next_gpio, CONFIG.button_previous_gpio))
+    try:
+        for gpio in (CONFIG.button_next_gpio, CONFIG.button_previous_gpio):
+            if gpio is None:
+                continue
+            pin = digitalio.DigitalInOut(getattr(board, 'IO%d' % gpio))
+            inputs.append([gpio, pin, DebouncedButton(CONFIG.button_debounce_s), None, 0, 0])
+            pin.switch_to_input(pull=digitalio.Pull.UP)
+        started = time.monotonic()
+        while time.monotonic() - started < 20:
+            now = time.monotonic()
+            for row in inputs:
+                gpio, pin, button, previous, transitions, presses = row
+                level = pin.value
+                if level != previous:
+                    print('BUTTON GPIO%d level=%d (%s) t=%.2f' %
+                          (gpio, level, 'released' if level else 'pressed', now-started))
+                    row[3] = level
+                    if previous is not None:
+                        row[4] += 1
+                if button.update(not level, now):
+                    row[5] += 1
+                    print('BUTTON GPIO%d accepted press=%d' % (gpio, row[5]))
+            time.sleep(0.005)
+        for gpio, pin, button, previous, transitions, presses in inputs:
+            print('BUTTON RESULT GPIO%d transitions=%d presses=%d final_level=%d' %
+                  (gpio, transitions, presses, pin.value))
+        if not inputs:
+            print('BUTTON RESULT no controls configured')
+    finally:
+        for row in inputs:
+            row[1].deinit()
+inspect_buttons()
+"""
+
 
 def find_port(explicit):
     if explicit:
@@ -267,7 +311,7 @@ def flash(port, firmware, board_id=ESP32_BOARD):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("ports", "deploy", "flash", "flash-rom", "console", "test-mic", "benchmark"))
+    parser.add_argument("action", choices=("ports", "deploy", "flash", "flash-rom", "console", "test-mic", "test-buttons", "benchmark"))
     parser.add_argument("--board", choices=("auto", S2_BOARD, ESP32_BOARD), default=S2_BOARD)
     parser.add_argument("--port", default="")
     parser.add_argument("--mount")
@@ -291,17 +335,22 @@ def main():
     print(f"Using {port}", flush=True)
     if args.action == "deploy":
         deploy(port, args.board, args.mount, args.node_config, args.legacy_rainbow)
-    elif args.action in ("test-mic", "benchmark"):
+    elif args.action in ("test-mic", "test-buttons", "benchmark"):
         if args.board != S2_BOARD:
-            parser.error("Audio diagnostics are configured for the FeatherS2 wiring")
+            parser.error("Producer diagnostics are configured for the FeatherS2 wiring")
         repl = Repl(port)
         try:
             repl.enter()
             if repl.execute("import board; print(board.board_id)") != S2_BOARD:
                 raise RuntimeError("Expected an Unexpected Maker FeatherS2")
             try:
-                command = "code.test_microphone(10)" if args.action == "test-mic" else "code.benchmark(5)"
-                print(repl.execute("import code; " + command, timeout=25))
+                if args.action == "test-buttons":
+                    print("Press/release BOOT several times over the next 20 seconds. "
+                          "Audio and lighting are paused; results appear when the test ends.", flush=True)
+                    print(repl.execute(BUTTON_TEST_SOURCE, timeout=30))
+                else:
+                    command = "code.test_microphone(10)" if args.action == "test-mic" else "code.benchmark(5)"
+                    print(repl.execute("import code; " + command, timeout=25))
             finally:
                 repl.restart(S2_BOARD)
         finally:
