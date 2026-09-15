@@ -212,14 +212,21 @@ def run_follower():
                 previous = now
                 features = radio.receive(now, animation)
                 lost = radio.receiver.fade_if_lost(now, dt)
-                neopixel_write(pin, animation.render(features, dt))
+                pixels = animation.render(features, dt)
+                neopixel_write(pin, pixels)
                 radio.receiver.clear_events()
                 frames += 1
                 if now >= next_log:
-                    print("LIGHTS frame=%d received=%d rejected=%d effect=%s link=%s" %
+                    age_ms = (int((now - radio.receiver.last_receive) * 1000)
+                              if radio.receiver.accepted else -1)
+                    lit = sum(1 for i in range(0, len(pixels), 3)
+                              if pixels[i] or pixels[i + 1] or pixels[i + 2])
+                    print("LIGHTS frame=%d received=%d rejected=%d effect=%s link=%s age_ms=%d active=%s vol=%.2f drone=%.2f growl=%.2f vocal=%.2f lit=%d/%d peak=%d" %
                           (frames, radio.receiver.accepted, radio.receiver.rejected,
                            EFFECT_NAMES[animation.effect],
-                           "lost/fading" if lost else "live"))
+                           "lost/fading" if lost else "live", age_ms, features.active,
+                           features.volume, features.drone, features.growl, features.vocal,
+                           lit, CONFIG.pixel_count, max(pixels)))
                     next_log = now + CONFIG.log_interval_s
                     gc.collect()
                 time.sleep(max(0, CONFIG.receiver_frame_s - (time.monotonic() - now)))

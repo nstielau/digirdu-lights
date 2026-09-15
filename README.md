@@ -553,6 +553,15 @@ producer power, matching MAC/channel/group, and distance. If packets arrive but
 the wing stays dark while playing, check the wing data jumper and local power.
 Silence normally fades the lighting to black.
 
+The consumer status line also reports `age_ms` since the latest accepted packet
+(`-1` before the first), `active`, received `vol/drone/growl/vocal` envelopes,
+and the number of pixels with nonzero output (`lit`) plus the largest output
+channel byte (`peak`). Changing envelopes and pixel bytes demonstrate received
+state reaching the renderer and LED write call; physical illumination still
+needs a visual check. The producer broadcasts even during silence, so an
+increasing receive count serves as a basic heartbeat while its audio loop runs.
+It is not an independent watchdog for a stalled microphone or producer loop.
+
 ### Saved roles and joining
 
 The same application runs on all nodes. A new node defaults to **consumer**;
@@ -695,6 +704,13 @@ The original board's rainbow was deployed and visually confirmed on September
 
 ## Current didgeridoo validation
 
+- A consumer redeployment with music playing near the powered producer passed
+  all ten file readbacks and startup verification. After joining, eight status
+  samples stayed `link=live`, reaching **104 accepted packets, zero rejected**.
+  Received volume varied **0.12–0.65**, vocal intensity **0.12–0.46**, and all
+  32 pixels had nonzero output, with peak channel values **4–26**. This verifies
+  changing producer features reaching the consumer renderer and LED write
+  call; it does not establish physical illumination or musical classification.
 - 38 deterministic host tests pass; these use generated signals, not labelled
   didgeridoo recordings.
 - Both the FeatherS2 producer and Feather ESP32 V2 consumer run CircuitPython
