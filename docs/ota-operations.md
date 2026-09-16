@@ -501,3 +501,14 @@ resumed I2S/ESP-NOW. Firebase confirmed current 1.0.6, sequence 11, base 1.0.2,
 no error. The ESP32 V2 consumer still reports base 1.0.1 and needs its own USB
 base deployment. Visual confirmation of the activity indicator is separate
 from file verification and the successful boot.
+The user subsequently confirmed seeing the advancing cyan pixel during the
+producer's OTA check, followed by the normal audio effects. Producer visual
+verification is complete.
+
+The ESP32 V2 consumer then received and verified the same seven base files.
+After normal reset, Firebase reported **app 1.0.6 / base 1.0.2**, current,
+sequence 11, no error on both devices. Consumer logs showed live reception
+with **198 accepted / 0 rejected packets** after resuming. Its native boot
+capture is `.artifacts/ota-indicator-consumer-boot.log`; producer capture is
+`.artifacts/ota-indicator-producer-boot.log`. Consumer visual confirmation
+remains separate from these serial/fleet results.
