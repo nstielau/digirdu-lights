@@ -103,6 +103,21 @@ class RadioTests(unittest.TestCase):
         self.assertTrue(another.accept(self.mac, packet, .2))
         self.assertEqual(another.effect, 2)
 
+    def test_effect_indicator_mirrors_after_loss_without_restarting(self):
+        # Different culvert coordinates must not alter the local number display.
+        consumer = CulvertAnimation(Config(pixel_positions=tuple((.5, 0) for _ in range(32))))
+        self.rx.accept(self.mac, self.packet(0), 0)
+        self.a.set_effect(2)
+        self.packet(.1)  # First effect-change update is lost.
+        self.rx.accept(self.mac, self.packet(.2), .2)
+        consumer.set_effect(self.rx.effect)
+        self.assertEqual(self.a.render(self.f, .064), consumer.render(self.rx.features, .064))
+        for n in range(30):
+            self.rx.accept(self.mac, self.packet(.3+n*.064), .3+n*.064)
+            consumer.set_effect(self.rx.effect)
+            consumer.render(self.rx.features, .064)
+        self.assertEqual(consumer.indicator_remaining, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

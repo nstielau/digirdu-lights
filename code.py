@@ -44,7 +44,8 @@ class EffectButtons:
         for pin, button, step in self.inputs:
             if button.update(not pin.value, now):
                 animation.set_effect((animation.effect + step) % len(EFFECT_NAMES))
-                print("EFFECT %d %s" % (animation.effect, EFFECT_NAMES[animation.effect]))
+                print("EFFECT %d %s display=%d" %
+                      (animation.effect, EFFECT_NAMES[animation.effect], animation.effect + 1))
 
     def deinit(self):
         for pin, _, _ in self.inputs:
@@ -221,9 +222,10 @@ def run_follower():
                               if radio.receiver.accepted else -1)
                     lit = sum(1 for i in range(0, len(pixels), 3)
                               if pixels[i] or pixels[i + 1] or pixels[i + 2])
-                    print("LIGHTS frame=%d received=%d rejected=%d effect=%s link=%s age_ms=%d active=%s vol=%.2f drone=%.2f growl=%.2f vocal=%.2f lit=%d/%d peak=%d" %
+                    print("LIGHTS frame=%d received=%d rejected=%d effect=%s indicator=%d link=%s age_ms=%d active=%s vol=%.2f drone=%.2f growl=%.2f vocal=%.2f lit=%d/%d peak=%d" %
                           (frames, radio.receiver.accepted, radio.receiver.rejected,
                            EFFECT_NAMES[animation.effect],
+                           animation.effect + 1 if animation.indicator_remaining > 0 else 0,
                            "lost/fading" if lost else "live", age_ms, features.active,
                            features.volume, features.drone, features.growl, features.vocal,
                            lit, CONFIG.pixel_count, max(pixels)))

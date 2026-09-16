@@ -10,6 +10,37 @@ PALETTES = (
     (-0.16, 0.45, 0.7, 0.22, 0.4, 0.65),
 )
 
+# Display numbers are 1..4; protocol IDs remain 0..3. Three columns, seven rows.
+EFFECT_DIGITS = (
+    ("010", "110", "010", "010", "010", "010", "111"),
+    ("111", "001", "001", "111", "100", "100", "111"),
+    ("111", "001", "001", "111", "001", "001", "111"),
+    ("101", "101", "101", "111", "001", "001", "001"),
+)
+INDICATOR_COLORS = ((0, 0, 1), (1, .2, 0), (0, 1, .6), (.6, 0, 1))
+# Factory PCB has four progressive rows of eight. Portrait view: pixel 0 at
+# bottom left, logical row-major 4x8 coordinates -> physical pixel index.
+FEATHERWING_PORTRAIT = tuple(8 * x + 7 - y for y in range(8) for x in range(4))
+
+
+def effect_indicator_pixels(effect, config):
+    """Return a GRB number on black for each complete 32-pixel wing, or None."""
+    if not config.effect_indicator_enabled or config.pixel_count % 32:
+        return None
+    mapping = config.effect_indicator_map or FEATHERWING_PORTRAIT
+    red, green, blue = INDICATOR_COLORS[effect]
+    grb = bytes(int(v * config.brightness * 255) for v in (green, red, blue))
+    wing = bytearray(96)
+    for y, row in enumerate(EFFECT_DIGITS[effect]):
+        for x, bit in enumerate(row):
+            if bit == "1":
+                logical = y * 4 + x
+                if config.effect_indicator_rotation == 180:
+                    logical = 31 - logical
+                offset = mapping[logical] * 3
+                wing[offset:offset + 3] = grb
+    return bytes(wing) * (config.pixel_count // 32)
+
 
 class DebouncedButton:
     """Return true once per stable press, never repeatedly during a hold."""

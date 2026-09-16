@@ -234,7 +234,7 @@ texture, and vocal adds ribbons. Events enter a fixed eight-pulse pool and
 travel outward from the player's coordinate at 0.65 half-culvert lengths/s,
 with a 1.6-second intensity decay. These are artistic speeds, not sound speed.
 For the default Culvert effect (ID 0), the field uses the larger of
-`0.65*drone`, `0.9*volume**0.6`, `0.10*decay`, and the effect-change preview.
+`0.65*drone`, `0.9*volume**0.6`, and `0.10*decay`.
 The volume curve makes soft sounds easier to see without raising the brightness
 limit. Its trails release over 0.20 seconds, so the previous note does not hide
 the next one. ATTACK/YELL adds a neutral whole-wing bloom scaled by 0.8, with a
@@ -243,7 +243,7 @@ the bloom when a packet arrives late. The drone's 1.8-second release and the
 quiet 3.5-second decay layer still preserve an acoustic tail.
 
 Ember, Aurora and Ripple retain the original field mixture (the larger of
-`0.65*drone`, `0.12*volume`, `0.32*decay`, and preview) and 1.2-second pixel trails.
+`0.65*drone`, `0.12*volume`, and `0.32*decay`) and 1.2-second pixel trails.
 Contributions are capped before
 conversion to GRB bytes at brightness 0.15 (maximum channel value 38).
 The four effects change palette and layer parameters while preserving this
@@ -477,7 +477,7 @@ The producer's full file readback and startup passed with effect 0 selected.
 
 ### Algorithm checks versus musical accuracy
 
-`make check` runs 41 host tests using pinned NumPy and generated PCM, plus
+`make check` runs 47 host tests using pinned NumPy and generated PCM, plus
 packet-state, renderer, button and deployment checks. Signal cases include
 50/93.75/140/175 Hz drones at different levels, equal-RMS timbre changes,
 modulated mid-band noise, vocals layered over drone, attacks and decaying tails,
@@ -646,20 +646,64 @@ get the same appearance; the packet format and effect IDs have not changed.
 
 Press and release **BOOT** while the producer is running to advance:
 
-| ID | Effect | Character |
-| --- | --- | --- |
-| 0 | Culvert | Clear level-driven blue/green field, whole-wing attack bloom and outward pulses |
-| 1 | Ember | Warm, broad waves and stronger growl texture |
-| 2 | Aurora | Cooler, tighter waves and wide vocal pulses |
-| 3 | Ripple | Dimmer atmosphere emphasizing narrow outward attacks |
+| Display | Protocol ID | Effect | Number color | Character |
+| --- | --- | --- | --- | --- |
+| 1 | 0 | Culvert | Blue | Clear level-driven field, whole-wing attack bloom and outward pulses |
+| 2 | 1 | Ember | Orange | Warm, broad waves and stronger growl texture |
+| 3 | 2 | Aurora | Mint/cyan | Cooler, tighter waves and wide vocal pulses |
+| 4 | 3 | Ripple | Violet | Dimmer atmosphere emphasizing narrow outward attacks |
 
-A brief palette preview confirms changes even during silence. Button presses
-are debounced and holding the button does not auto-repeat. The selected effect
-is included in **every** radio update, so a missed button-change packet is
-corrected by the next one; consumers do not need their own button. Scene state
-and trailing light continue across effect changes. The initial effect after a
-producer reset comes from `effect_index`; changes are not written to flash on
-every button press.
+### Effect-number confirmation
+
+When an effect changes, the 32-pixel wing shows its **number 1–4** as a 3×7 dot
+matrix on black for about **1.5 seconds**, then returns to the live animation.
+This replaces the previous subtle palette preview. The digit appears even in
+silence, and its color identifies the effect as well. Brightness remains capped
+by `brightness=0.15`; the indicator does not add brightness to the scene.
+
+Read the wing in portrait orientation: four pixels across and eight tall. The
+font uses three columns and seven rows, leaving a blank right column and bottom
+row. The default mapping places physical pixel 0 at the bottom left. It is
+derived from the progressive eight-pixel rows in
+[Adafruit's PCB layout](https://github.com/adafruit/Adafruit-NeoPixel-FeatherWing-PCB/blob/master/Adafruit%20NeoPixel%20FeatherWing.brd),
+rotated into portrait. If your installation mounts a wing upside down, set
+`effect_indicator_rotation=180` in that node's profile.
+
+The producer shows the number when its debounced BOOT press changes the effect.
+Consumers show it when they receive a different effect ID. That ID is still
+present in every version-2 packet, so a missed change is recovered from the next
+accepted update. Unchanged packets **do not restart** the timer. Fast successive
+changes replace the displayed number with the latest one. A consumer joining
+an effect different from its initial setting also shows the number. Radio and
+frame timing introduce a small delay between nodes; this is not an exactly
+synchronized display timer. A packet-format update or pairing is not required.
+
+The number is an output overlay: microphone sampling, feature analysis, radio
+updates, scene time, pulses and trails continue underneath it. The overlay is
+not stored in the trails, so it leaves no ghost digit. Silence returns to dark
+after the indicator expires; holding BOOT does not auto-repeat. Startup alone
+does not show a number unless the effect subsequently changes.
+
+Per-node controls in `config.py` / `OVERRIDES`:
+
+- `effect_indicator_enabled`: enable the overlay (default `True`).
+- `effect_indicator_s`: positive display duration, default `1.5` seconds.
+- `effect_indicator_rotation`: `0` or `180` degrees in portrait orientation.
+- `effect_indicator_map`: optional 32-entry permutation of physical indices
+  0–31, listed row by row for logical 4×8 coordinates; default uses the factory
+  mapping. Rotation is applied to logical coordinates before this mapping.
+
+The indicator uses local physical pixels, independently of `pixel_positions`
+used to place a wing along the culvert. On a wired chain of complete 32-pixel
+wings, it repeats the number on each wing. Counts not divisible by 32 skip the
+indicator; their normal animation continues. Firmware on every node must include
+this renderer to display the number. Consumer status logs use `indicator=1..4`
+while the overlay is active and `indicator=0` otherwise; protocol IDs remain
+zero-based. Producer change logs include the corresponding `display=1..4`.
+
+The initial effect after a producer reset comes from `effect_index`; button
+changes are not written to flash on every press. Scene state and trailing light
+continue across effect changes.
 
 BOOT connects GPIO 0 to ground. It is a normal readable input during the app,
 with a special boot-selection role **at reset**: holding BOOT while resetting
@@ -754,6 +798,10 @@ The original board's rainbow was deployed and visually confirmed on September
 
 ## Current didgeridoo validation
 
+- The effect-number indicator is deployed on the ESP32 V2 consumer. An on-board
+  test generated and wrote all four glyphs: 10/13/13/12 lit pixels for numbers
+  1/2/3/4, peak channel value 38, then resumed normal radio reception. Producer
+  indicator deployment and physical orientation confirmation are pending.
 - A consumer redeployment with music playing near the powered producer passed
   all ten file readbacks and startup verification. After joining, eight status
   samples stayed `link=live`, reaching **104 accepted packets, zero rejected**.
@@ -761,7 +809,7 @@ The original board's rainbow was deployed and visually confirmed on September
   32 pixels had nonzero output, with peak channel values **4–26**. This verifies
   changing producer features reaching the consumer renderer and LED write
   call; it does not establish physical illumination or musical classification.
-- 41 deterministic host tests pass; these use generated signals, not labelled
+- 47 deterministic host tests pass; these use generated signals, not labelled
   didgeridoo recordings.
 - Both the FeatherS2 producer and Feather ESP32 V2 consumer run CircuitPython
   10.3.1. The ESP32 V2 consumer's ten files passed serial readback and startup

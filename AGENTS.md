@@ -82,7 +82,13 @@ it to distinguish physical input from effect handling before changing pins.
 The ESP32-S2 driver does not report every DMA overflow. Preserve gap recovery,
 bounded radio sends, duplicate/event protection and link-loss fading. Effect ID
 is repeated in every packet so lost changes self-correct. BOOT/IO0 advances
-effects on the producer while running; it selects download mode when held
+effects on the producer while running. Changes show display numbers 1..4
+(protocol IDs 0..3) for 1.5 seconds on the local 4x8 wing, mirrored by consumers
+on changed received IDs. Repeated packets must not restart the overlay. Keep
+capture/radio/scene processing running under it, preserve the brightness cap,
+and keep its physical mapping independent of culvert pixel_positions. Factory
+progressive 8x4 wiring is rotated to portrait with pixel 0 bottom left; allow
+per-node 180-degree rotation or an explicit map. BOOT selects download mode when held
 during reset. Keep future button GPIOs out of the mic/wing pin set.
 Hardware validation needs changing
 levels on quiet/clap trials plus a visual LED check; don't equate serial logs

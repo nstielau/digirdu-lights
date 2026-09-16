@@ -96,6 +96,10 @@ class Config:
     responsive_flash_s = 0.18
     responsive_flash_gain = 0.8
     effect_index = 0
+    effect_indicator_enabled = True
+    effect_indicator_s = 1.5
+    effect_indicator_rotation = 0  # Portrait; 180 turns the number upside down.
+    effect_indicator_map = None  # Optional logical 4x8 -> physical 0..31 map.
     button_next_gpio = 0  # Built-in BOOT button, active low. None disables it.
     button_previous_gpio = None  # Optional external button to GND.
     button_debounce_s = 0.04
@@ -172,6 +176,13 @@ class Config:
         from effects import EFFECT_NAMES
         if not 0 <= self.effect_index < len(EFFECT_NAMES):
             raise ValueError("Invalid effect_index")
+        if self.effect_indicator_rotation not in (0, 180):
+            raise ValueError("effect_indicator_rotation must be 0 or 180")
+        if self.effect_indicator_map is not None:
+            if (len(self.effect_indicator_map) != 32
+                    or any(type(i) is not int for i in self.effect_indicator_map)
+                    or sorted(self.effect_indicator_map) != list(range(32))):
+                raise ValueError("effect_indicator_map must permute pixel indices 0..31")
         for pin in (self.button_next_gpio, self.button_previous_gpio):
             if pin in (5, 6, 9, 38):
                 raise ValueError("Button conflicts with microphone or wing GPIO")
