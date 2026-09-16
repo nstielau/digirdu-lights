@@ -423,3 +423,16 @@ recorded app 1.0.5 / base 1.0.1, `state=current`, sequence 10, no error, **405
 frames / 292 sends**. Both nodes now report 1.0.5. The consumer briefly faded
 during the producer's confirmation/reboot, then resumed Spectrum with zero
 rejected packets. The physical long-press test is separate from this OTA result.
+
+
+During the subsequent user-triggered long press, the consumer received the
+sleep broadcast at host log time **202.099 s** with **3.00 s remaining** and
+logged deep-sleep entry at **205.117 s**: **3.018 s** later. Its output reported
+32 lit pixels with peaks decreasing **28 → 15 → 2**, and zero rejected packets.
+Cleanup completed without a traceback or OTA failure message; the app stopped
+with autoreload off and the USB console retained. This validates native command
+receipt, fade timing and handoff to the alarm API. It does not establish true
+low-power current on USB, the producer's physical appearance, or reset wake-up.
+Logs remain ignored under `.artifacts/sleep-physical-test.log` and
+`.artifacts/sleep-physical-events.jsonl`. User visual/reset confirmation remains
+separate from the native consumer result.

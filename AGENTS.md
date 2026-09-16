@@ -294,6 +294,8 @@ Sleep release 1.0.5 (`c89b6d4`, `firmware-v1.0.5`) passed 100 host tests and
 GitHub checks/import. ESP32 V2 OTA confirmed sequence 10, current 1.0.5/base1.0.1,
 826 frames / 287 packets, no error, then live reception with zero rejected.
 Producer OTA also confirmed 1.0.5, sequence 10, no error, 405 frames / 292 sends;
-consumer reception resumed. The physical hold/fade/sleep/reset test is pending;
-do not equate successful OTA with validated sleep. USB-connected simulated
+consumer reception resumed. A user-triggered hold subsequently produced a native consumer sleep command,
+3.018-second fade and alarm handoff without traceback. USB kept its console;
+physical appearance, sleep current and reset wake-up remain unconfirmed.
+Do not equate successful OTA or USB idle with measured deep-sleep power. USB-connected simulated
 sleep is not proof of deep-sleep power draw.
