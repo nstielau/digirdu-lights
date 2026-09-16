@@ -48,6 +48,10 @@ and simultaneous drone/harmonic/growl/vocal envelopes with ATTACK/YELL events.
 Keep spectral ratios and texture in the detectors: volume alone must not
 classify a growl or yell. Maintain separate attack/release, gated slow background
 learning, bounded reference adaptation, event rearm/cooldown, and long decay.
+Default effect 0 (Culvert) emphasizes volume contrast with a 0.6 curve,
+0.20-second trails and an age-aware whole-wing attack/vocal bloom. Other effects
+retain ambient trails. Keep the 0.15 cap and update all nodes for matching
+rendering; feature packets/effect IDs are unchanged.
 Treat these as tunable acoustic heuristics; synthetic test success does not
 establish didgeridoo classification accuracy in the culvert.
 

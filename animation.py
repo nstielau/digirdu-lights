@@ -35,6 +35,7 @@ class CulvertAnimation:
         self.phase = self.time = 0.0
         self.effect = config.effect_index
         self.preview = 0.0
+        self.flash = 0.0
         self.pixels = np.zeros(config.pixel_count * 3, dtype=np.uint8)
 
     def set_effect(self, effect):
@@ -42,6 +43,7 @@ class CulvertAnimation:
             raise ValueError("Unknown effect")
         if effect != self.effect:
             self.effect = effect
+            self.flash = 0.0
             self.preview = 0.15  # Brief palette preview even during silence.
 
     def _pulse(self, strength, vocal, age=0.0):
@@ -51,6 +53,7 @@ class CulvertAnimation:
 
     def render(self, features, dt):
         c, f = self.c, features
+        responsive = self.effect == 0
         offset, hue_scale, cycles, field_level, texture_level, width_scale = PALETTES[self.effect]
         self.time += dt
         self.phase = (self.phase + dt * (c.base_speed + c.harmonic_speed * f.harmonics)) % 1
@@ -60,10 +63,24 @@ class CulvertAnimation:
             self._pulse(f.attack, False, f.attackAge)
         if f.yellEvent:
             self._pulse(max(f.vocal, 0.7), True, f.yellAge)
-        trail_decay = math.exp(-dt / c.trail_s)
+        self.flash *= math.exp(-dt / c.responsive_flash_s)
+        if responsive:
+            # Keep the transient age consistent when a receiver catches up.
+            if f.attackEvent:
+                self.flash = max(self.flash, f.attack * c.responsive_flash_gain *
+                                 math.exp(-f.attackAge / c.responsive_flash_s))
+            if f.yellEvent:
+                self.flash = max(self.flash, max(f.vocal, 0.7) * c.responsive_flash_gain *
+                                 math.exp(-f.yellAge / c.responsive_flash_s))
+        trail_decay = math.exp(-dt / (c.responsive_trail_s if responsive else c.trail_s))
         hue = c.base_hue + offset + c.timbre_hue_span * hue_scale * f.timbrePosition
         self.preview *= math.exp(-dt / 0.7)
-        atmosphere = max(f.drone * 0.65, f.volume * 0.12, f.decay * 0.32, self.preview)
+        if responsive:
+            atmosphere = max(f.drone * 0.65,
+                             c.responsive_volume_gain * clamp(f.volume) ** c.responsive_volume_curve,
+                             f.decay * c.responsive_decay_level, self.preview)
+        else:
+            atmosphere = max(f.drone * 0.65, f.volume * 0.12, f.decay * 0.32, self.preview)
         wave = 0.5 + 0.5 * np.sin(2 * math.pi *
                 (self.distance * (c.wave_cycles * cycles + f.harmonics) - self.phase + self.angle))
         # All per-pixel trigonometry runs in native ulab, not Python loops.
@@ -77,7 +94,8 @@ class CulvertAnimation:
         base_rgb = hsv(hue, 0.85, 1.0)
         growl_rgb = hsv(hue + 0.42, 0.95, 1.0)
         vocal_rgb = hsv(hue + 0.18, 0.45, 1.0)
-        channels = [field * base_rgb[i] + texture * growl_rgb[i] + ribbon * vocal_rgb[i]
+        channels = [field * base_rgb[i] + texture * growl_rgb[i] + ribbon * vocal_rgb[i] +
+                    (self.flash if responsive else 0.0)
                     for i in range(3)]
         for age, strength, vocal in self.pulses:
             if strength <= 0 or age * c.pulse_speed > 2.0 + c.pulse_width:

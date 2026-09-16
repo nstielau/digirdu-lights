@@ -88,6 +88,13 @@ class Config:
     pulse_decay_s = 1.6
     max_pulses = 8
     trail_s = 1.2
+    # Effect 0 makes microphone response easy to see on the small preview wing.
+    responsive_volume_gain = 0.9
+    responsive_volume_curve = 0.6
+    responsive_decay_level = 0.10
+    responsive_trail_s = 0.20
+    responsive_flash_s = 0.18
+    responsive_flash_gain = 0.8
     effect_index = 0
     button_next_gpio = 0  # Built-in BOOT button, active low. None disables it.
     button_previous_gpio = None  # Optional external button to GND.
@@ -135,6 +142,11 @@ class Config:
                 raise ValueError(name + " must be positive")
         if not 0 < self.brightness <= 1 or self.pixel_count < 2 or self.gain <= 0:
             raise ValueError("Invalid brightness, pixel_count, or gain")
+        if (not 0 < self.responsive_volume_curve <= 1
+                or not 0 <= self.responsive_volume_gain <= 1
+                or not 0 <= self.responsive_decay_level <= 1
+                or not 0 <= self.responsive_flash_gain <= 1):
+            raise ValueError("Invalid responsive effect levels")
         if not 0 <= self.calibration_quantile <= 1:
             raise ValueError("Invalid calibration quantile")
         if not 0 < self.active_off_ratio < self.active_on_ratio < self.active_full_ratio:

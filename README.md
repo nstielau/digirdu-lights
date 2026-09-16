@@ -233,7 +233,18 @@ harmonics change wave spacing and speed, timbre changes hue, growl adds moving
 texture, and vocal adds ribbons. Events enter a fixed eight-pulse pool and
 travel outward from the player's coordinate at 0.65 half-culvert lengths/s,
 with a 1.6-second intensity decay. These are artistic speeds, not sound speed.
-Per-channel trails release over 1.2 seconds. Contributions are capped before
+For the default Culvert effect (ID 0), the field uses the larger of
+`0.65*drone`, `0.9*volume**0.6`, `0.10*decay`, and the effect-change preview.
+The volume curve makes soft sounds easier to see without raising the brightness
+limit. Its trails release over 0.20 seconds, so the previous note does not hide
+the next one. ATTACK/YELL adds a neutral whole-wing bloom scaled by 0.8, with a
+0.18-second decay, in addition to the traveling pulse. Received event age reduces
+the bloom when a packet arrives late. The drone's 1.8-second release and the
+quiet 3.5-second decay layer still preserve an acoustic tail.
+
+Ember, Aurora and Ripple retain the original field mixture (the larger of
+`0.65*drone`, `0.12*volume`, `0.32*decay`, and preview) and 1.2-second pixel trails.
+Contributions are capped before
 conversion to GRB bytes at brightness 0.15 (maximum channel value 38).
 The four effects change palette and layer parameters while preserving this
 shared detector and scene state.
@@ -448,9 +459,25 @@ frequency arrays are cached and the event pulse pool is bounded. These choices
 reduce work, but the measured overruns remain. Validate processing headroom on
 the actual sound/effect load before adding pixels or shortening the hop.
 
+### Clearer Culvert preview: follow-up measurement
+
+After adding the stronger volume response and attack bloom, a mostly quiet
+five-second producer run measured **77 frames, 15.3 frames/s, 55.4 ms mean work,
+66.1 ms maximum, two overruns, zero detected discontinuities**, and 44 radio
+submissions with no errors/skips. The sound load differs from the earlier
+attack-heavy run, so this is a functional timing check, not evidence of a
+performance improvement. LED writes are still excluded in benchmark mode.
+
+On the board's native renderer, fixed test features at volume 0.05 versus 0.8
+produced sums of all pixel channel bytes of **298 versus 1540** (about 5.2×),
+with the same drone and residual decay levels. An attack-strength-0.8 test
+produced a peak of **38**, with every pixel reaching at least 20 in one channel.
+These are output-byte checks, not measured light intensity or an acoustic test.
+The producer's full file readback and startup passed with effect 0 selected.
+
 ### Algorithm checks versus musical accuracy
 
-`make check` runs 38 host tests using pinned NumPy and generated PCM, plus
+`make check` runs 41 host tests using pinned NumPy and generated PCM, plus
 packet-state, renderer, button and deployment checks. Signal cases include
 50/93.75/140/175 Hz drones at different levels, equal-RMS timbre changes,
 modulated mid-band noise, vocals layered over drone, attacks and decaying tails,
@@ -484,7 +511,10 @@ in a node profile, then run `make deploy NODE_CONFIG=path/to/profile.py`. Routin
   `echo_memory_s` and `echo_event_ratio`. Higher echo rejection can also miss
   intentionally softer repeated articulations.
 - **Visuals:** hue/timbre span, wave speed/spacing, pulse speed/width,
-  `decay_s`, `trail_s`, and per-pixel coordinates. Keep `brightness=0.15`.
+  `decay_s`, `trail_s`, and per-pixel coordinates. Culvert's clearer preview
+  response uses `responsive_volume_gain`, `responsive_volume_curve`,
+  `responsive_decay_level`, `responsive_trail_s`, `responsive_flash_s`, and
+  `responsive_flash_gain`. Keep `brightness=0.15`.
 
 Start with a quiet reset. Play the same drone softly and loudly: `drone` should
 persist and `vocal` should stay low. Move mouth/tongue position at similar level:
@@ -606,11 +636,19 @@ accept `producer`/`consumer` as well as the internal `leader`/`follower` names.
 
 ### Effect library and BOOT button
 
+The initial effect is **Culvert (ID 0)**. Its brightness follows sound more
+strongly than the ambient palettes, and claps produce a brief whole-wing bloom
+plus an outward pulse. Test with two quiet seconds after reset, then speak or
+clap near the mic and pause to see it decay. Ripple (ID 3) is deliberately dim.
+A quiet room should fade toward darkness; weak input near the noise floor may
+remain faint. Deploy updated rendering code to both producer and consumers to
+get the same appearance; the packet format and effect IDs have not changed.
+
 Press and release **BOOT** while the producer is running to advance:
 
 | ID | Effect | Character |
 | --- | --- | --- |
-| 0 | Culvert | Spacious blue/green traveling drone field |
+| 0 | Culvert | Clear level-driven blue/green field, whole-wing attack bloom and outward pulses |
 | 1 | Ember | Warm, broad waves and stronger growl texture |
 | 2 | Aurora | Cooler, tighter waves and wide vocal pulses |
 | 3 | Ripple | Dimmer atmosphere emphasizing narrow outward attacks |
@@ -723,7 +761,7 @@ The original board's rainbow was deployed and visually confirmed on September
   32 pixels had nonzero output, with peak channel values **4–26**. This verifies
   changing producer features reaching the consumer renderer and LED write
   call; it does not establish physical illumination or musical classification.
-- 38 deterministic host tests pass; these use generated signals, not labelled
+- 41 deterministic host tests pass; these use generated signals, not labelled
   didgeridoo recordings.
 - Both the FeatherS2 producer and Feather ESP32 V2 consumer run CircuitPython
   10.3.1. The ESP32 V2 consumer's ten files passed serial readback and startup
@@ -738,12 +776,13 @@ The original board's rainbow was deployed and visually confirmed on September
 - The earlier clap-reactive rainbow was visually confirmed. The new musical
   layers and simultaneous visual effect changes still need user confirmation.
   Culvert classification accuracy and RF coverage are unmeasured.
-- A later producer update was interrupted during temporary-file staging when
-  USB was moved to the consumer. The producer retained its previously verified,
-  protocol-compatible app; its broadcasts were received by the new consumer.
-  The final shared source adds the ESP32 V2 pin profile without changing the
-  producer's audio or radio behavior. Re-run ordinary `make deploy` on the
-  producer next time it is connected to bring its source files up to date.
+- The producer has now received a complete, verified update with the clearer
+  Culvert renderer. This supersedes the earlier interrupted USB copy. Consumers
+  need the same rendering update for matching appearance.
+- BOOT input was verified directly (ten accepted presses), then the running
+  audio app logged all three requested changes: Ember, Aurora, Ripple. This
+  establishes the producer's button-to-effect path independently of appearance.
+
 
 ## References
 

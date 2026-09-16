@@ -223,7 +223,9 @@ class AnimationTests(unittest.TestCase):
         self.assertEqual(len(a.pulses), c.max_pulses)
 
     def test_pulse_moves_outward_and_trails_fade(self):
-        a = CulvertAnimation(Config(trail_s=0.02))
+        # Isolate the traveling pulse from the default effect's whole-wing hit.
+        a = CulvertAnimation(Config(trail_s=0.02, responsive_trail_s=0.02,
+                                    responsive_flash_gain=0))
         f = AudioFeatures()
         f.attack = 1
         f.attackEvent = True
