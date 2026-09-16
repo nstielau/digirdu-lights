@@ -199,8 +199,10 @@ A native HTTPS check-in succeeded over open `openwireless.org`: Firebase recorde
 consumer app 1.0.0, base 1.0.0 and the correct hardware/role. The consumer then
 returned to ESP-NOW channel 1 and received changing Spectrum data. The dashboard
 loads publicly; unauthenticated device requests return HTTP 401. Google sign-in
-is enabled and its live popup reaches accounts.google.com; an authenticated
-fleet-view check is still pending.
+is enabled and its live popup reaches accounts.google.com. On September 16,
+2026, the user confirmed signing in as nick.stielau@gmail.com and viewing the
+consumer in the live fleet dashboard. This confirms the authenticated read
+flow; live pin/pause/revocation actions have not been user-verified.
 
 The consumer downloaded and SHA-256 verified all ten 1.0.1 release modules over
 HTTPS, ran the 30-second trial, and reported `state=current` with 931 frames and
@@ -232,8 +234,8 @@ After the confirmation reboot it resumed live Spectrum reception on channel 1.
 Both GitHub check runs and the release-import workflow passed for 1.0.2.
 
 The producer is enrolled but still needs its one-time USB bootstrap/provisioning.
-Remaining bench results: physical maintenance and power-loss recovery, producer
-timing, and an authenticated fleet view. Host tests do not establish those
+Remaining bench results: physical maintenance and power-loss recovery, and
+producer timing. Host tests do not establish those
 results. Serial reception and pixel-buffer values are not a new visual
 confirmation of the installed LEDs.
 

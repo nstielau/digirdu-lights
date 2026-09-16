@@ -178,3 +178,7 @@ and `len()` can observe partially copied packets on ESP32 V2; ungated polling
 reproduced `ValueError: Invalid buffer` in 36 ms. Track consumed native packets
 separately from accepted protocol packets, handle 32-bit wrap, and retain the
 8-packet drain bound. Never remove this gate or substitute `bool(radio)`.
+
+On September 16, 2026, the user confirmed Google sign-in and viewing the consumer
+in the live Firebase fleet dashboard. The authenticated read flow is verified;
+this confirmation does not establish live administrative mutation tests.
