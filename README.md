@@ -543,8 +543,7 @@ A mostly quiet five-second `make benchmark` run measured **74 frames, 14.7 fps,
 detected discontinuities**. ESP-NOW submitted **51 packets with zero errors or
 skips**. Benchmark mode excludes LED writes and capture blocking from work time;
 these numbers do not establish worst-case performance or consumer reception.
-Serial logs showed changing low-band levels near the noise floor. Loud audio,
-full-height bars and visual orientation still need an acoustic/visual check.
+The initial serial logs showed changing low-band levels near the noise floor.
 The ESP32 V2 consumer subsequently received the same update: all ten application
 files passed final readback, with its saved consumer profile preserved. Its
 eight-second startup check accepted **96 protocol-v3 packets, zero rejected**,
@@ -555,8 +554,12 @@ and reached **308 accepted packets, zero rejected**. During active sound, sample
 volume varied from **0.34 to 0.91**, the second frequency bucket reached **0.87**,
 and rendered output varied from **5 to 17 lit pixels**, with peak channel values
 **13–38**. This verifies changing producer features, consumer reception and bar
-output. The source sound was not identified; physical appearance and matching
-bar orientation on both wings still need visual confirmation.
+output. The source sound during that log capture was not identified.
+
+The user subsequently **visually confirmed rainbow bars rising and falling in
+response to sound on both the producer and consumer wings**. This completes
+the two-board Spectrum response check; it does not establish didgeridoo
+classification accuracy or RF coverage inside the culvert.
 
 ### Algorithm checks versus musical accuracy
 
@@ -568,8 +571,8 @@ loud outliers, and a 60-second sustained drone that must not become background.
 They verify calculations and expected behavior under controlled inputs. Host
 execution time is not an ESP32 performance benchmark, and these tests do not
 provide precision/recall or classification accuracy on real didgeridoo playing.
-The earlier clap-reactive rainbow has visual confirmation; the musical layers
-still need an instrument trial in the culvert.
+The earlier clap-reactive rainbow and the two-board Spectrum response have
+visual confirmation; the musical layers still need an instrument trial in the culvert.
 
 ## Tune the installation
 
@@ -908,8 +911,8 @@ The original board's rainbow was deployed and visually confirmed on September
 - The earlier clap-reactive rainbow and matching effect-number indicators were
   visually confirmed. The new musical layers still need an instrument trial.
   Culvert classification accuracy and RF coverage are unmeasured.
-- Both the FeatherS2 producer and ESP32 V2 consumer now have the clearer
-  Culvert renderer. Each deployment passed all ten file readbacks and startup
+- Before Spectrum replaced effect 1, both the FeatherS2 producer and ESP32 V2
+  consumer received the clearer Culvert renderer. Each deployment passed all ten file readbacks and startup
   checks. The updated consumer accepted **99 packets, zero rejected**, with a
   live link after joining; received volume varied **0.07–1.00** and output peak
   channel values **7–38**. These logs verify changing state reaching the updated

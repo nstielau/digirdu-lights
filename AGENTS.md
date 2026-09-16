@@ -131,6 +131,11 @@ Update README.md for wiring, firmware, and command changes. Never commit
 `.venv`, `.artifacts`, binaries, board backups, credentials, or recordings.
 Backups can contain existing user data or secrets.
 
+The user also visually confirmed rainbow spectrum bars rising and falling with
+sound on both the FeatherS2 producer and ESP32 V2 consumer. The two-board
+Spectrum response check is complete; culvert RF coverage and didgeridoo
+classification remain unverified.
+
 ## OTA proposal
 
 `docs/ota-plan.md` is a review proposal only. The user requested review before
