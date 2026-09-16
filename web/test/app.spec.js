@@ -63,3 +63,27 @@ test('effects guide works when opened directly without sign-in',async({page})=>{
  await page.goto('/effects.html');await expect(page.getByRole('heading',{name:'Spectrum',exact:true})).toBeVisible();
  await expect(page.locator('#sign-in')).toBeVisible();expect(requests).toBe(0);
 });
+test('saved replay plays, pauses, seeks and labels its synthetic tail',async({page})=>{
+ await page.goto('/effects.html');
+ const play=page.getByRole('button',{name:'Play replay',exact:true}), seek=page.getByRole('slider',{name:'Position'});
+ await expect(play).toBeEnabled();await expect(page.locator('#replay-grids canvas')).toHaveCount(5);
+ await expect(page.getByRole('heading',{name:'Chroma',exact:true})).toBeVisible();
+ await expect(page.locator('.effect-notes')).toContainText('Keep effects 1–4 selected until every board reports 1.0.4');
+ await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(e=>e.clientWidth));
+ await seek.fill('450');await seek.dispatchEvent('input');
+ await expect(page.locator('#replay-section')).toHaveText('drone');
+ await expect(page.locator('#replay-time')).toContainText('22.5');
+ await play.click();await expect.poll(()=>seek.inputValue()).not.toBe('450');
+ await page.getByRole('button',{name:'Pause replay'}).click();
+ const paused=await seek.inputValue();await page.waitForTimeout(150);expect(await seek.inputValue()).toBe(paused);
+ await seek.fill(await seek.getAttribute('max'));await seek.dispatchEvent('input');
+ await expect(page.locator('#replay-section')).toContainText('synthetic fade (not recorded)');
+ await play.click();await expect.poll(async()=>Number(await seek.inputValue())).toBeLessThan(100);
+});
+test('missing replay keeps the effect guide usable',async({page})=>{
+ await page.route('**/effects-replay.json',route=>route.fulfill({status:503,body:'unavailable'}));
+ await page.goto('/effects.html');
+ await expect(page.locator('#replay-section')).toContainText('could not load');
+ await expect(page.getByRole('button',{name:'Play replay'})).toBeDisabled();
+ await expect(page.getByRole('heading',{name:'Chroma',exact:true})).toBeVisible();
+});

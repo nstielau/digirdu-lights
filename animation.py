@@ -2,9 +2,9 @@
 
 import math
 
-from audio_features import clamp
+from audio_features import clamp, scale, smooth
 from audio_spectrum import np
-from effects import PALETTES, effect_indicator_pixels
+from effects import PALETTES, effect_indicator_pixels, spectrum_frequency
 
 
 def hsv(hue, saturation, value):
@@ -33,6 +33,12 @@ class CulvertAnimation:
         self.pulses = [[100.0, 0.0, 0.0] for _ in range(config.max_pulses)]
         self.next_pulse = 0
         self.phase = self.time = 0.0
+        self.attack_bloom = self.yell_bloom = 0.0
+        self.chroma_position = self.chroma_volume = 0.0
+        self.chroma_centers = tuple(math.sqrt(a * b) for a, b in
+                                    zip(config.spectrum_edges, config.spectrum_edges[1:]))
+        self.chroma_log_low = math.log(config.chroma_frequency_hz[0])
+        self.chroma_log_span = math.log(config.chroma_frequency_hz[1]) - self.chroma_log_low
         self.effect = config.effect_index
         self.indicator_remaining = 0.0
         self.indicator_pixels = None
@@ -62,29 +68,51 @@ class CulvertAnimation:
         self.phase = (self.phase + dt * (c.base_speed + c.harmonic_speed * f.harmonics)) % 1
         for pulse in self.pulses:
             pulse[0] += dt
+        self.attack_bloom *= math.exp(-dt / c.attack_bloom_s)
+        self.yell_bloom *= math.exp(-dt / c.yell_bloom_s)
         if f.attackEvent:
             self._pulse(f.attack, False, f.attackAge)
+            self.attack_bloom = max(self.attack_bloom,
+                                    f.attack * math.exp(-f.attackAge / c.attack_bloom_s))
         if f.yellEvent:
             self._pulse(max(f.vocal, 0.7), True, f.yellAge)
+            self.yell_bloom = max(self.yell_bloom,
+                                  max(f.vocal, 0.7) * math.exp(-f.yellAge / c.yell_bloom_s))
+        # Track Chroma even under another effect so switching has no stale hue.
+        self._update_chroma(f, dt)
+        if self.effect == 4:
+            low, high = c.chroma_hue_range
+            rgb = hsv(low + (high - low) * self.chroma_position, 1.0,
+                      self.chroma_volume * c.brightness * 255)
+            color = bytes((int(rgb[1]), int(rgb[0]), int(rgb[2])))
+            return self._overlay(color * c.pixel_count, dt)
         if self.effect == 0:
             return self._overlay(self._spectrum(f), dt)
         trail_decay = math.exp(-dt / c.trail_s)
-        hue = c.base_hue + offset + c.timbre_hue_span * hue_scale * f.timbrePosition
-        atmosphere = max(f.drone * 0.65, f.volume * 0.12, f.decay * 0.32)
+        timbre = scale(f.timbrePosition, c.visual_timbre_range)
+        growl = scale(f.growl, c.visual_growl_range)
+        vocal = scale(f.vocal, c.visual_vocal_range)
+        hue = c.base_hue + offset + c.timbre_hue_span * hue_scale * timbre
+        atmosphere = max(f.drone * c.drone_field_gain, f.volume * c.volume_field_gain,
+                         f.decay * c.decay_field_gain)
         wave = 0.5 + 0.5 * np.sin(2 * math.pi *
                 (self.distance * (c.wave_cycles * cycles + f.harmonics) - self.phase + self.angle))
         # All per-pixel trigonometry runs in native ulab, not Python loops.
-        field = atmosphere * field_level * (0.45 + 0.55 * wave)
+        field = atmosphere * field_level * (c.wave_floor + (1 - c.wave_floor) * wave)
         texture = (0.5 + 0.5 * np.sin(self.x * 31 + self.time * 7 +
-                   np.sin(self.angle * 17 + self.time * 11))) * f.growl * c.growl_texture * texture_level
+                   np.sin(self.angle * 17 + self.time * 11))) * growl * c.growl_texture * texture_level
         ribbon = np.maximum(0.0, np.sin(self.distance * 8 - self.time * 3 + self.angle * 6.28))
         ribbon *= ribbon
         ribbon *= ribbon
-        ribbon *= f.vocal * 0.6
+        ribbon *= vocal * c.vocal_ribbon_gain
         base_rgb = hsv(hue, 0.85, 1.0)
         growl_rgb = hsv(hue + 0.42, 0.95, 1.0)
         vocal_rgb = hsv(hue + 0.18, 0.45, 1.0)
+        attack_rgb = hsv(hue, 0.15, 1.0)
+        yell_rgb = hsv(hue + 0.2, 0.15, 1.0)
         channels = [field * base_rgb[i] + texture * growl_rgb[i] + ribbon * vocal_rgb[i]
+                    + self.attack_bloom * c.attack_bloom_gain * attack_rgb[i]
+                    + self.yell_bloom * c.yell_bloom_gain * yell_rgb[i]
                     for i in range(3)]
         for age, strength, vocal in self.pulses:
             if strength <= 0 or age * c.pulse_speed > 2.0 + c.pulse_width:
@@ -92,7 +120,7 @@ class CulvertAnimation:
             width = c.pulse_width * (1 + vocal) * width_scale
             delta = self.distance - age * c.pulse_speed
             front = np.maximum(0.0, 1 - np.maximum(delta, -delta) * (1.0 / width))
-            front *= strength * math.exp(-age / c.pulse_decay_s)
+            front *= c.pulse_gain * strength * math.exp(-age / c.pulse_decay_s)
             rgb = hsv(hue + vocal * 0.2, 0.15 if vocal else 0.4, 1.0)
             for channel in range(3):
                 channels[channel] += front * rgb[channel]
@@ -104,6 +132,16 @@ class CulvertAnimation:
         self.pixels[1::3] = self.trails[0] * (c.brightness * 255)
         self.pixels[2::3] = self.trails[2] * (c.brightness * 255)
         return self._overlay(self.pixels.tobytes(), dt)
+
+    def _update_chroma(self, features, dt):
+        c = self.c
+        frequency = spectrum_frequency(features.spectrum, self.chroma_centers, c.spectrum_curve)
+        if frequency > 0 and features.volume >= c.chroma_min_volume:
+            target = clamp((math.log(frequency) - self.chroma_log_low) / self.chroma_log_span)
+            self.chroma_position = smooth(self.chroma_position, target, dt,
+                                          c.chroma_color_s, c.chroma_color_s)
+        self.chroma_volume = smooth(self.chroma_volume, clamp(features.volume), dt,
+                                   c.chroma_attack_s, c.chroma_release_s)
 
     def _spectrum(self, features):
         # Incomplete tiles stay dark. Axial culvert coordinates don't affect bars.

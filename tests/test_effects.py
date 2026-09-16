@@ -49,9 +49,18 @@ class EffectTests(unittest.TestCase):
         self.assertEqual(len(pixels), 96)
         self.assertEqual(pixels[7*3:7*3+3], bytes((7, 38, 0)))  # Orange, GRB.
 
+    def test_additional_button_cannot_claim_an_existing_input_or_output(self):
+        for pin in (0, 5, 6, 9, 38):
+            with self.assertRaises(ValueError):
+                Config(button_extra_next_gpio=pin)
+        with self.assertRaises(ValueError):
+            Config(button_previous_gpio=43)
+        # A profile may move the main button to 43 if it disables the extra input.
+        Config(button_next_gpio=43, button_extra_next_gpio=None)
+
     def test_indicators_are_distinct_bounded_and_rotate(self):
-        outputs = [effect_indicator_pixels(i, Config()) for i in range(4)]
-        self.assertEqual(len(set(outputs)), 4)
+        outputs = [effect_indicator_pixels(i, Config()) for i in range(len(EFFECT_NAMES))]
+        self.assertEqual(len(set(outputs)), len(EFFECT_NAMES))
         for effect, pixels in enumerate(outputs):
             self.assertLessEqual(max(pixels), 38)
             rotated = effect_indicator_pixels(effect, Config(effect_indicator_rotation=180))
@@ -104,6 +113,57 @@ class EffectTests(unittest.TestCase):
         self.assertEqual(remapped[3:6], bytes((0, 0, 38)))
         for overrides in ({"effect_indicator_rotation": 90},
                           {"effect_indicator_map": (0,)*32}, {"effect_indicator_s": 0}):
+            with self.assertRaises(ValueError):
+                Config(**overrides)
+
+    def test_measured_growl_and_timbre_ranges_change_musical_scenes(self):
+        # Representative ranges from the labelled didgeridoo feature capture.
+        def scene(effect, growl=.05, timbre=.2):
+            a = CulvertAnimation(Config(effect_index=effect))
+            f = AudioFeatures()
+            f.volume = f.decay = .88
+            f.drone = 1
+            f.harmonics = .45
+            f.growl, f.timbrePosition = growl, timbre
+            frames = []
+            for _ in range(32):
+                frames.extend(a.render(f, .064))
+            return frames
+        for effect in (1, 2, 3):
+            base = scene(effect)
+            growl = scene(effect, growl=.21)
+            timbre = scene(effect, timbre=.3)
+            self.assertGreater(sum(abs(a-b) for a, b in zip(base, growl)) / len(base), 4)
+            self.assertGreater(sum(abs(a-b) for a, b in zip(base, timbre)) / len(base), .8)
+            self.assertLessEqual(max(base + growl + timbre), 38)
+
+    def test_accents_are_visible_age_correctly_and_fade(self):
+        for effect in (1, 2, 3):
+            def accent(age):
+                a = CulvertAnimation(Config(effect_index=effect))
+                f = AudioFeatures()
+                f.attackEvent = f.yellEvent = True
+                f.attack = f.vocal = 1
+                f.attackAge = f.yellAge = age
+                pixels = a.render(f, .064)
+                return a, f, pixels
+            a, f, fresh = accent(0)
+            delayed, _, old = accent(.45)
+            self.assertTrue(all(any(fresh[i:i+3]) for i in range(0,96,3)))
+            self.assertLess(delayed.attack_bloom, a.attack_bloom / 10)
+            self.assertLess(sum(old), sum(fresh))
+            self.assertLessEqual(max(fresh), 38)
+            f.attackEvent = f.yellEvent = False
+            f.vocal = 0
+            for _ in range(250):
+                pixels = a.render(f, .064)
+            self.assertEqual(pixels, bytes(96))
+
+    def test_visual_ranges_and_gains_are_bounded(self):
+        for overrides in ({'visual_growl_range': (.3, .1)},
+                          {'visual_vocal_range': (.2, .2)},
+                          {'visual_timbre_range': (-1, 1)},
+                          {'attack_bloom_gain': -1}, {'wave_floor': 2}):
             with self.assertRaises(ValueError):
                 Config(**overrides)
 

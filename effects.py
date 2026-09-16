@@ -1,23 +1,25 @@
 """Shared effect IDs and button debouncing; independent of hardware."""
 
-EFFECT_NAMES = ("Spectrum", "Ember", "Aurora", "Ripple")
+EFFECT_NAMES = ("Spectrum", "Ember", "Aurora", "Ripple", "Chroma")
 # Hue offset, timbre hue scale, wave frequency, field level, texture level,
 # pulse width. IDs are transmitted; keep order identical across all nodes.
 PALETTES = (
     (0.0, 1.0, 1.0, 1.0, 1.0, 1.0),
-    (-0.49, 0.25, 0.5, 1.1, 1.3, 1.3),
-    (0.10, 0.65, 2.0, 0.9, 0.6, 2.0),
-    (-0.16, 0.45, 0.7, 0.22, 0.4, 0.65),
+    (-0.49, 0.35, 0.5, 1.05, 1.3, 1.3),
+    (0.10, 0.80, 2.0, 0.95, 0.9, 2.0),
+    (-0.16, 0.65, 0.7, 0.50, 0.6, 1.0),
+    (0.0, 1.0, 1.0, 1.0, 1.0, 1.0),
 )
 
-# Display numbers are 1..4; protocol IDs remain 0..3. Three columns, seven rows.
+# Display numbers are 1..5; protocol IDs remain 0..4. Three columns, seven rows.
 EFFECT_DIGITS = (
     ("010", "110", "010", "010", "010", "010", "111"),
     ("111", "001", "001", "111", "100", "100", "111"),
     ("111", "001", "001", "111", "001", "001", "111"),
     ("101", "101", "101", "111", "001", "001", "001"),
+    ("111", "100", "100", "111", "001", "001", "111"),
 )
-INDICATOR_COLORS = ((0, 0, 1), (1, .2, 0), (0, 1, .6), (.6, 0, 1))
+INDICATOR_COLORS = ((0, 0, 1), (1, .2, 0), (0, 1, .6), (.6, 0, 1), (0, 1, 1))
 # Factory PCB has four progressive rows of eight. Portrait view: pixel 0 at
 # bottom left, logical row-major 4x8 coordinates -> physical pixel index.
 FEATHERWING_PORTRAIT = tuple(8 * x + 7 - y for y in range(8) for x in range(4))
@@ -58,3 +60,18 @@ class DebouncedButton:
             self.stable = self.raw
             return self.stable
         return False
+
+
+def spectrum_frequency(levels, centers, curve):
+    """Coarse power-weighted centroid from transmitted display bands, in Hz.
+
+    Undo the display amplitude curve, then square for relative power. Shared
+    gain cancels; clipping, smoothing and coarse bands make this approximate.
+    Zero means no measurable spectrum. This is spectral color, not pitch.
+    """
+    total = weighted = 0.0
+    for level, center in zip(levels, centers):
+        power = max(0.0, min(1.0, level)) ** (2.0 / curve)
+        total += power
+        weighted += power * center
+    return weighted / total if total > 1e-12 else 0.0

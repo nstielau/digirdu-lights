@@ -58,6 +58,20 @@ ignores axial coordinates; its rotation is independent of the portrait HUD.
 Treat these as tunable acoustic heuristics; synthetic test success does not
 establish didgeridoo classification accuracy in the culvert.
 
+App 1.0.4 expands visual feature ranges using the September 16
+didgeridoo take: timbre 0.12–0.45, growl 0.04–0.30, vocal 0.03–0.40. Detector
+thresholds and Spectrum stay unchanged. Keep the 0.15 cap, event-age correction
+on attack/yell blooms, and independent 3.5-second audio decay with shorter
+0.28-second pixel trails. These changes are included in OTA 1.0.4; consumers
+need the same renderer. README records comparison metrics and capture limits:
+host cue delays lengthened sections and the 80-second log missed final decay.
+Do not claim three confirmed yells or technique-classification accuracy.
+The expressive-preview native benchmark ran each musical effect for eight
+seconds with LEDs/health/watchdog and measured 13.4–14.3 fps, with many frames
+over 64 ms. The subsequent soft restart hit a CircuitPython native hard fault;
+files still matched and normal-mode hard reset was used for recovery. Do not
+hide that limitation or infer a proven fault cause from the benchmark sequence.
+
 ## Workflow
 
 - `code.py`, `boot.py`, `ota_*.py`: USB-managed OTA base and recovery loader.
@@ -86,14 +100,34 @@ it to distinguish physical input from effect handling before changing pins.
 The ESP32-S2 driver does not report every DMA overflow. Preserve gap recovery,
 bounded radio sends, duplicate/event protection and link-loss fading. Effect ID
 is repeated in every packet so lost changes self-correct. BOOT/IO0 advances
-effects on the producer while running. Changes show display numbers 1..4
-(protocol IDs 0..3) for 1.5 seconds on the local 4x8 wing, mirrored by consumers
+effects on the producer while running. Changes show display numbers 1..5
+(protocol IDs 0..4) for 1.5 seconds on the local 4x8 wing, mirrored by consumers
 on changed received IDs. Repeated packets must not restart the overlay. Keep
 capture/radio/scene processing running under it, preserve the brightness cap,
 and keep its physical mapping independent of culvert pixel_positions. Factory
 progressive 8x4 wiring is rotated to portrait with pixel 0 bottom left; allow
 per-node 180-degree rotation or an explicit map. BOOT selects download mode when held
 during reset. Keep future button GPIOs out of the mic/wing pin set.
+App 1.0.4 adds a second next-effect input on FeatherS2 IO43/TX to
+GND, with its own debouncer/internal pull-up; BOOT/IO0 remains enabled. Configure
+`button_extra_next_gpio` (default 43, None disables). It does not enter USB
+maintenance. Keep diagnostics and duplicate/conflicting-pin validation aware of
+both inputs. This is included in OTA app 1.0.4.
+The initial IO18 USB deployment passed readback and startup but its button
+test remained LOW. IO43 subsequently passed a 60-second native test with 23
+presses/46 transitions, ending HIGH. USB deployment now selects it alongside
+BOOT; all 18 files verified and both inputs initialized. Do not use IO38 for a
+button or enable UART on IO43. The microphone became flat during the wiring
+investigation, including a stereo test, but changing samples returned after
+the final restore. See operations for the unexplained filesystem reset and
+saved-profile/credential recovery; do not attribute it to a proven cause.
+After reprovisioning, normal OTA boot checked in successfully and resumed audio
+and ESP-NOW. Serial logs showed all four effect changes and wraparound while
+microphone levels varied; no new two-wing visual confirmation was collected.
+A USB deployment from CircuitPython USER safe mode can verify
+files but fail startup; `microcontroller.on_next_reset(microcontroller.RunMode.NORMAL)`
+followed by `microcontroller.reset()` exited it. Cleanly unmount host storage
+before a hard reset changes filesystem ownership.
 Hardware validation needs changing
 levels on quiet/clap trials plus a visual LED check; don't equate serial logs
 or nonzero noise with confirmed acoustic response. Calibration needs two
@@ -201,3 +235,27 @@ The web account control is shared by the fleet and public Effects guide.
 Use Firebase's user photo with an initials fallback; keep sign-out in its
 keyboard-accessible dropdown. Update `web/effects.html` alongside changes to
 the released effect library/defaults and its documented firmware version.
+
+
+## Saved samples and Chroma (1.0.4)
+
+The user authorized saving the playing samples. Preserve the local ignored
+`.artifacts/samples/didgeridoo-2026-09-16/` take/manifest and original capture;
+never treat these feature logs as PCM or commit recordings. `make replay`
+runs actual renderers into a self-contained local HTML player; regenerate it
+when animations change. Sample-and-hold, reconstructed envelopes and synthetic
+tail are deliberate and must remain labelled. Tests use generated fixtures.
+Chroma appends effect ID 4/display 5 (cyan digit), mapping a coarse eight-band
+power centroid through log-frequency bounds 153.28–350.55 Hz, fitted to 63
+active paired observations. Preserve volume-only brightness, separate color
+and attack/release smoothing, quiet hue hold and 0.15 cap. This is spectral
+color, not pitch identification. No wire-format change, but older consumers
+reject effect ID 4; update all nodes before using it. Chroma is included in OTA release 1.0.4.
+
+The user requested the replay on the public Effects overview. The page now
+describes firmware 1.0.4 with five effects, using the September 16 captured take. `make replay-web` exports public rendered LED frames and
+section labels to `web/assets/effects-replay.json`; this derived visualization
+is authorized for the site. Keep original feature captures local and ignored.
+Regenerate the snapshot after renderer changes; website builds use the saved
+asset without reading private captures. Preserve paused-by-default playback,
+seek controls, synthetic-tail labelling, fetch-failure fallback and OTA compatibility notes. The replay cannot send device commands or record audio.

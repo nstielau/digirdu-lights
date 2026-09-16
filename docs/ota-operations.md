@@ -312,3 +312,48 @@ showed continuing microphone levels, spectrum changes and attack events.
 This verifies that the physical maintenance branch was reached; host writes
 during that window were not tested. Consumer physical maintenance and power-cut
 qualification remain separate outstanding checks.
+
+### IO43 button USB update
+
+The external button moved from an unsuccessful IO18 trial to IO43/TX, with
+BOOT/IO0 retained. A 60-second native input test recorded 23 debounced presses,
+46 transitions and a final HIGH state. IO38 is reserved for the wing data line.
+This is a USB development change based on 1.0.3, not a new published OTA release.
+
+The first IO43 deployment hit `EINVAL` accessing `/Volumes/CIRCUITPY/boot.py`.
+After `diskutil verifyVolume` reported a clean filesystem and remounted it, the
+same FeatherS2 UID showed only default `Hello World` files and empty settings.
+The reason for this filesystem reset was not established; no erase, format or
+firmware flash was requested by the host tooling. Do not equate a clean FAT
+check with verification that application files or credentials are still present.
+
+The saved producer profile was explicitly supplied to a fresh `make deploy`.
+All 18 base/recovery files then verified; startup initialized BOOT/GPIO0 and
+GPIO43, ESP-NOW channel 1, and changing microphone samples. The earlier flat
+microphone failure did not recur in that startup check. The saved device
+credential was reprovisioned with OTA enabled, preserving the enrolled identity.
+After cleanly unmounting USB storage and resetting, Firebase recorded a fresh
+producer check-in with app 1.0.3/base 1.0.1 and no error. CIRCUITPY returned to
+host read-only mode. The 45-second boot observation showed changing audio
+(logged RMS roughly 4 to 1,079), live spectrum values, and the complete effect
+cycle Spectrum → Ember → Aurora → Ripple → Spectrum while audio continued.
+This confirms the app's button/effect path in serial output; neither a new
+two-wing visual confirmation nor a consumer reception test was performed.
+
+
+## Chroma release 1.0.4
+
+Application 1.0.4 includes Chroma (display 5, protocol ID 4), stronger
+Ember/Aurora/Ripple motion and accents, and the FeatherS2 IO43-to-GND effect
+button. It retains the ESP-NOW receive-completion fix from 1.0.3. Base 1.0.1,
+CircuitPython 10.3.1, the ten-module app bundle and 51-byte protocol v3 remain
+unchanged. Device profiles and credentials remain local.
+
+Roll out to consumers first, then the microphone producer. Keep effects 1–4
+selected until all nodes report 1.0.4: consumers on older apps reject effect ID
+4 and fade if it stays selected. Spectrum remains the startup default. This
+release does not introduce periodic OTA polling or remote resets; each board
+checks at normal boot, runs a 30-second health trial, confirms and resumes
+ESP-NOW. Use RESET alone, without pressing the maintenance button. Keep open
+`openwireless.org` in range. Confirm actual reported versions and outcomes;
+publishing a target alone does not prove that boards installed it.

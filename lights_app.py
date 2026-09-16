@@ -30,12 +30,15 @@ class EffectButtons:
     def __init__(self):
         self.inputs = []
         try:
-            for gpio, step in ((CONFIG.button_next_gpio, 1), (CONFIG.button_previous_gpio, -1)):
+            for gpio, step in ((CONFIG.button_next_gpio, 1),
+                               (CONFIG.button_extra_next_gpio, 1),
+                               (CONFIG.button_previous_gpio, -1)):
                 if gpio is None:
                     continue
                 pin = digitalio.DigitalInOut(getattr(board, "IO%d" % gpio))
-                pin.switch_to_input(pull=digitalio.Pull.UP)
                 self.inputs.append((pin, DebouncedButton(CONFIG.button_debounce_s), step))
+                pin.switch_to_input(pull=digitalio.Pull.UP)
+                print("BUTTON GPIO%d step=%+d pull=UP" % (gpio, step))
         except Exception:
             self.deinit()
             raise

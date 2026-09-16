@@ -12,14 +12,15 @@ stays in RAM; only normalized features and animation state are transmitted.
 [OTA operations and recovery](docs/ota-operations.md) describe the implemented
 GitHub release/Firebase update workflow, device enrollment and validation status.
 Devices try open `openwireless.org` at boot and return to ESP-NOW for playing.
-App 1.0.3 fixes an intermittent CircuitPython ESP-NOW receive-buffer error that
+App 1.0.4 adds Chroma, stronger musical effects and the IO43 effect button.
+It keeps the app 1.0.3 fix for an intermittent CircuitPython ESP-NOW receive-buffer error that
 could stop a consumer or trigger OTA recovery.
 Manage enrolled devices at [Digirdu Lights](https://digirdu-lights.firebaseapp.com):
 view their reported versions, follow the latest release, pin a version, or pause
 updates. Each board needs a one-time USB bootstrap and its own credential.
 Your Google profile photo opens the account menu in the top right; sign out
 from that menu. The public [Effects guide](https://digirdu-lights.firebaseapp.com/effects.html)
-describes Spectrum, Ember, Aurora and Ripple for app 1.0.3, including frequency
+describes Spectrum, Ember, Aurora, Ripple and Chroma for app 1.0.4, including frequency
 bands, musical layers, BOOT selection and the mirrored number indicator.
 Both web pages use a cyan/hot-pink 1980s laser theme with the supplied horizon
 artwork, bundled locally in `web/assets/laser-horizon.png`.
@@ -253,14 +254,87 @@ The scene also retains `decay = max(volume_target, previous_decay*exp(-dt/3.5))`
 The renderer builds a continuous field from drone, volume and this decay;
 harmonics change wave spacing and speed, timbre changes hue, growl adds moving
 texture, and vocal adds ribbons. Events enter a fixed eight-pulse pool and
-travel outward from the player's coordinate at 0.65 half-culvert lengths/s,
-with a 1.6-second intensity decay. These are artistic speeds, not sound speed.
-Ember, Aurora and Ripple retain the original field mixture (the larger of
-`0.65*drone`, `0.12*volume`, and `0.32*decay`) and 1.2-second pixel trails.
+travel outward from the player's coordinate at 1.15 half-culvert lengths/s,
+with a 1.35-second intensity decay. These are artistic speeds, not sound speed.
+App 1.0.4 mixes the larger of `0.85*drone`, `0.30*volume`, and
+`0.42*decay`, with 0.28-second pixel trails. The 3.5-second audio decay remains
+separate, so shortening trails does not abruptly end the atmosphere.
 Contributions are capped before
 conversion to GRB bytes at brightness 0.15 (maximum channel value 38).
 The musical effects change palette and layer parameters while preserving the
 shared detector and scene state. Spectrum uses its own band-level envelopes.
+
+### Expressive musical effects (1.0.4)
+
+App 1.0.4 includes the September 16 preview that strengthens effects 2–4
+using a labelled didgeridoo feature capture, plus the IO43 button and Chroma. Spectrum's eight bar envelopes and the detector thresholds
+are unchanged. Consumers need the updated renderer to match this release;
+the ESP-NOW packet format remains v3.
+
+| Feature (median) | Drone section | Rhythms | Growls |
+| --- | --- | --- | --- |
+| Drone | 1.00 | 0.98 | 0.99 |
+| Harmonics | 0.45 | 0.635 | 0.66 |
+| Growl | 0.05 | 0.18 | 0.21 |
+| Roughness | 0.16 | 0.44 | 0.47 |
+
+There were 4 attack events in the drone label, 42 during rhythms and 16 during
+growls. Growls and rhythms overlap; these results do not establish reliable
+technique classification. One yell event occurred under the growl label and
+two under the yell label. The 80-second logger ended before the final decay
+section, so the full three-yell exercise and acoustic decay were not verified.
+Only timestamped feature/event logs were saved locally, not raw audio.
+Labels follow host cues; tool/message delays made the windows longer than the
+requested ten seconds. The median table includes transition samples and uses
+the normal once-per-second feature log, not every FFT frame.
+
+The renderer now expands measured timbre positions 0.12–0.45, growl 0.04–0.30,
+and vocal 0.03–0.40 to their full visual ranges. These are visual transfer
+functions (`visual_*_range`), not changes to classification. Faster waves and
+a lower wave trough increase motion contrast. Short pixel trails keep attacks
+distinct; immediate whole-wing accents accompany the outward pulse on attacks
+and yells. These accents decay over 0.13/0.32 seconds and account for event age
+on wireless receivers. Ripple has a stronger underlying field, while remaining
+the most pulse-focused effect. All overlapping layers still obey brightness 0.15.
+
+New visual controls in `config.py`: `visual_timbre_range`, `visual_growl_range`,
+`visual_vocal_range`, the three `*_field_gain` values, `wave_floor`,
+`vocal_ribbon_gain`, `attack_bloom_gain/s`, `yell_bloom_gain/s`, and `pulse_gain`.
+The existing wave speeds, pulse width/speed/decay and `trail_s` remain tunable.
+
+A host comparison used 32 frames at 64 ms with the observed drone feature
+values, then changed only growl from 0.05 to 0.21 or timbre from 0.20 to 0.30.
+Mean absolute GRB-byte differences (old → preview) were:
+
+| Effect | Growl response | Timbre response | Frame-to-frame motion |
+| --- | --- | --- | --- |
+| Ember | 2.04 → 9.39 | 0.30 → 1.10 | 0.18 → 0.72 |
+| Aurora | 0.80 → 5.78 | 0.59 → 2.43 | 0.09 → 0.55 |
+| Ripple | 0.70 → 4.63 | 0.12 → 0.96 | 0.05 → 0.37 |
+
+These compare output buffers, not perceived brightness or measured light.
+The baseline is the renderer/configuration at commit `17d17ed`. Brightest
+channel values remain at most 38; regression checks cover observed-range
+response, late event accents, fade to black, and the cap.
+
+The producer USB upload verified all 18 base/recovery files. Eight-second
+native runs per musical effect included I2S, FFT, actual NeoPixel writes,
+ESP-NOW, watchdog and health checks (including each run's calibration):
+
+| Effect | Frames / fps | Mean / maximum work | Frames over 64 ms | Radio sends / errors |
+| --- | --- | --- | --- | --- |
+| Ember | 111 / 13.8 | 63.4 / 84.0 ms | 47 | 93 / 0 |
+| Aurora | 107 / 13.4 | 65.5 / 86.1 ms | 63 | 92 / 0 |
+| Ripple | 115 / 14.3 | 62.3 / 82.0 ms | 43 | 81 / 0 |
+
+All three runs reported zero send skips and zero detected discontinuities.
+Timing still exceeds the hop budget on many frames; no-discontinuity output
+does not prove lossless capture. These runs used ambient sound, not a repeat
+of the labelled didgeridoo performance. CircuitPython subsequently hard-faulted
+during the post-benchmark soft restart. All installed files still matched;
+a full reset was used to leave safe mode. The fault's native cause has not
+been established, and a short running-app check cannot establish long-term
+stability.
 
 ## Spectrum display (effect 1)
 
@@ -758,10 +832,38 @@ accept `producer`/`consumer` as well as the internal `leader`/`follower` names.
 
 ### Effect library and BOOT button
 
+App 1.0.4 also accepts a normally-open button between **FeatherS2
+IO43 (TX) and GND**, alongside BOOT/IO0. Both inputs have internal pull-ups, independent
+40 ms debouncing, and advance one effect per press; holding either does not
+repeat. Both trigger the same number indicator and ESP-NOW effect update.
+No external pull-up is required. Set `button_extra_next_gpio=None` to disable
+the added input or change it to another unused GPIO. This additional input is
+included in OTA release 1.0.4.
+IO43 is for normal effect selection; USB maintenance still uses BOOT after RESET.
+Do not initialize UART TX on IO43 while using this button. USB serial is separate.
+Run `make test-buttons` in USB maintenance to inspect both inputs.
+
+The initial IO18 USB deployment on September 16 verified all 18 base/recovery files on the
+FeatherS2. The board initially remained in CircuitPython's user-triggered safe
+mode; requesting `microcontroller.RunMode.NORMAL` before a hard reset restored
+normal startup. Logs then confirmed GPIO0 and GPIO18 with pull-ups, live audio
+and ESP-NOW channel 1. IO18 read LOW during inspection and triggered one change
+to Ember at startup. Later IO18/IO38 tests remained LOW; disconnecting the
+external wiring restored HIGH on both. IO38 is the wing data pin, so it cannot
+also be an effect button. A subsequent 60-second IO43 test registered **23
+debounced presses, 46 transitions, and a final released/HIGH state**. IO43 is
+now deployed alongside BOOT: all 18 base/recovery files passed readback and
+startup logged both inputs with pull-ups. Microphone samples became flat during
+the wiring investigation but were changing again after the final restore.
+This is serial evidence, not a new visual confirmation of both wings.
+See [the recovery record](docs/ota-operations.md#io43-button-usb-update) for the
+USB filesystem issue encountered during this update.
+
 The initial effect is **Spectrum (ID 0)**, the eight-column diagnostic above.
 Test with two quiet seconds after reset, then speak or play near the mic.
-Ember, Aurora and Ripple retain the musical animations; Ripple is deliberately
-dim. All nodes need protocol v3 for matching spectrum levels and effect state.
+Ember, Aurora and Ripple use the musical animations; Ripple gives pulses more
+space with a dimmer field. All nodes need protocol v3 for matching spectrum
+levels and effect state, and matching renderer versions for matching appearance.
 
 Press and release **BOOT** while the producer is running to advance:
 
@@ -771,10 +873,11 @@ Press and release **BOOT** while the producer is running to advance:
 | 2 | 1 | Ember | Orange | Warm, broad waves and stronger growl texture |
 | 3 | 2 | Aurora | Mint/cyan | Cooler, tighter waves and wide vocal pulses |
 | 4 | 3 | Ripple | Violet | Dimmer atmosphere emphasizing narrow outward attacks |
+| 5 | 4 | Chroma | Cyan | Whole-wing frequency color, volume brightness, smooth fades |
 
 ### Effect-number confirmation
 
-When an effect changes, the 32-pixel wing shows its **number 1–4** as a 3×7 dot
+When an effect changes, the 32-pixel wing shows its **number 1–5** as a 3×7 dot
 matrix on black for about **1.5 seconds**, then returns to the live animation.
 This replaces the previous subtle palette preview. The digit appears even in
 silence, and its color identifies the effect as well. Brightness remains capped
@@ -816,9 +919,9 @@ The indicator uses local physical pixels, independently of `pixel_positions`
 used to place a wing along the culvert. On a wired chain of complete 32-pixel
 wings, it repeats the number on each wing. Counts not divisible by 32 skip the
 indicator; their normal animation continues. Firmware on every node must include
-this renderer to display the number. Consumer status logs use `indicator=1..4`
+this renderer to display the number. Consumer status logs use `indicator=1..5`
 while the overlay is active and `indicator=0` otherwise; protocol IDs remain
-zero-based. Producer change logs include the corresponding `display=1..4`.
+zero-based. Producer change logs include the corresponding `display=1..5`.
 
 The initial effect after a producer reset comes from `effect_index`; button
 changes are not written to flash on every press. Scene state and trailing light
@@ -973,3 +1076,102 @@ The original board's rainbow was deployed and visually confirmed on September
 
 - [ulab native spectrum utilities](https://micropython-ulab.readthedocs.io/en/latest/ulab-utils.html)
 - [CircuitPython ESP-NOW API](https://docs.circuitpython.org/en/latest/shared-bindings/espnow/index.html)
+
+
+## Saved playing samples and Chroma
+
+The September 16 take is preserved locally at
+`.artifacts/samples/didgeridoo-2026-09-16/take1.jsonl`, with a SHA-256 manifest
+and capture notes in the same directory. These private samples stay ignored by
+Git. Copy that directory separately when moving to another computer.
+The original `.artifacts/didgeridoo-take1.jsonl` is retained too.
+
+**These are timestamped feature logs, not raw microphone audio.** They contain
+roughly one level/spectrum observation per second plus individual attack/yell
+logs. They support animation comparisons, not rerunning FFTs or testing revised
+audio classifiers. A future classifier experiment needs a fresh PCM recording.
+Section labels are approximate cues, not exactly ten-second ground truth;
+there is no recorded final decay segment.
+
+```sh
+make replay
+open .artifacts/replay.html
+# Replay a different compatible feature log:
+make replay CAPTURE=path/to/take.jsonl REPLAY_OUTPUT=.artifacts/comparison.html
+# Preview normalization fitted to another take (does not edit firmware defaults):
+.venv/bin/python tools/replay.py path/to/take.jsonl --calibrate
+```
+
+The self-contained HTML player shows **all five current firmware renderers**
+side by side, with play/pause, seek and section labels. Re-run the command after
+editing effects. It holds measured features between observations and delivers
+each event once at its timestamp (rounded up to the next 20 fps frame, with age
+correction). Unlogged attack/decay envelopes are reconstructed. An eight-second
+**synthetic fade** is clearly labelled; it is not a measurement of reverberation.
+The browser amplifies the 0.15-capped pixel output for visibility. It cannot
+establish real LED brightness, timing performance or acoustic classification.
+The sibling `.json` report contains source checksum, section counts, normalization
+statistics and the renderer configuration.
+
+### Effect 5: Chroma
+
+Chroma fills the wing with one smoothly changing color. Low spectral centers
+are red, moving through yellow/green/cyan/blue to violet as frequencies rise.
+Loudness controls HSV brightness independently; color does not trigger flashes
+or add light. Volume rises over 0.06 seconds and falls over 0.8 seconds. Color
+blends over 0.3 seconds; below normalized volume 0.10 it holds its last hue while
+brightness continues fading. These are exponential time constants, not delays.
+The digit **5** appears in cyan when selected, using the existing indicator.
+
+Frequency is a **coarse spectral centroid, not the didgeridoo fundamental**:
+
+1. Use the same eight spectrum levels sent to consumers. Approximate relative
+   power with `level ** (2 / spectrum_curve)`, undoing amplitude compression.
+2. Weight each band's geometric center `sqrt(low_hz * high_hz)` by that power.
+   Shared gain cancels in the weighted average. Band clipping and smoothing
+   prevent exact reconstruction of FFT energy.
+3. Map the logarithm of that frequency between **153.28 and 350.55 Hz** onto
+   hue 0.0–0.75. These are the 10th/90th percentiles of **63 active paired
+   spectrum observations** from the saved take, excluding labelled quiet and
+   volume below 0.10. Observations outside the range clamp to endpoint colors.
+   The full observed range was roughly 97–1871 Hz; percentiles keep rare peaks
+   from compressing ordinary playing into a tiny color range.
+
+Tune `chroma_frequency_hz`, `chroma_hue_range`, `chroma_color_s`,
+`chroma_attack_s`, `chroma_release_s` and `chroma_min_volume` in `config.py`.
+Recalibrate after changing spectrum bands or compression. Bounds are fixed
+from the take so a yell cannot instantly redefine the range; existing audio
+normalization still adapts slowly. Consumers use the same calculation and
+configuration, with minor smoothing/quantization differences possible.
+
+Chroma appends protocol ID 4; previous IDs remain unchanged and packets remain
+51 bytes. **Update every consumer before selecting effect 5:** older apps reject
+that ID and eventually fade on missing valid packets. Chroma is included in
+OTA release 1.0.4. Keep effects 1–4 selected until every board reports 1.0.4.
+
+
+Validation for this preview: `make check` passed **87 tests**. The local browser
+player rendered all five canvases, advanced playback and sought correctly with
+no JavaScript errors. USB deployment to FeatherS2 UID `c7fd1a30c4c2` verified
+all **18 files**, preserved its producer profile, and restarted I2S, ESP-NOW
+and both effect buttons. Startup logged changing microphone levels and one
+68.9 ms processing-budget warning against the 64 ms hop; this was not a new
+performance benchmark. Chroma's physical appearance is not yet user-confirmed,
+and the consumer had not received the preview during this USB test. Startup
+remains Spectrum; see OTA operations for release rollout results.
+
+### Public effect replay
+
+The website’s [Effects overview](https://digirdu-lights.firebaseapp.com/effects.html)
+includes the five-effect comparison, play/pause/seek controls, and Chroma’s
+calibration and blending details for firmware 1.0.4. The saved performance is
+from September 16; the animations use the released renderer.
+
+`make replay-web` regenerates `web/assets/effects-replay.json` from `CAPTURE`
+(default: the saved take above). The user requested this public visual replay;
+the exported asset contains LED frames and section labels, not the original
+feature logs or audio. It is a generated snapshot, so regenerate it after changing
+the renderers. The normal website build copies this checked-in asset and does
+not require access to private captures. Playback starts paused and stops when
+the browser tab is hidden. If the asset cannot load, the written guide remains
+available. Public playback never controls connected lights.

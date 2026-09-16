@@ -31,10 +31,11 @@ from config import CONFIG
 from effects import DebouncedButton
 def inspect_buttons():
     inputs = []
-    print('BUTTON TEST role=%s next=%s previous=%s' %
-          (CONFIG.radio_role, CONFIG.button_next_gpio, CONFIG.button_previous_gpio))
+    extra_next = getattr(CONFIG, 'button_extra_next_gpio', None)
+    print('BUTTON TEST role=%s next=%s extra_next=%s previous=%s' %
+          (CONFIG.radio_role, CONFIG.button_next_gpio, extra_next, CONFIG.button_previous_gpio))
     try:
-        for gpio in (CONFIG.button_next_gpio, CONFIG.button_previous_gpio):
+        for gpio in (CONFIG.button_next_gpio, extra_next, CONFIG.button_previous_gpio):
             if gpio is None:
                 continue
             pin = digitalio.DigitalInOut(getattr(board, 'IO%d' % gpio))
@@ -377,7 +378,7 @@ def main():
                 raise RuntimeError("Expected an Unexpected Maker FeatherS2")
             try:
                 if args.action == "test-buttons":
-                    print("Press/release BOOT several times over the next 20 seconds. "
+                    print("Press/release BOOT and configured external buttons over the next 20 seconds. "
                           "Audio and lighting are paused; results appear when the test ends.", flush=True)
                     print(repl.execute(BUTTON_TEST_SOURCE, timeout=30))
                 else:

@@ -87,21 +87,44 @@ class Config:
     origin = 0.0
     base_hue = 0.52
     timbre_hue_span = 0.34
-    base_speed = 0.035
-    harmonic_speed = 0.08
+    base_speed = 0.12
+    harmonic_speed = 0.45
     wave_cycles = 1.5
-    growl_texture = 0.6
-    pulse_speed = 0.65  # Half-culvert lengths/second, intentionally theatrical.
-    pulse_width = 0.12
-    pulse_decay_s = 1.6
+    growl_texture = 0.85
+    # Visual expansion of observed playing ranges; detector outputs stay unchanged.
+    visual_timbre_range = (0.12, 0.45)
+    visual_growl_range = (0.04, 0.30)
+    visual_vocal_range = (0.03, 0.40)
+    drone_field_gain = 0.85
+    volume_field_gain = 0.30
+    decay_field_gain = 0.42
+    wave_floor = 0.12
+    vocal_ribbon_gain = 0.95
+    attack_bloom_gain = 0.70
+    attack_bloom_s = 0.13
+    yell_bloom_gain = 0.85
+    yell_bloom_s = 0.32
+    pulse_gain = 1.35
+    pulse_speed = 1.15  # Half-culvert lengths/second, intentionally theatrical.
+    pulse_width = 0.18
+    pulse_decay_s = 1.35
     max_pulses = 8
-    trail_s = 1.2
+    trail_s = 0.28  # Short pixel trails preserve rhythm; audio decay stays 3.5 s.
+    # Chroma: calibrated from active samples in didgeridoo-take1 (10th/90th
+    # percentiles of the coarse band centroid). Replay reports new calibration.
+    chroma_frequency_hz = (153.28, 350.55)
+    chroma_hue_range = (0.0, 0.75)  # Red -> yellow -> green -> blue -> violet.
+    chroma_color_s = 0.30
+    chroma_attack_s = 0.06
+    chroma_release_s = 0.80
+    chroma_min_volume = 0.10  # Hold last hue below this level; still fade light.
     effect_index = 0
     effect_indicator_enabled = True
     effect_indicator_s = 1.5
     effect_indicator_rotation = 0  # Portrait; 180 turns the number upside down.
     effect_indicator_map = None  # Optional logical 4x8 -> physical 0..31 map.
     button_next_gpio = 0  # Built-in BOOT button, active low. None disables it.
+    button_extra_next_gpio = 43  # FeatherS2 external next button to GND; None disables it.
     button_previous_gpio = None  # Optional external button to GND.
     button_debounce_s = 0.04
 
@@ -165,6 +188,22 @@ class Config:
             raise ValueError("Invalid attack hysteresis")
         if self.max_pulses < 1 or self.pulse_width <= 0 or self.pulse_speed <= 0:
             raise ValueError("Invalid pulse configuration")
+        for limits in (self.visual_timbre_range, self.visual_growl_range, self.visual_vocal_range):
+            if len(limits) != 2 or not 0 <= limits[0] < limits[1] <= 1:
+                raise ValueError("Invalid visual feature range")
+        if (len(self.chroma_frequency_hz) != 2
+                or not 0 < self.chroma_frequency_hz[0] < self.chroma_frequency_hz[1] <= self.sample_rate / 2
+                or len(self.chroma_hue_range) != 2
+                or not 0 <= self.chroma_hue_range[0] < self.chroma_hue_range[1] <= 1
+                or not 0 <= self.chroma_min_volume <= 1):
+            raise ValueError("Invalid Chroma frequency, hue or gate range")
+        if not 0 <= self.wave_floor <= 1:
+            raise ValueError("Invalid wave_floor")
+        for value in (self.drone_field_gain, self.volume_field_gain, self.decay_field_gain,
+                      self.vocal_ribbon_gain, self.attack_bloom_gain, self.yell_bloom_gain,
+                      self.pulse_gain, self.growl_texture):
+            if not 0 <= value <= 4:
+                raise ValueError("Invalid visual gain")
         if self.pixel_positions is not None:
             if len(self.pixel_positions) != self.pixel_count:
                 raise ValueError("One position per physical pixel is required")
@@ -187,10 +226,12 @@ class Config:
                     or any(type(i) is not int for i in self.effect_indicator_map)
                     or sorted(self.effect_indicator_map) != list(range(32))):
                 raise ValueError("effect_indicator_map must permute pixel indices 0..31")
-        for pin in (self.button_next_gpio, self.button_previous_gpio):
+        button_pins = (self.button_next_gpio, self.button_extra_next_gpio, self.button_previous_gpio)
+        for pin in button_pins:
             if pin in (5, 6, 9, 38):
                 raise ValueError("Button conflicts with microphone or wing GPIO")
-        if self.button_next_gpio is not None and self.button_next_gpio == self.button_previous_gpio:
+        enabled_pins = [pin for pin in button_pins if pin is not None]
+        if len(set(enabled_pins)) != len(enabled_pins):
             raise ValueError("Buttons must use different GPIOs")
 
 

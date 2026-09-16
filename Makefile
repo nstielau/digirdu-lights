@@ -11,6 +11,8 @@ FIRMWARE := .artifacts/firmware/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITP
 FIRMWARE_URL := https://downloads.circuitpython.org/bin/$(BOARD)/en_US/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).$(FIRMWARE_EXT)
 MOUNT ?=
 LEGACY_RAINBOW ?=
+CAPTURE ?= .artifacts/samples/didgeridoo-2026-09-16/take1.jsonl
+REPLAY_OUTPUT ?= .artifacts/replay.html
 BASE_ONLY ?=
 NODE_CONFIG ?=
 BOARD_ARGS = --board '$(BOARD)' --port '$(PORT)' $(if $(MOUNT),--mount '$(MOUNT)')
@@ -29,6 +31,7 @@ help:
 	@echo 'make check    Check Python syntax and whitespace without hardware'
 	@echo 'make test-mic Capture 10 seconds of microphone levels, then resume the app'
 	@echo 'make test-buttons Inspect producer button GPIO transitions for 20 seconds, then resume'
+	@echo 'make replay   Replay saved feature samples through all effects in a local HTML player'
 	@echo 'make benchmark Measure live FFT/render timing for 5 seconds, then resume the app'
 	@echo 'Default board: unexpectedmaker_feathers2; old board: BOARD=adafruit_feather_esp32_v2'
 	@echo 'Optional: PORT=/dev/cu.usbserial-... overrides automatic port selection'
@@ -77,7 +80,7 @@ $(VENV)/.dev-ready: $(VENV)/.ready requirements-dev.txt
 	touch $@
 
 check: $(VENV)/.dev-ready
-	$(PY) -m py_compile tools/cloud.py tools/firmware_release.py tools/ota_provision.py
+	$(PY) -m py_compile tools/replay.py tools/cloud.py tools/firmware_release.py tools/ota_provision.py
 	$(PY) -m py_compile boot.py ota_manifest.py ota_store.py ota_http.py ota_bootstrap.py app_version.py lights_app.py tools/bundle.py code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
 	$(PY) -m unittest discover -s tests
 	git diff --check
@@ -138,3 +141,11 @@ ota-status:
 .PHONY: deploy-base
 deploy-base:
 	$(MAKE) deploy BASE_ONLY=1
+
+.PHONY: replay
+replay: $(VENV)/.dev-ready
+	$(PY) tools/replay.py '$(CAPTURE)' --output '$(REPLAY_OUTPUT)'
+
+.PHONY: replay-web
+replay-web: $(VENV)/.dev-ready
+	$(PY) tools/replay.py '$(CAPTURE)' --output '$(REPLAY_OUTPUT)' --web-data web/assets/effects-replay.json

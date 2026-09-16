@@ -7,4 +7,4 @@ await build({entryPoints:['web/app.js','web/effects-page.js'],bundle:true,minify
   plugins:testing?[{name:'test-gateway',setup(b){b.onResolve({filter:/^\.\/gateway\.js$/},()=>({path:resolve('web/test/gateway.js')}));}}]:[]});
 for(const file of ['index.html','effects.html','styles.css'])await copyFile('web/'+file,out+'/'+file);
 await mkdir(out+'/assets',{recursive:true});
-await copyFile('web/assets/laser-horizon.png',out+'/assets/laser-horizon.png');
+for(const file of ['laser-horizon.png','effects-replay.json'])await copyFile('web/assets/'+file,out+'/assets/'+file);
