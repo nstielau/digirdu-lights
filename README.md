@@ -1225,5 +1225,9 @@ wing GPIO, writes a final black frame, waits for it to latch and preserves the
 output LOW with `preserve_dios` through CircuitPython cleanup/deep sleep. It is
 an output hold, not a wake alarm. Reset restores normal pin initialization.
 The fix applies to FeatherS2 IO38 and ESP32 V2 D32 without changing wiring.
-Holding a pin can add some sleep current; actual power and visual confirmation
-remain separate from software tests.
+The user confirmed the 1.0.6 retest on both boards: both wings faded red to
+completely black and stayed black, including the previously white pixel.
+Producer logs showed 3.117 seconds from sleep request to alarm handoff, with
+no application traceback. Resetting each board then restored sound response
+on both wings, as visually confirmed by the user. Holding a pin can add some sleep current; electrical
+power consumption remains unmeasured.

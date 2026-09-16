@@ -455,3 +455,24 @@ frames / 290 sends**. GitHub checks and release import passed. After its
 confirmation reboot, the consumer ran but reported no received packets;
 restored reception and the repeat physical sleep test remain pending. These
 reports establish installation, not a passed dark-state test.
+
+After connecting the producer to USB, passive console capture showed changing
+microphone features with no captured exception. Its active OTA journal was
+current with no trial/error, and all ten active files matched their 1.0.6
+manifest hashes. The user then confirmed both wings respond to claps again,
+establishing restored audio/LED response and wireless reception. The earlier
+dark state remains unexplained; this does not establish a crash or its cause.
+
+The 1.0.6 physical sleep retest passed: the user confirmed **both wings faded
+red to completely black and stayed black**, including the previously white
+pixel. The producer console recorded the sleep request at **28.632 s** and
+alarm handoff with the wing data held LOW at **31.749 s** (**3.117 s** later),
+without a traceback. The USB console then reported `Code done running`.
+Logs are local under `.artifacts/sleep-106-producer.log` and
+`.artifacts/sleep-106-producer-events.jsonl`. This confirms the visual result
+and native producer handoff; electrical sleep current remains unmeasured.
+
+The user then reset each board with BOOT released and confirmed **both wings
+respond to claps again**. Producer USB reconnected and passive logs showed
+changing audio features. This completes the two-board visual fade/dark-state
+and physical-reset wake test for 1.0.6.

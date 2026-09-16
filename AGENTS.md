@@ -308,3 +308,14 @@ black, drives LOW, allows 1 ms latch time and passes it via preserve_dios. Do
 not deinit that pin in a with/finally around the alarm: DeepSleepRequest unwinds
 Python. Preserve output state across VM teardown; do not add a wake alarm or
 change the hardware pin. Real sleep current and visual results need measurement.
+
+The user subsequently confirmed the 1.0.6 retest: both wings faded red to
+completely black and stayed black, including the previously white pixel.
+Producer serial showed sleep request to alarm handoff in 3.117 seconds with
+no traceback. Both boards confirmed OTA sequence 11/current 1.0.6. Before this
+test, a post-update dark/link-loss episode cleared after connecting producer
+USB; its cause remains unknown. Do not infer measured sleep current from the
+passed visual test or USB console idle.
+The user also reset both boards with BOOT released and confirmed both wings
+respond to sound again. The 1.0.6 visual fade/dark-state and reset-wake tests
+are complete; no further physical confirmation is required for those checks.
