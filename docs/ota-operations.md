@@ -188,7 +188,7 @@ until the device reports it. No API or credentials are service-worker cached.
 
 ## Validation
 
-Implemented checks include 73 host firmware tests, backend contract tests,
+Implemented checks include 76 host firmware tests, backend contract tests,
 Firestore emulator authorization/transaction/rule tests, and mobile Chromium
 and WebKit dashboard tests. Emulator tests refuse non-local database targets.
 The consumer has booted the USB recovery bundle and resumed real ESP-NOW
@@ -236,3 +236,24 @@ Remaining bench results: physical maintenance and power-loss recovery, producer
 timing, and an authenticated fleet view. Host tests do not establish those
 results. Serial reception and pixel-buffer values are not a new visual
 confirmation of the installed LEDs.
+
+### Follow-up: intermittent receiver failure
+
+After the successful 1.0.2 update trial, the consumer later saved `ValueError`
+and selected USB recovery 1.0.0. Both OTA slots still matched their release
+hashes. A direct native receive stress test reproduced `ValueError: Invalid
+buffer` after 1,727 polls / 36 ms. CircuitPython 10.3.1 appends the incoming
+header, MAC and payload separately, while `read()` tests only whether any bytes
+are available.
+
+App 1.0.3 gates reads on `ESPNow.read_success`, which the driver increments
+after the complete packet is appended. Consumed native packets are counted
+independently of rejected/accepted protocol packets, with 32-bit wrap handling
+and the existing eight-packet drain limit. The base remains 1.0.1. This fixes
+a reproduced radio failure; the earlier saved error contained only its class,
+so it cannot establish that every observed dark interval had this cause.
+
+The fixed native receive path passed 539,217 rapid polling iterations over
+30 seconds, receiving 356 valid packets with zero rejected packets or buffer
+exceptions. Regression tests cover callback completion, rejected-packet counting,
+bounded draining and native counter wraparound.

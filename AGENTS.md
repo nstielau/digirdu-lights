@@ -171,3 +171,10 @@ The ESP32 V2 consumer completed a fully automatic OTA 1.0.1 -> 1.0.2 with base
 report recorded, and ESP-NOW channel 1 reception resumed. Native exception and
 watchdog rollback were exercised; physical maintenance/power-cut qualification
 and the producer USB bootstrap remain pending. See operations for current status.
+
+ESP-NOW receive reads must be gated by the native `read_success` counter,
+which advances after the complete RX callback. CircuitPython 10.3.1's `read()`
+and `len()` can observe partially copied packets on ESP32 V2; ungated polling
+reproduced `ValueError: Invalid buffer` in 36 ms. Track consumed native packets
+separately from accepted protocol packets, handle 32-bit wrap, and retain the
+8-packet drain bound. Never remove this gate or substitute `bool(radio)`.

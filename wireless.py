@@ -26,6 +26,7 @@ class Wireless:
         self.sent = self.errors = self.skipped = 0
         self.pending = False
         self.completed = 0
+        self.read_count = 0
         if config.radio_role == "leader":
             self.peer = espnow.Peer(mac=b"\xff" * 6, channel=config.radio_channel)
             self.radio.peers.append(self.peer)
@@ -62,9 +63,15 @@ class Wireless:
         # Bounded draining keeps LED rendering responsive under heavy traffic.
         received = False
         for _ in range(8):
+            # CircuitPython 10.3.1 exposes partially copied ESP-NOW packets
+            # through read()/len(). read_success advances only after the RX
+            # callback has appended the complete header, MAC and payload.
+            if self.read_count == self.radio.read_success:
+                break
             packet = self.radio.read()
             if packet is None:
                 break
+            self.read_count = (self.read_count + 1) & 0xffffffff
             received = self.receiver.accept(packet.mac, packet.msg, now) or received
         if received:
             animation.time = self.receiver.scene_time
