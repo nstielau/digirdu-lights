@@ -447,3 +447,11 @@ reclaim the verified wing pin after cleanup, send black, drive LOW, wait 1 ms,
 then preserve its output state through the alarm call. It uses no wake alarms
 and does not require an updated USB base. The suspected cause still needs a
 physical retest. Both nodes need a normal reset to wake/check for this update.
+
+Both nodes subsequently confirmed **1.0.6**, base **1.0.1**, deployment
+sequence **11**, `state=current`, with no reported OTA error. The consumer
+trial recorded **931 frames / 256 packets**; the producer recorded **406
+frames / 290 sends**. GitHub checks and release import passed. After its
+confirmation reboot, the consumer ran but reported no received packets;
+restored reception and the repeat physical sleep test remain pending. These
+reports establish installation, not a passed dark-state test.
