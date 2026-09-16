@@ -257,3 +257,18 @@ The fixed native receive path passed 539,217 rapid polling iterations over
 30 seconds, receiving 356 valid packets with zero rejected packets or buffer
 exceptions. Regression tests cover callback completion, rejected-packet counting,
 bounded draining and native counter wraparound.
+
+The consumer subsequently completed the automatic 1.0.3 download, reboot and
+30-second health trial. Firebase recorded app 1.0.3 / base 1.0.1, deployment
+sequence 7, `state=current`, 931 frames and 360 received packets. Live ESP-NOW
+reception resumed after confirmation. GitHub checks and release import passed.
+
+Upstream details: CircuitPython 10.3.1's
+[ESP-NOW receive callback and reader](https://github.com/adafruit/circuitpython/blob/10.3.1/ports/espressif/common-hal/espnow/ESPNow.c).
+
+The connected ESP32 V2's USB recovery copy was also updated to 1.0.3 using
+`make deploy`, with all 18 deployed files verified and node credentials/profile
+preserved. Recovery startup received 85 valid packets in its startup check.
+The FeatherS2 continues transmitting over ESP-NOW but has not enumerated on USB; its
+OTA bootstrap is still pending the data connection. Near-silent spectrum
+values can legitimately leave the wing dark despite a live radio link.
