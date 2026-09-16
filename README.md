@@ -545,7 +545,13 @@ skips**. Benchmark mode excludes LED writes and capture blocking from work time;
 these numbers do not establish worst-case performance or consumer reception.
 Serial logs showed changing low-band levels near the noise floor. Loud audio,
 full-height bars and visual orientation still need an acoustic/visual check.
-The consumer's v3 deployment is pending; its older v2 app cannot receive v3.
+The ESP32 V2 consumer subsequently received the same update: all ten application
+files passed final readback, with its saved consumer profile preserved. Its
+eight-second startup check accepted **96 protocol-v3 packets, zero rejected**,
+with a live link to the producer and Spectrum selected. Reported band levels
+were near zero (mostly dark; one bottom pixel briefly at channel value 1).
+This confirms reception and rendering startup; visible bar response to sound
+has not yet been confirmed.
 
 ### Algorithm checks versus musical accuracy
 
