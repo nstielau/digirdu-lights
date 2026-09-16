@@ -1,7 +1,7 @@
 """USB-managed release contract, shared by device and host tooling."""
 import hashlib
 
-BASE_VERSION = "1.0.2"
+BASE_VERSION = "1.0.3"
 # App compatibility is independent of optional USB-base improvements.
 APP_MINIMUM_BASE = "1.0.1"
 APP_API = 1

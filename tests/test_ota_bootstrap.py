@@ -23,12 +23,12 @@ class OTAIndicatorTests(unittest.TestCase):
                 indicator=OTAIndicator()
                 digital.assert_called_once_with(gpio)
                 for step in range(33):
-                    clock[0]=step*2.0; indicator.update()
+                    clock[0]=step*0.5; indicator.update()
                     frame=frames[-1]
                     self.assertEqual(len(frame),96)
                     self.assertEqual(sum(bool(v) for v in frame),2)
-                    self.assertEqual(frame[(step%32)*3:(step%32)*3+3],bytes((38,0,38)))
-                    count=len(frames);clock[0]+=.5;indicator.update()
+                    self.assertEqual(frame[(step%32)*3:(step%32)*3+3],bytes((7,0,7)))
+                    count=len(frames);clock[0]+=.1;indicator.update()
                     self.assertEqual(len(frames),count)
                 indicator.close()
                 self.assertEqual(frames[-1],bytes(96))

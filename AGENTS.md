@@ -320,16 +320,18 @@ The user also reset both boards with BOOT released and confirmed both wings
 respond to sound again. The 1.0.6 visual fade/dark-state and reset-wake tests
 are complete; no further physical confirmation is required for those checks.
 
-## OTA activity indicator (USB base 1.0.2)
+## OTA activity indicator (USB base 1.0.3)
 
 OTAIndicator in ota_bootstrap.py owns the verified wing GPIO only during
-network maintenance. One cyan pixel advances every two seconds when service()
-runs, capped at 0.15 brightness; blocking Wi-Fi/TLS leaves it stationary.
+network maintenance. One cyan pixel advances every half-second when service()
+runs, at 0.03 brightness; blocking Wi-Fi/TLS leaves it stationary. The user
+found the initial 0.15/two-second indicator too bright and slow on both wings.
+Keep this setting independent of the audio effects' 0.15 brightness cap.
 Always black out and deinit before returning to app processing, including
 network failure. Do not import slot config/animation into the base. The fixed
 32-pixel preview uses IO38 on FeatherS2 and D32 on ESP32 V2.
 Install with make deploy-base in USB maintenance mode, preserving all slots,
 credentials and node configuration. App stays 1.0.6. APP_MINIMUM_BASE remains
-1.0.1 independently of BASE_VERSION=1.0.2: optional base improvements must not
+1.0.1 independently of BASE_VERSION=1.0.3: optional base improvements must not
 unnecessarily block app OTA for other nodes. Read fleet/serial reports before
 claiming the base is installed on a particular device.

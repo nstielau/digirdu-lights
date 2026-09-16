@@ -512,3 +512,10 @@ with **198 accepted / 0 rejected packets** after resuming. Its native boot
 capture is `.artifacts/ota-indicator-consumer-boot.log`; producer capture is
 `.artifacts/ota-indicator-producer-boot.log`. Consumer visual confirmation
 remains separate from these serial/fleet results.
+
+The user then confirmed the consumer's indicator too, but found it too bright
+and slow on both boards. USB base **1.0.3** changes only the indicator to
+**3% brightness** (integer GRB `7, 0, 7`) and a **0.5-second step interval**.
+The audio-effect brightness cap stays 15%. Blocking Wi-Fi/TLS can still hold
+the current pixel until control returns. This tuning needs another USB base
+deployment on each device; the OTA app remains 1.0.6.

@@ -12,8 +12,8 @@ from ota_http import DeviceHTTP
 TRIAL_SECONDS = 30
 NVM_MARKER = b"DGO1"  # Reserved bytes 0..4; never store device secrets in NVM.
 OTA_PIXEL_COUNT = 32
-OTA_PIXEL_BRIGHTNESS = 0.15
-OTA_PIXEL_STEP_S = 2.0
+OTA_PIXEL_BRIGHTNESS = 0.03
+OTA_PIXEL_STEP_S = 0.5
 
 
 class OTAIndicator:
@@ -47,7 +47,7 @@ class OTAIndicator:
         self.pixels[:] = bytes(len(self.pixels))
         self.index = (self.index + 1) % OTA_PIXEL_COUNT
         level = int(255 * OTA_PIXEL_BRIGHTNESS)
-        # GRB: cyan, one pixel only, at the same 15% ceiling as the app.
+        # GRB: a dim cyan status pixel, independent of the app's brightness.
         self.pixels[self.index * 3] = level
         self.pixels[self.index * 3 + 2] = level
         self.write(self.pin, self.pixels)
