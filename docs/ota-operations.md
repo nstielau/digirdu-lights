@@ -413,8 +413,13 @@ The ESP32 V2 consumer downloaded/verified 1.0.5 and confirmed its OTA trial.
 Firebase recorded app **1.0.5**, base **1.0.1**, `state=current`, deployment
 sequence **10**, no error, **826 frames / 287 received packets**. It then
 rebooted and resumed live Ember reception with zero rejected packets. Its
-native CircuitPython image exposes the deep-sleep API. The producer still
-needs its normal reset/update before the shared physical button/sleep test;
-actual red-fade appearance, deep-sleep current and reset wake-up are not yet
-hardware-validated. A host-connected sleep test alone cannot establish true
+native CircuitPython image exposes the deep-sleep API. The producer subsequently confirmed too (below). Actual red-fade appearance,
+deep-sleep current and reset wake-up still require the physical test. A host-connected sleep test alone cannot establish true
 low-power consumption.
+
+
+The producer's normal reset then completed the **1.0.5** OTA trial. Firebase
+recorded app 1.0.5 / base 1.0.1, `state=current`, sequence 10, no error, **405
+frames / 292 sends**. Both nodes now report 1.0.5. The consumer briefly faded
+during the producer's confirmation/reboot, then resumed Spectrum with zero
+rejected packets. The physical long-press test is separate from this OTA result.
