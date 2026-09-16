@@ -401,3 +401,20 @@ sleep leaves confirmed OTA journals intact; no rollback or persistent sleep flag
 is written. Reset each sleeping board separately to wake and run its boot-time
 update check. With a USB/BLE host attached, CircuitPython may simulate sleep.
 Host regression tests do not establish actual sleep current or visual behavior.
+
+### 1.0.5 rollout evidence
+
+Source `c89b6d4` / tag `firmware-v1.0.5` was pushed and published. GitHub checks
+and immutable import passed; the ten app files total 70,968 bytes. All 100 host
+firmware tests, web/backend/emulator tests and 30 browser tests passed. The
+Effects page was published with the short-release and hold-to-sleep instructions.
+
+The ESP32 V2 consumer downloaded/verified 1.0.5 and confirmed its OTA trial.
+Firebase recorded app **1.0.5**, base **1.0.1**, `state=current`, deployment
+sequence **10**, no error, **826 frames / 287 received packets**. It then
+rebooted and resumed live Ember reception with zero rejected packets. Its
+native CircuitPython image exposes the deep-sleep API. The producer still
+needs its normal reset/update before the shared physical button/sleep test;
+actual red-fade appearance, deep-sleep current and reset wake-up are not yet
+hardware-validated. A host-connected sleep test alone cannot establish true
+low-power consumption.

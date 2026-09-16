@@ -289,3 +289,10 @@ share session/sequence counters. Preserve MAC/group/session/freshness validation
 late fade progress, irreversible deadline, native RX completion gating and the
 one-outstanding-send bound. Old consumers do not sleep: all nodes need 1.0.5.
 Ignore sleep during the OTA health trial to preserve candidate qualification.
+
+Sleep release 1.0.5 (`c89b6d4`, `firmware-v1.0.5`) passed 100 host tests and
+GitHub checks/import. ESP32 V2 OTA confirmed sequence 10, current 1.0.5/base1.0.1,
+826 frames / 287 packets, no error, then live reception with zero rejected.
+Producer update and the physical hold/fade/sleep/reset test are pending; check
+fleet status before claiming shared sleep is validated. USB-connected simulated
+sleep is not proof of deep-sleep power draw.
