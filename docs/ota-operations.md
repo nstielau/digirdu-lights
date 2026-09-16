@@ -519,3 +519,18 @@ and slow on both boards. USB base **1.0.3** changes only the indicator to
 The audio-effect brightness cap stays 15%. Blocking Wi-Fi/TLS can still hold
 the current pixel until control returns. This tuning needs another USB base
 deployment on each device; the OTA app remains 1.0.6.
+
+The ESP32 V2 consumer's seven base files verified, and a normal reboot reported
+**app 1.0.6 / base 1.0.3** to Firebase with no error. ESP-NOW reception resumed
+with **103 accepted / 0 rejected packets** in the startup log
+`.artifacts/ota-dim-consumer-boot.log`. All 104 host tests passed. Producer
+deployment and the user's assessment of the revised appearance remain pending.
+
+The producer subsequently verified all seven base files too. The deploy
+startup check encountered BOOT-triggered CircuitPython USER safe mode. After
+cleanly unmounting CIRCUITPY, a normal-mode hard reset restored app startup;
+serial reported **app 1.0.6 / base 1.0.3** and resumed microphone capture and
+ESP-NOW. No flash erase or app-slot replacement was needed. Both devices now
+report base 1.0.3/current app 1.0.6 with no OTA error. The capture is
+`.artifacts/ota-dim-producer-boot.log`. GitHub checks passed; the revised
+brightness/speed preference has not yet been visually assessed by the user.
