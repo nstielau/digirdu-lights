@@ -550,8 +550,13 @@ files passed final readback, with its saved consumer profile preserved. Its
 eight-second startup check accepted **96 protocol-v3 packets, zero rejected**,
 with a live link to the producer and Spectrum selected. Reported band levels
 were near zero (mostly dark; one bottom pixel briefly at channel value 1).
-This confirms reception and rendering startup; visible bar response to sound
-has not yet been confirmed.
+A subsequent 30-second serial observation included a consumer reboot/rejoin
+and reached **308 accepted packets, zero rejected**. During active sound, sampled
+volume varied from **0.34 to 0.91**, the second frequency bucket reached **0.87**,
+and rendered output varied from **5 to 17 lit pixels**, with peak channel values
+**13–38**. This verifies changing producer features, consumer reception and bar
+output. The source sound was not identified; physical appearance and matching
+bar orientation on both wings still need visual confirmation.
 
 ### Algorithm checks versus musical accuracy
 
