@@ -34,6 +34,7 @@ class AudioFeatures:
         self.rms = self.noiseFloor = self.flux = self.flatness = 0.0
         self.modulation = self.fundamentalHz = 0.0
         self.bandEnergy = self.bandRatio = (0.0,) * 5
+        self.spectrum = (0.0,) * 8  # Normalized amplitudes, low -> high frequency.
         self.clipped = False
         self.calibrating = True
 
@@ -46,6 +47,7 @@ class Analyzer:
         self.calibration = []
         self.noise = config.min_noise_rms
         self.band_noise = [self.noise * self.noise / 5] * 5
+        self.spectrum_noise = [self.noise * self.noise / 8] * 8
         self.level_reference = config.level_initial
         self.rms_previous = 0.0
         self.mid_reference = 0.0
@@ -70,7 +72,7 @@ class Analyzer:
     def _calibrate(self, raw, dt):
         c, f = self.c, self.features
         if self.elapsed > c.warmup_s:
-            self.calibration.append((raw["rms"], raw["bands"]))
+            self.calibration.append((raw["rms"], raw["bands"], raw["spectrum"]))
         if self.elapsed < c.calibration_s or not self.calibration:
             return
         index = int((len(self.calibration) - 1) * c.calibration_quantile)
@@ -79,6 +81,9 @@ class Analyzer:
         for band in range(5):
             values = sorted(row[1][band] for row in self.calibration)
             self.band_noise[band] = max(c.min_noise_rms ** 2 / 5, values[index])
+        for band in range(8):
+            values = sorted(row[2][band] for row in self.calibration)
+            self.spectrum_noise[band] = max(c.min_noise_rms ** 2 / 8, values[index])
         self.level_reference = max(c.level_initial, self.noise * c.active_full_ratio)
         self.calibration = []
         f.calibrating = False
@@ -108,6 +113,11 @@ class Analyzer:
                 target = min(target, self.band_noise[i] * c.adaptation_limit)
                 self.band_noise[i] = smooth(self.band_noise[i], target, dt,
                                             c.noise_rise_s, c.noise_fall_s)
+            for i in range(8):
+                target = max(c.min_noise_rms ** 2 / 8, raw["spectrum"][i])
+                target = min(target, self.spectrum_noise[i] * c.adaptation_limit)
+                self.spectrum_noise[i] = smooth(self.spectrum_noise[i], target, dt,
+                                                c.noise_rise_s, c.noise_fall_s)
         f.noiseFloor = self.noise
         snr = rms / self.noise
         gate = scale(snr, (c.active_off_ratio, c.active_full_ratio))
@@ -129,6 +139,14 @@ class Analyzer:
                                           c.level_rise_s, c.level_fall_s)
         volume = gate * clamp(math.log(1 + max(0, rms - self.noise) / self.noise) /
                               math.log(1 + self.level_reference * 2 / self.noise))
+
+        # Shared slow reference preserves relative band amplitudes and loudness.
+        # Never stretch each frame's tallest bar to full height.
+        full_scale = self.level_reference * c.spectrum_full_scale
+        f.spectrum = tuple(smooth(f.spectrum[i], gate * clamp(
+            c.spectrum_gain * math.sqrt(max(0.0, raw["spectrum"][i] - self.spectrum_noise[i])) /
+            full_scale) ** c.spectrum_curve, dt, c.spectrum_attack_s, c.spectrum_release_s)
+            for i in range(8))
 
         # Subtract a conservative per-band background before forming ratios.
         energy = [max(0.0, raw["bands"][i] - self.band_noise[i]) for i in range(5)]

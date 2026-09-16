@@ -206,7 +206,7 @@ class DetectorTests(unittest.TestCase):
 
 class AnimationTests(unittest.TestCase):
     def test_layers_and_brightness_cap(self):
-        c = Config()
+        c = Config(effect_index=1)
         a = CulvertAnimation(c)
         f = AudioFeatures()
         self.assertEqual(a.render(f, 0.032), bytes(c.pixel_count * 3))
@@ -223,9 +223,7 @@ class AnimationTests(unittest.TestCase):
         self.assertEqual(len(a.pulses), c.max_pulses)
 
     def test_pulse_moves_outward_and_trails_fade(self):
-        # Isolate the traveling pulse from the default effect's whole-wing hit.
-        a = CulvertAnimation(Config(trail_s=0.02, responsive_trail_s=0.02,
-                                    responsive_flash_gain=0))
+        a = CulvertAnimation(Config(effect_index=1, trail_s=0.02))
         f = AudioFeatures()
         f.attack = 1
         f.attackEvent = True
@@ -242,12 +240,12 @@ class AnimationTests(unittest.TestCase):
         self.assertEqual(final, bytes(96))
 
     def test_multiple_wings_and_coordinate_mapping(self):
-        c = Config(pixel_count=96)
+        c = Config(effect_index=1, pixel_count=96)
         a = CulvertAnimation(c)
         f = AudioFeatures()
         f.drone = 1
         self.assertEqual(len(a.render(f, 0.032)), 288)
-        c = Config(pixel_count=2, pixel_positions=((-0.5, 0.2), (0.5, 0.2)))
+        c = Config(effect_index=1, pixel_count=2, pixel_positions=((-0.5, 0.2), (0.5, 0.2)))
         pixels = CulvertAnimation(c).render(f, 0.032)
         self.assertEqual(pixels[:3], pixels[3:])
 

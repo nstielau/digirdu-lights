@@ -171,6 +171,7 @@ def run(seconds=None, drive_pixels=True):
                               (features.rms, features.noiseFloor, features.volume, features.drone,
                                features.harmonics, features.timbrePosition, features.growl,
                                features.vocal, features.roughness, features.active, features.clipped))
+                        print("SPECTRUM levels=" + str(tuple(round(v, 2) for v in features.spectrum)))
                         next_log = now + CONFIG.log_interval_s
                         # Explicit collections bound fragmentation; include them
                         # and LED output in the processing-time measurement.
@@ -229,6 +230,7 @@ def run_follower():
                            "lost/fading" if lost else "live", age_ms, features.active,
                            features.volume, features.drone, features.growl, features.vocal,
                            lit, CONFIG.pixel_count, max(pixels)))
+                    print("SPECTRUM levels=" + str(tuple(round(v, 2) for v in features.spectrum)))
                     next_log = now + CONFIG.log_interval_s
                     gc.collect()
                 time.sleep(max(0, CONFIG.receiver_frame_s - (time.monotonic() - now)))

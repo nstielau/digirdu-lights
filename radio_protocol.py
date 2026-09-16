@@ -8,7 +8,7 @@ from effects import EFFECT_NAMES
 
 FIELDS = ("volume", "drone", "harmonics", "timbrePosition", "growl", "vocal",
           "roughness", "centroid", "attack", "decay")
-FORMAT = "<4sBHIHffHHHHBBB10BB"
+FORMAT = "<4sBHIHffHHHHBBB10BB8B"
 SIZE = struct.calcsize(FORMAT)
 
 
@@ -35,12 +35,12 @@ class Transmitter:
         self.sequence = (self.sequence + 1) & 65535
         attack_age = min(65535, max(0, int((now - self.attack_time) * 1000)))
         yell_age = min(65535, max(0, int((now - self.yell_time) * 1000)))
-        return struct.pack(FORMAT, b"DGRD", 2, self.c.radio_group, self.session,
+        return struct.pack(FORMAT, b"DGRD", 3, self.c.radio_group, self.session,
                            self.sequence, animation.time, animation.phase,
                            self.attack_id, self.yell_id, attack_age, yell_age,
                            int(clamp(self.attack_strength) * 255), int(clamp(self.yell_strength) * 255),
                            int(features.active), *(int(clamp(getattr(features, name)) * 255) for name in FIELDS),
-                           animation.effect)
+                           animation.effect, *(int(clamp(v) * 255) for v in features.spectrum))
 
 
 class Receiver:
@@ -62,7 +62,7 @@ class Receiver:
             return False
         values = struct.unpack(FORMAT, message)
         magic, version, group, session, sequence, scene_time, phase = values[:7]
-        if (magic != b"DGRD" or version != 2 or group != self.c.radio_group
+        if (magic != b"DGRD" or version != 3 or group != self.c.radio_group
                 or not math.isfinite(scene_time) or scene_time < 0
                 or not math.isfinite(phase) or not 0 <= phase < 1 or values[13] > 1
                 or values[24] >= len(EFFECT_NAMES)):
@@ -94,6 +94,7 @@ class Receiver:
         f.active = bool(values[13])
         self.scene_time, self.phase = scene_time, phase
         self.effect = values[24]
+        f.spectrum = tuple(value / 255 for value in values[25:33])
         self.last_receive = now
         self.accepted += 1
         return True
@@ -107,6 +108,7 @@ class Receiver:
         f = self.features
         f.active = False
         self.clear_events()
+        f.spectrum = tuple(value * math.exp(-dt / self.c.decay_s) for value in f.spectrum)
         # Keep the last hue/centroid while the remaining light decays.
         for name in ("volume", "drone", "harmonics", "growl", "vocal", "roughness", "attack", "decay"):
             setattr(f, name, getattr(f, name) * math.exp(-dt / self.c.decay_s))

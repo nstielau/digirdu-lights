@@ -1,6 +1,6 @@
 """Shared effect IDs and button debouncing; independent of hardware."""
 
-EFFECT_NAMES = ("Culvert", "Ember", "Aurora", "Ripple")
+EFFECT_NAMES = ("Spectrum", "Ember", "Aurora", "Ripple")
 # Hue offset, timbre hue scale, wave frequency, field level, texture level,
 # pulse width. IDs are transmitted; keep order identical across all nodes.
 PALETTES = (

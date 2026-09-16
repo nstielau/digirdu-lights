@@ -7,6 +7,14 @@ class Config:
     fft_size = 1024
     hop_size = 1024
     bands = ((45, 180), (180, 450), (450, 1000), (1000, 3500), (3500, 8000))
+    # Eight diagnostic columns; independent of the five musical detector bands.
+    spectrum_edges = (45, 90, 180, 350, 700, 1400, 2800, 5000, 8000)
+    spectrum_attack_s = 0.05
+    spectrum_release_s = 0.30
+    spectrum_gain = 1.0
+    spectrum_full_scale = 2.0  # Multiple of the slowly adapting RMS reference.
+    spectrum_curve = 0.6  # Compress amplitude to make quieter harmonics visible.
+    spectrum_rotation = 0  # Landscape 8 columns x 4 rows; optionally 180.
     timbre_band = (150, 1000)
     vocal_band = (700, 3500)
     roughness_band = (180, 3500)
@@ -88,13 +96,6 @@ class Config:
     pulse_decay_s = 1.6
     max_pulses = 8
     trail_s = 1.2
-    # Effect 0 makes microphone response easy to see on the small preview wing.
-    responsive_volume_gain = 0.9
-    responsive_volume_curve = 0.6
-    responsive_decay_level = 0.10
-    responsive_trail_s = 0.20
-    responsive_flash_s = 0.18
-    responsive_flash_gain = 0.8
     effect_index = 0
     effect_indicator_enabled = True
     effect_indicator_s = 1.5
@@ -146,11 +147,14 @@ class Config:
                 raise ValueError(name + " must be positive")
         if not 0 < self.brightness <= 1 or self.pixel_count < 2 or self.gain <= 0:
             raise ValueError("Invalid brightness, pixel_count, or gain")
-        if (not 0 < self.responsive_volume_curve <= 1
-                or not 0 <= self.responsive_volume_gain <= 1
-                or not 0 <= self.responsive_decay_level <= 1
-                or not 0 <= self.responsive_flash_gain <= 1):
-            raise ValueError("Invalid responsive effect levels")
+        if (len(self.spectrum_edges) != 9
+                or not 0 < self.spectrum_edges[0] < self.spectrum_edges[-1] <= self.sample_rate / 2
+                or any(b - a < self.sample_rate / self.fft_size
+                       for a, b in zip(self.spectrum_edges, self.spectrum_edges[1:]))):
+            raise ValueError("Expected nine ascending spectrum edges, at least one FFT bin apart")
+        if (self.spectrum_gain <= 0 or self.spectrum_full_scale <= 0
+                or not 0 < self.spectrum_curve <= 1 or self.spectrum_rotation not in (0, 180)):
+            raise ValueError("Invalid spectrum display tuning")
         if not 0 <= self.calibration_quantile <= 1:
             raise ValueError("Invalid calibration quantile")
         if not 0 < self.active_off_ratio < self.active_on_ratio < self.active_full_ratio:

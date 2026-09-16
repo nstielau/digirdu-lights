@@ -27,6 +27,8 @@ class Spectrum:
         self.frequencies = np.array([i * config.sample_rate / n for i in range(n // 2 + 1)])
         self.frequency_squared = self.frequencies * self.frequencies
         self.ranges = [self.bin_range(b) for b in config.bands]
+        self.display_ranges = [self.bin_range(b) for b in
+                               zip(config.spectrum_edges, config.spectrum_edges[1:])]
         self.total_range = self.bin_range((config.bands[0][0], config.sample_rate / 2))
         self.timbre_range = self.bin_range(config.timbre_band)
         self.vocal_range = self.bin_range(config.vocal_band)
@@ -129,6 +131,7 @@ class Spectrum:
         peak_bin = a + int(np.argmax(power[a:b]))
         concentration = float(np.sum(power[max(a, peak_bin - 1):min(b, peak_bin + 2)])) / max(energies[0], eps)
         return {"rms": rms, "span": span, "clipped": clipped,
+                "spectrum": tuple(float(np.sum(power[a:b])) for a, b in self.display_ranges),
                 "bands": energies, "total": total, "centroid_hz": centroid,
                 "timbre_hz": timbre_hz, "vocal_energy": vocal_energy,
                 "flux": flux, "shape_flux": shape_flux, "flatness": flatness,

@@ -73,7 +73,7 @@ class RadioTests(unittest.TestCase):
         for bad in (b'', p[:-1], b'BAD!' + p[4:]):
             self.assertFalse(self.rx.accept(self.mac, bad, 0))
         values = list(struct.unpack(FORMAT, p))
-        for index, bad in ((2, 55), (5, float('nan')), (6, float('inf')), (13, 3), (24, 255)):
+        for index, bad in ((1, 2), (2, 55), (5, float('nan')), (6, float('inf')), (13, 3), (24, 255)):
             altered = values[:]
             altered[index] = bad
             self.assertFalse(self.rx.accept(self.mac, struct.pack(FORMAT, *altered), 0))

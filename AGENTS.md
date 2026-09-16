@@ -48,10 +48,13 @@ and simultaneous drone/harmonic/growl/vocal envelopes with ATTACK/YELL events.
 Keep spectral ratios and texture in the detectors: volume alone must not
 classify a growl or yell. Maintain separate attack/release, gated slow background
 learning, bounded reference adaptation, event rearm/cooldown, and long decay.
-Default effect 0 (Culvert) emphasizes volume contrast with a 0.6 curve,
-0.20-second trails and an age-aware whole-wing attack/vocal bloom. Other effects
-retain ambient trails. Keep the 0.15 cap and update all nodes for matching
-rendering; feature packets/effect IDs are unchanged.
+Default effect 0 (Spectrum, display 1) shows eight independent FFT bands as
+bottom-up bars on the landscape 8x4 progressive matrix, with fractional top
+pixels and a rainbow across frequency. Preserve shared slow normalization,
+per-band background subtraction and separate fast attack/release. Consumers
+receive eight levels over protocol v3 (51 bytes); update all nodes together.
+Keep Ember/Aurora/Ripple musical layers and the 0.15 brightness cap. Spectrum
+ignores axial coordinates; its rotation is independent of the portrait HUD.
 Treat these as tunable acoustic heuristics; synthetic test success does not
 establish didgeridoo classification accuracy in the culvert.
 
@@ -127,3 +130,12 @@ board models require a verified pin profile, not just an ESP32 chip match.
 Update README.md for wiring, firmware, and command changes. Never commit
 `.venv`, `.artifacts`, binaries, board backups, credentials, or recordings.
 Backups can contain existing user data or secrets.
+
+## OTA proposal
+
+`docs/ota-plan.md` is a review proposal only. The user requested review before
+implementation; do not implement or provision OTA until approved. It adapts
+Gate's two-slot updater for multiple app modules and boot-time HTTPS check-ins
+over open `openwireless.org`. Keep the cloud project/credentials separate from
+Drawbridge. Wi-Fi association changes the ESP-NOW channel: proposed maintenance
+and performance phases must explicitly restore the configured lighting channel.

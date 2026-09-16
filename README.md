@@ -7,10 +7,17 @@ ESP32/wing nodes receive musical features wirelessly over **ESP-NOW**.
 Brightness is capped at **15%**, including overlapping visual layers. Audio
 stays in RAM; only normalized features and animation state are transmitted.
 
+## Planned OTA upgrades
+
+[Review the OTA proposal](docs/ota-plan.md): GitHub releases, a separate Firebase
+app, per-device HTTPS check-ins over open `openwireless.org`, and rollback.
+This is a plan only; the current firmware remains ESP-NOW-only.
+
 ## What the playing controls
 
-All layers operate simultaneously; there is no exclusive “current instrument”
-mode and no spectrum-bar display.
+Effect 1 is an eight-band spectrum for microphone diagnostics. The other three
+effects use the musical layers below simultaneously, with no exclusive
+“current instrument” mode. See [spectrum display](#spectrum-display-effect-1).
 
 | Component | Measurement | Visual response |
 | --- | --- | --- |
@@ -59,6 +66,7 @@ roughness, centroid, attack, decay                 # all 0..1
 attackEvent, yellEvent                            # one-frame booleans
 active, calibrating, clipped                      # state/diagnostics
 rms, noiseFloor, bandEnergy, bandRatio, flux, flatness, modulation
+spectrum  # Eight normalized band amplitudes, low to high frequency
 fundamentalHz                                    # coarse low-band peak, or 0
 ```
 
@@ -233,21 +241,72 @@ harmonics change wave spacing and speed, timbre changes hue, growl adds moving
 texture, and vocal adds ribbons. Events enter a fixed eight-pulse pool and
 travel outward from the player's coordinate at 0.65 half-culvert lengths/s,
 with a 1.6-second intensity decay. These are artistic speeds, not sound speed.
-For the default Culvert effect (ID 0), the field uses the larger of
-`0.65*drone`, `0.9*volume**0.6`, and `0.10*decay`.
-The volume curve makes soft sounds easier to see without raising the brightness
-limit. Its trails release over 0.20 seconds, so the previous note does not hide
-the next one. ATTACK/YELL adds a neutral whole-wing bloom scaled by 0.8, with a
-0.18-second decay, in addition to the traveling pulse. Received event age reduces
-the bloom when a packet arrives late. The drone's 1.8-second release and the
-quiet 3.5-second decay layer still preserve an acoustic tail.
-
 Ember, Aurora and Ripple retain the original field mixture (the larger of
 `0.65*drone`, `0.12*volume`, and `0.32*decay`) and 1.2-second pixel trails.
 Contributions are capped before
 conversion to GRB bytes at brightness 0.15 (maximum channel value 38).
-The four effects change palette and layer parameters while preserving this
-shared detector and scene state.
+The musical effects change palette and layer parameters while preserving the
+shared detector and scene state. Spectrum uses its own band-level envelopes.
+
+## Spectrum display (effect 1)
+
+The initial effect is **Spectrum**, display number 1 / protocol ID 0. Hold the
+wing in landscape: **eight columns across, four rows high**. Low frequencies
+are left, high frequencies right; bar height is the level in that frequency
+bucket. A red-to-violet rainbow runs across the columns. The top pixel of each
+bar dims continuously between row steps. Brightness remains capped at 0.15.
+
+| Column, left to right | Frequency range (Hz) |
+| --- | --- |
+| 1 | 45–90 |
+| 2 | 90–180 |
+| 3 | 180–350 |
+| 4 | 350–700 |
+| 5 | 700–1400 |
+| 6 | 1400–2800 |
+| 7 | 2800–5000 |
+| 8 | 5000–8000 |
+
+These are eight independent sums of the existing Hann FFT's power, not a
+redistribution of the five musical detector bands. Upper edges are exclusive.
+At 16 kHz / 1024 samples, FFT bins are 15.625 Hz apart; this is a coarse
+level display, not precision pitch measurement. Raising the sample rate leaves
+the default top edge at 8 kHz; tune `spectrum_edges` to include higher frequencies.
+Wider buckets collect more broadband-noise power; heights show integrated band
+amplitude, not power per Hz or calibrated sound pressure.
+
+Each bucket gets a quiet-start background estimate and the same gated, slow
+background learning as the musical detectors. The display computes:
+
+```text
+amplitude[i] = sqrt(max(0, power[i] - background[i]))
+target[i] = activity_gate * clamp(spectrum_gain * amplitude[i]
+                                / (level_reference * spectrum_full_scale)) ** spectrum_curve
+height[i] = 4 * attack_release_smooth(target[i])
+```
+
+The shared level reference adapts slowly (12 s up / 45 s down, bounded input).
+It does not stretch every frame's tallest bar to full height: a louder version
+of the same sound raises the bars. Defaults are gain 1, full-scale reference
+multiplier 2, amplitude curve 0.6, attack 0.05 s and release 0.30 s. Adjust
+`spectrum_gain`, `spectrum_full_scale`, `spectrum_curve`, `spectrum_attack_s`,
+`spectrum_release_s`, and the nine `spectrum_edges` in your node profile.
+Calibration still needs two quiet seconds. On silence the bars fall smoothly;
+there are no added musical pulses or background glow in this diagnostic effect.
+
+Factory wiring has four progressive rows: top row indices 0–7, bottom 24–31.
+The bottom-up bar coordinate `(x, y)` maps to `(3-y)*8+x`. Set
+`spectrum_rotation=180` on a flipped wing. This mapping ignores culvert
+`pixel_positions`; complete 32-pixel tiles repeat the display, and leftover
+pixels stay dark. The confirmed portrait number indicator keeps its independent
+orientation and still appears for 1.5 s when BOOT changes the effect.
+
+ESP-NOW **protocol v3 / 51 bytes** carries all eight normalized levels at
+8-bit precision, as well as the existing features, events and effect ID.
+Update producer and consumers together: v2 and v3 reject each other's packets.
+Consumers do not need a microphone or FFT. They use the producer's level
+smoothing; loss of the radio link fades the last levels over `decay_s`.
+`SPECTRUM levels=(...)` in both serial logs exposes the eight values, low to high.
 
 ## FeatherS2 wiring
 
@@ -459,9 +518,9 @@ frequency arrays are cached and the event pulse pool is bounded. These choices
 reduce work, but the measured overruns remain. Validate processing headroom on
 the actual sound/effect load before adding pixels or shortening the hop.
 
-### Clearer Culvert preview: follow-up measurement
+### Previous Culvert preview: historical measurement
 
-After adding the stronger volume response and attack bloom, a mostly quiet
+Before Spectrum replaced effect 1, after adding the stronger volume response and attack bloom, a mostly quiet
 five-second producer run measured **77 frames, 15.3 frames/s, 55.4 ms mean work,
 66.1 ms maximum, two overruns, zero detected discontinuities**, and 44 radio
 submissions with no errors/skips. The sound load differs from the earlier
@@ -475,9 +534,22 @@ produced a peak of **38**, with every pixel reaching at least 20 in one channel.
 These are output-byte checks, not measured light intensity or an acoustic test.
 The producer's full file readback and startup passed with effect 0 selected.
 
+### Spectrum preview: current producer measurement
+
+After replacing effect 1 with the eight-band display, `make deploy` verified all
+ten application files on the FeatherS2 and retained its producer profile.
+A mostly quiet five-second `make benchmark` run measured **74 frames, 14.7 fps,
+55.9 ms mean work, 69.1 ms maximum, three overruns of the 64 ms budget, and zero
+detected discontinuities**. ESP-NOW submitted **51 packets with zero errors or
+skips**. Benchmark mode excludes LED writes and capture blocking from work time;
+these numbers do not establish worst-case performance or consumer reception.
+Serial logs showed changing low-band levels near the noise floor. Loud audio,
+full-height bars and visual orientation still need an acoustic/visual check.
+The consumer's v3 deployment is pending; its older v2 app cannot receive v3.
+
 ### Algorithm checks versus musical accuracy
 
-`make check` runs 47 host tests using pinned NumPy and generated PCM, plus
+`make check` runs 51 host tests using pinned NumPy and generated PCM, plus
 packet-state, renderer, button and deployment checks. Signal cases include
 50/93.75/140/175 Hz drones at different levels, equal-RMS timbre changes,
 modulated mid-band noise, vocals layered over drone, attacks and decaying tails,
@@ -511,10 +583,8 @@ in a node profile, then run `make deploy NODE_CONFIG=path/to/profile.py`. Routin
   `echo_memory_s` and `echo_event_ratio`. Higher echo rejection can also miss
   intentionally softer repeated articulations.
 - **Visuals:** hue/timbre span, wave speed/spacing, pulse speed/width,
-  `decay_s`, `trail_s`, and per-pixel coordinates. Culvert's clearer preview
-  response uses `responsive_volume_gain`, `responsive_volume_curve`,
-  `responsive_decay_level`, `responsive_trail_s`, `responsive_flash_s`, and
-  `responsive_flash_gain`. Keep `brightness=0.15`.
+  `decay_s`, `trail_s`, and per-pixel coordinates. Spectrum has separate
+  band/amplitude/smoothing controls described above. Keep `brightness=0.15`.
 
 Start with a quiet reset. Play the same drone softly and loudly: `drone` should
 persist and `vocal` should stay low. Move mouth/tongue position at similar level:
@@ -535,7 +605,7 @@ consumer-only; microphone wiring is configured on FeatherS2.
 
 ESP-NOW uses a common 2.4 GHz channel (default 1), without a router, Wi-Fi login,
 or internet connection. Don't also connect the nodes to a Wi-Fi access point,
-which can change their channel. The sender broadcasts version-2, 43-byte packets at up to ~16 updates/second. Packets contain feature envelopes, scene
+which can change their channel. The sender broadcasts version-3, 51-byte packets at up to ~16 updates/second. Packets contain eight spectrum levels, feature envelopes, scene
 time/phase, the selected effect ID, a boot/session ID, sequence number, and recent event counters,
 strengths and ages. Receivers filter the configured leader MAC and group, reject
 duplicate/out-of-order packets, and recover a recent event if one packet is
@@ -636,19 +706,16 @@ accept `producer`/`consumer` as well as the internal `leader`/`follower` names.
 
 ### Effect library and BOOT button
 
-The initial effect is **Culvert (ID 0)**. Its brightness follows sound more
-strongly than the ambient palettes, and claps produce a brief whole-wing bloom
-plus an outward pulse. Test with two quiet seconds after reset, then speak or
-clap near the mic and pause to see it decay. Ripple (ID 3) is deliberately dim.
-A quiet room should fade toward darkness; weak input near the noise floor may
-remain faint. Deploy updated rendering code to both producer and consumers to
-get the same appearance; the packet format and effect IDs have not changed.
+The initial effect is **Spectrum (ID 0)**, the eight-column diagnostic above.
+Test with two quiet seconds after reset, then speak or play near the mic.
+Ember, Aurora and Ripple retain the musical animations; Ripple is deliberately
+dim. All nodes need protocol v3 for matching spectrum levels and effect state.
 
 Press and release **BOOT** while the producer is running to advance:
 
 | Display | Protocol ID | Effect | Number color | Character |
 | --- | --- | --- | --- | --- |
-| 1 | 0 | Culvert | Blue | Clear level-driven field, whole-wing attack bloom and outward pulses |
+| 1 | 0 | Spectrum | Blue | Eight rainbow frequency bars, four rows of sound level |
 | 2 | 1 | Ember | Orange | Warm, broad waves and stronger growl texture |
 | 3 | 2 | Aurora | Mint/cyan | Cooler, tighter waves and wide vocal pulses |
 | 4 | 3 | Ripple | Violet | Dimmer atmosphere emphasizing narrow outward attacks |
@@ -671,7 +738,7 @@ rotated into portrait. If your installation mounts a wing upside down, set
 
 The producer shows the number when its debounced BOOT press changes the effect.
 Consumers show it when they receive a different effect ID. That ID is still
-present in every version-2 packet, so a missed change is recovered from the next
+present in every version-3 packet, so a missed change is recovered from the next
 accepted update. Unchanged packets **do not restart** the timer. Fast successive
 changes replace the displayed number with the latest one. A consumer joining
 an effect different from its initial setting also shows the number. Radio and
