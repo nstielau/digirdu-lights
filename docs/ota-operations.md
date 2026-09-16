@@ -372,3 +372,15 @@ the trial report. Serial logs showed the cyan number 5, Chroma pixel output
 responding to transmitted sound features, and zero rejected packets. After
 confirmation/reboot, the consumer resumed Chroma on ESP-NOW channel 1.
 These are packet/pixel-buffer observations, not new physical LED confirmation.
+
+After the user reset the separately powered FeatherS2 producer, its boot check
+reported the previous USB recovery version and then completed the OTA trial.
+Firebase recorded producer **1.0.4 / base 1.0.1**, `state=current`, deployment
+sequence **9**, empty error, **415 frames / 286 sends**, and `active=true` in
+the confirmation report. Both devices now report the same installed release.
+The connected consumer briefly faded during the producer's confirmation/report
+and reboot, then resumed live Spectrum reception with zero rejected packets
+(365 packets observed after its own latest reboot). Spectrum is the expected
+startup effect; Chroma remains effect 5. No new visual LED confirmation was
+requested or inferred from these logs. This also verifies the producer's first
+newer-version OTA download/trial beyond its USB bootstrap.

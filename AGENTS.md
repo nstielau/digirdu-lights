@@ -266,3 +266,9 @@ at deployment sequence 9: 931 frames / 308 packets in the trial report, then
 normal Chroma reception with zero rejected packets. Producer OTA requires a
 normal boot (RESET alone); no periodic update polling or remote reset exists.
 Check live fleet reports before claiming both nodes run the new release.
+
+Producer OTA 1.0.4 also confirmed after the user's normal reset: Firebase
+recorded `state=current`, sequence 9, base 1.0.1, no error, 415 frames and
+286 sends. Both nodes now report 1.0.4. Consumer logs showed expected fading
+during producer confirmation/reboot followed by live Spectrum reception with
+zero rejected packets. These are fleet/serial observations, not visual proof.
