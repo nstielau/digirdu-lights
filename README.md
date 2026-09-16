@@ -776,9 +776,13 @@ The original board's rainbow was deployed and visually confirmed on September
 - The earlier clap-reactive rainbow was visually confirmed. The new musical
   layers and simultaneous visual effect changes still need user confirmation.
   Culvert classification accuracy and RF coverage are unmeasured.
-- The producer has now received a complete, verified update with the clearer
-  Culvert renderer. This supersedes the earlier interrupted USB copy. Consumers
-  need the same rendering update for matching appearance.
+- Both the FeatherS2 producer and ESP32 V2 consumer now have the clearer
+  Culvert renderer. Each deployment passed all ten file readbacks and startup
+  checks. The updated consumer accepted **99 packets, zero rejected**, with a
+  live link after joining; received volume varied **0.07–1.00** and output peak
+  channel values **7–38**. These logs verify changing state reaching the updated
+  renderer; physical appearance still needs visual confirmation. The complete
+  producer update also supersedes the earlier interrupted USB copy.
 - BOOT input was verified directly (ten accepted presses), then the running
   audio app logged all three requested changes: Ember, Aurora, Ripple. This
   establishes the producer's button-to-effect path independently of appearance.
