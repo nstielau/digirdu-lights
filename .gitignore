@@ -3,3 +3,11 @@
 __pycache__/
 *.pyc
 .DS_Store
+settings.toml
+node_modules/
+web/dist/
+web/firebase-config.js
+.firebase/
+*-debug.log
+playwright-report/
+test-results/

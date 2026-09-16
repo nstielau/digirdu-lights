@@ -7,11 +7,12 @@ ESP32/wing nodes receive musical features wirelessly over **ESP-NOW**.
 Brightness is capped at **15%**, including overlapping visual layers. Audio
 stays in RAM; only normalized features and animation state are transmitted.
 
-## Planned OTA upgrades
+## OTA application upgrades
 
-[Review the OTA proposal](docs/ota-plan.md): GitHub releases, a separate Firebase
-app, per-device HTTPS check-ins over open `openwireless.org`, and rollback.
-This is a plan only; the current firmware remains ESP-NOW-only.
+[OTA operations and recovery](docs/ota-operations.md) describe the implemented
+GitHub release/Firebase update workflow, device enrollment and validation status.
+Devices try open `openwireless.org` at boot and return to ESP-NOW for playing.
+The [original proposal](docs/ota-plan.md) records the approved design.
 
 ## What the playing controls
 
@@ -398,7 +399,7 @@ make console
 `make deploy` automatically identifies supported boards from CircuitPython's
 board ID: FeatherS2 uses GPIO 38 and its matched CIRCUITPY drive; Adafruit
 Feather ESP32 V2 (HUZZAH32 V2) uses GPIO 32 and serial file transfer. Both get
-the same ten application/configuration files. An unknown model stops before
+the same OTA base and complete recovery application, preserving device settings. An unknown model stops before
 writing; add and verify its hardware profile before deploying to it. Use
 `BOARD=...` to require a specific model. Firmware installation still requires
 an explicit board choice for anything other than the default FeatherS2.
@@ -563,7 +564,7 @@ classification accuracy or RF coverage inside the culvert.
 
 ### Algorithm checks versus musical accuracy
 
-`make check` runs 51 host tests using pinned NumPy and generated PCM, plus
+`make check` runs 72 host tests using pinned NumPy and generated PCM, plus
 packet-state, renderer, button and deployment checks. Signal cases include
 50/93.75/140/175 Hz drones at different levels, equal-RMS timbre changes,
 modulated mid-band noise, vocals layered over drone, attacks and decaying tails,
@@ -618,8 +619,8 @@ The board ID selects the verified pin automatically. The ESP32 V2 profile is
 consumer-only; microphone wiring is configured on FeatherS2.
 
 ESP-NOW uses a common 2.4 GHz channel (default 1), without a router, Wi-Fi login,
-or internet connection. Don't also connect the nodes to a Wi-Fi access point,
-which can change their channel. The sender broadcasts version-3, 51-byte packets at up to ~16 updates/second. Packets contain eight spectrum levels, feature envelopes, scene
+or internet connection during playback. The OTA startup phase may connect to
+Wi-Fi, then disconnects before restoring the lighting channel. The sender broadcasts version-3, 51-byte packets at up to ~16 updates/second. Packets contain eight spectrum levels, feature envelopes, scene
 time/phase, the selected effect ID, a boot/session ID, sequence number, and recent event counters,
 strengths and ages. Receivers filter the configured leader MAC and group, reject
 duplicate/out-of-order packets, and recover a recent event if one packet is
@@ -821,7 +822,7 @@ do not multiply a node's count by the number of wireless nodes.
 
 ## Files and checks
 
-- `code.py`: confirmed GPIOs, I2S capture, leader/follower loop, diagnostics.
+- `lights_app.py`: confirmed GPIOs, I2S capture, leader/follower loop, diagnostics.
 - `config.py`, `node_config.py`: shared defaults and per-node overrides.
 - `audio_spectrum.py`: window, FFT and spectral measurements.
 - `audio_features.py`: simultaneous normalized features and event logic.

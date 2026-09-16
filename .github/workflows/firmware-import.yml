@@ -1,0 +1,33 @@
+name: Verify and import firmware release
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  import:
+    if: ${{ !github.event.release.draft && !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    environment: firmware
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: firebase/functions/package-lock.json
+      - run: npm ci --prefix firebase/functions --no-audit --no-fund
+      - run: npm --prefix firebase/functions test
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/705788413480/locations/global/workloadIdentityPools/github/providers/digirdu
+          service_account: digirdu-releases@digirdu-lights.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Verify GitHub source and import immutable artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node tools/firmware_admin.cjs import-release "${RELEASE_TAG#firmware-v}"

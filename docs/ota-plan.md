@@ -1,7 +1,8 @@
 # OTA upgrades — proposal for review
 
-Status: **plan only; not implemented or provisioned**. September 15, 2026.
-The separate Spectrum effect change does not enable Wi-Fi or OTA.
+Status: **approved for implementation**. September 15, 2026.
+See [OTA operations](ota-operations.md) for implementation details and measured
+validation. This document preserves the original proposal.
 
 ## Recommendation and scope
 

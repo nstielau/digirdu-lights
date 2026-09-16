@@ -1,0 +1,6 @@
+{
+  "functions":{"source":"firebase/functions","ignore":["node_modules","test","test-emulator","*.log"],"predeploy":["npm --prefix firebase/functions test"]},
+  "hosting":{"public":"web/dist","ignore":["**/.*"],"headers":[{"source":"**","headers":[{"key":"Cache-Control","value":"no-store"},{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"no-referrer"},{"key":"X-Frame-Options","value":"DENY"}]}],"rewrites":[{"source":"/device-api/v1/**","function":{"functionId":"deviceApi","region":"us-east1"}}]},
+  "firestore":{"rules":"firebase/firestore.rules","indexes":"firebase/firestore.indexes.json"},
+  "emulators":{"firestore":{"host":"127.0.0.1","port":8081},"ui":{"enabled":false},"singleProjectMode":true}
+}

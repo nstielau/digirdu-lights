@@ -1,0 +1,9 @@
+{
+  "name": "digirdu-functions",
+  "private": true,
+  "engines": {"node": "22"},
+  "main": "index.js",
+  "scripts": {"test": "node --test test/*.test.cjs", "test:emulator": "node --test test-emulator/*.test.cjs"},
+  "overrides": {"uuid": "11.1.1"},
+  "dependencies": {"firebase-admin": "14.4.0", "firebase-functions": "7.3.2"}
+}

@@ -11,6 +11,7 @@ FIRMWARE := .artifacts/firmware/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITP
 FIRMWARE_URL := https://downloads.circuitpython.org/bin/$(BOARD)/en_US/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).$(FIRMWARE_EXT)
 MOUNT ?=
 LEGACY_RAINBOW ?=
+BASE_ONLY ?=
 NODE_CONFIG ?=
 BOARD_ARGS = --board '$(BOARD)' --port '$(PORT)' $(if $(MOUNT),--mount '$(MOUNT)')
 ROM_FIRMWARE := .artifacts/firmware/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).bin
@@ -57,7 +58,7 @@ flash-rom: setup
 	$(PY) tools/board.py flash-rom $(BOARD_ARGS) --firmware '$(ROM_FIRMWARE)'
 
 deploy: setup check
-	$(PY) tools/board.py deploy --board '$(DEPLOY_BOARD)' --port '$(PORT)' $(if $(MOUNT),--mount '$(MOUNT)') $(if $(NODE_CONFIG),--node-config '$(NODE_CONFIG)') $(if $(filter 1,$(LEGACY_RAINBOW)),--legacy-rainbow)
+	$(PY) tools/board.py deploy --board '$(DEPLOY_BOARD)' --port '$(PORT)' $(if $(MOUNT),--mount '$(MOUNT)') $(if $(NODE_CONFIG),--node-config '$(NODE_CONFIG)') $(if $(filter 1,$(LEGACY_RAINBOW)),--legacy-rainbow) $(if $(filter 1,$(BASE_ONLY)),--base-only)
 
 console: setup
 	$(PY) tools/board.py console $(BOARD_ARGS)
@@ -76,6 +77,63 @@ $(VENV)/.dev-ready: $(VENV)/.ready requirements-dev.txt
 	touch $@
 
 check: $(VENV)/.dev-ready
-	$(PY) -m py_compile code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
+	$(PY) -m py_compile boot.py ota_manifest.py ota_store.py ota_http.py ota_bootstrap.py app_version.py lights_app.py tools/bundle.py code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
 	$(PY) -m unittest discover -s tests
 	git diff --check
+
+# OTA application releases and Firebase administration.
+NODE := node_modules/.bin/node
+NPM = PATH="$(CURDIR)/node_modules/.bin:$$PATH" npm
+PROJECT := digirdu-lights
+VERSION ?=
+DEVICE_ID ?=
+ROLE ?= consumer
+EMAIL ?= nick.stielau@gmail.com
+OTA_ENABLE ?=
+JAVA_HOME ?= /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+
+.PHONY: web-setup web-build web-test web-test-emulator web-deploy firmware-build firmware-release firmware-import ota-enroll ota-provision ota-status admin-seed
+web-setup:
+	npm ci --no-audit --no-fund
+	$(NPM) ci --prefix firebase/functions --no-audit --no-fund
+	PATH="$(CURDIR)/node_modules/.bin:$$PATH" npx playwright install chromium webkit
+
+web-build:
+	$(NPM) run build
+
+web-test-emulator:
+	JAVA_HOME='$(JAVA_HOME)' $(NPM) run test:emulator
+
+web-test:
+	$(NPM) test
+	$(NPM) --prefix firebase/functions test
+	$(NPM) run test:browser
+	$(MAKE) web-test-emulator
+
+web-deploy: web-test web-build
+	PATH="$(CURDIR)/node_modules/.bin:$$PATH" firebase deploy --project $(PROJECT) --only functions,hosting,firestore --non-interactive
+
+firmware-build: check
+	$(PY) tools/firmware_release.py '$(VERSION)'
+
+firmware-release: check
+	$(PY) tools/firmware_release.py '$(VERSION)' --publish
+
+firmware-import:
+	$(NODE) tools/firmware_admin.cjs import-release '$(VERSION)'
+
+admin-seed:
+	$(NODE) tools/firmware_admin.cjs seed-admin '$(EMAIL)'
+
+ota-enroll:
+	$(NODE) tools/firmware_admin.cjs enroll '$(DEVICE_ID)' '$(BOARD)' '$(ROLE)'
+
+ota-provision: setup
+	$(PY) tools/ota_provision.py '$(DEVICE_ID)' --port '$(PORT)' $(if $(filter 1,$(OTA_ENABLE)),--enable)
+
+ota-status:
+	$(NODE) tools/firmware_admin.cjs status
+
+.PHONY: deploy-base
+deploy-base:
+	$(MAKE) deploy BASE_ONLY=1

@@ -60,7 +60,8 @@ establish didgeridoo classification accuracy in the culvert.
 
 ## Workflow
 
-- `code.py`: capture, radio/render loops and hardware diagnostics.
+- `code.py`, `boot.py`, `ota_*.py`: USB-managed OTA base and recovery loader.
+- `lights_app.py`: capture, radio/render loops and hardware diagnostics.
 - `config.py`, `node_config.py`: algorithm defaults and per-node overrides.
 - `audio_spectrum.py`: shared spectral extraction, ulab device / NumPy host.
 - `audio_features.py`: pure feature/envelope/event processing.
@@ -136,11 +137,24 @@ sound on both the FeatherS2 producer and ESP32 V2 consumer. The two-board
 Spectrum response check is complete; culvert RF coverage and didgeridoo
 classification remain unverified.
 
-## OTA proposal
+## OTA implementation
 
-`docs/ota-plan.md` is a review proposal only. The user requested review before
-implementation; do not implement or provision OTA until approved. It adapts
+The user approved implementation of `docs/ota-plan.md`. It adapts
 Gate's two-slot updater for multiple app modules and boot-time HTTPS check-ins
 over open `openwireless.org`. Keep the cloud project/credentials separate from
 Drawbridge. Wi-Fi association changes the ESP-NOW channel: proposed maintenance
 and performance phases must explicitly restore the configured lighting channel.
+
+See `docs/ota-operations.md` for commands and actual bench results. App releases
+contain the ten modules listed in `ota_manifest.APP_FILES`, staged as complete
+slot directories. Never include node_config.py/settings.toml/credentials in OTA
+assets. Base changes need a base version bump and USB deployment after initial
+release. Keep the original recovery app and active slot intact during download.
+Use the local Node 22 runtime for web tools; `make web-test` includes browser and
+Firestore emulator checks. Never run emulator tests against production. Cloud
+project is digirdu-lights/us-east1; runtime and release service accounts have
+scoped privileges. Google auth/App Check guard browser administration; device
+HTTP uses per-device hashed credentials. Preserve these independent boundaries.
+Feather ESP32 V2 maintenance uses board.BUTTON/GPIO38 with its external pull-up;
+GPIO0 is its status NeoPixel. FeatherS2 uses BOOT/IO0 during the startup blue
+window, after RESET is released. Never transplant button pin assumptions.

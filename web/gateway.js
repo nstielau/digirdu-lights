@@ -1,0 +1,13 @@
+import {initializeApp} from 'firebase/app';
+import {getAuth,GoogleAuthProvider,signInWithPopup,signOut as firebaseSignOut,onAuthStateChanged} from 'firebase/auth';
+import {initializeAppCheck,ReCaptchaEnterpriseProvider} from 'firebase/app-check';
+import {getFunctions,httpsCallable} from 'firebase/functions';
+import {firebaseConfig,appCheckSiteKey} from './firebase-config.js';
+const app=initializeApp(firebaseConfig);
+initializeAppCheck(app,{provider:new ReCaptchaEnterpriseProvider(appCheckSiteKey),isTokenAutoRefreshEnabled:true});
+const auth=getAuth(app),fn=getFunctions(app,'us-east1');
+export const overview=httpsCallable(fn,'fleetOverview'),change=httpsCallable(fn,'fleetChange');
+export const signIn=()=>signInWithPopup(auth,new GoogleAuthProvider());
+export const signOut=()=>firebaseSignOut(auth);
+export const onUser=callback=>onAuthStateChanged(auth,callback);
+export const currentUser=()=>auth.currentUser;

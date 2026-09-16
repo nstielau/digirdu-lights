@@ -15,14 +15,18 @@ from serial.tools import list_ports
 ESP32_BOARD = "adafruit_feather_esp32_v2"
 S2_BOARD = "unexpectedmaker_feathers2"
 ROOT = Path(__file__).resolve().parents[1]
-APP_FILES = ("node_config.py", "config.py", "sound_reactive.py", "audio_spectrum.py",
-             "audio_features.py", "animation.py", "effects.py", "radio_protocol.py",
-             "wireless.py", "code.py")
+try:
+    from tools.bundle import deployment_contents, BASE_FILES
+except ImportError:
+    from bundle import deployment_contents, BASE_FILES
+APP_FILES = tuple(deployment_contents())
 
 # Executed on the device, not imported by host Python. Works with the existing
 # producer app; no deployment is needed to inspect the physical button first.
 BUTTON_TEST_SOURCE = """
 import board, digitalio, time
+from ota_bootstrap import load_app
+load_app()
 from config import CONFIG
 from effects import DebouncedButton
 def inspect_buttons():
@@ -111,6 +115,8 @@ class Repl:
         self.serial.write(b"\x01")
         self.until(b"raw REPL; CTRL-B to exit")
         self.until(b">")
+        # A deliberately interrupted field app must not reset during USB work.
+        self.execute("import microcontroller; microcontroller.watchdog.mode = None")
 
     def execute(self, source, timeout=10):
         payload = source.encode("utf-8")
@@ -157,45 +163,52 @@ def find_drive(name, explicit=None):
     return found[0]
 
 
-def deploy_s2(repl, mount, node_config=None):
+def deploy_s2(repl, mount, node_config=None, base_only=False):
     drive = find_drive("CIRCUITPY", mount)
     boot_info = (drive / "boot_out.txt").read_text()
     uid = repl.execute("import microcontroller; print(microcontroller.cpu.uid.hex())")
     if (f"Board ID:{S2_BOARD}" not in boot_info.splitlines()
             or uid.lower() not in boot_info.lower()):
         raise RuntimeError("CIRCUITPY drive does not match the connected FeatherS2.")
+    if repl.execute("import storage; print(storage.getmount('/').readonly)") != "True":
+        raise RuntimeError("FeatherS2 is in OTA field mode. Reset, then press BOOT during the blue startup window for USB maintenance.")
     # Python must not remount a drive that the USB host also writes.
     repl.execute("import supervisor; supervisor.runtime.autoreload = False")
-    sources = [ROOT / name for name in APP_FILES]
-    # Snapshot once so edits during a slow USB copy cannot mix file generations.
-    contents = {source.name: source.read_bytes() for source in sources}
+    contents = deployment_contents()
+    if base_only:
+        contents = {name: contents[name] for name in BASE_FILES}
+    sources = tuple(contents)
     if node_config:
         contents["node_config.py"] = Path(node_config).read_bytes()
-    elif (drive / "node_config.py").is_file():
+    elif not base_only and (drive / "node_config.py").is_file():
         contents["node_config.py"] = (drive / "node_config.py").read_bytes()
         print("Preserving this board's saved role and configuration.")
     backup = ROOT / ".artifacts" / "app-backups" / f"feathers2-{time.time_ns()}"
     backup.mkdir(parents=True)
     for source in sources:
-        data = contents[source.name]
-        compile(data, source.name, "exec")
-        destination = drive / source.name
+        data = contents[source]
+        if source.endswith(".py"):
+            compile(data, source, "exec")
+        destination = drive / source
+        destination.parent.mkdir(parents=True, exist_ok=True)
         if destination.exists():
-            shutil.copyfile(destination, backup / source.name)
-        temporary = drive / (source.name + ".tmp")
+            saved = backup / source
+            saved.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(destination, saved)
+        temporary = drive / (source + ".tmp")
         with temporary.open("wb") as stream:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
         if temporary.read_bytes() != data:
-            raise RuntimeError(f"Readback failed for {source.name}")
+            raise RuntimeError(f"Readback failed for {source}")
     for source in sources:
-        (drive / (source.name + ".tmp")).replace(drive / source.name)
+        (drive / (source + ".tmp")).replace(drive / source)
     os.sync()
     for source in sources:
-        if (drive / source.name).read_bytes() != contents[source.name]:
-            raise RuntimeError(f"Final readback failed for {source.name}")
-    print("Verified all ten application files; restarting.")
+        if (drive / source).read_bytes() != contents[source]:
+            raise RuntimeError(f"Final readback failed for {source}")
+    print("Verified %d base/recovery files; restarting." % len(contents))
 
 
 def flash_s2(firmware, mount):
@@ -213,27 +226,34 @@ def flash_s2(firmware, mount):
     print("UF2 sent. Wait for CIRCUITPY, then run make deploy.")
 
 
-def deploy_serial(repl, node_config=None, legacy=False):
+def deploy_serial(repl, node_config=None, legacy=False, base_only=False):
     """Back up, stage and verify files on boards without USB mass storage."""
-    names = ("code.py",) if legacy else APP_FILES
-    contents = {name: (ROOT / ("examples/esp32_rainbow.py" if legacy else name)).read_bytes()
-                for name in names}
+    names = ("code.py",) if legacy else (BASE_FILES if base_only else APP_FILES)
+    contents = ({"code.py": (ROOT / "examples/esp32_rainbow.py").read_bytes()}
+                if legacy else deployment_contents())
+    contents = {name: contents[name] for name in names}
     repl.execute("import supervisor, storage, os; supervisor.runtime.autoreload = False; storage.remount('/', readonly=False)")
     backup = ROOT / ".artifacts" / "app-backups" / f"esp32-{time.time_ns()}"
     backup.mkdir(parents=True)
-    existing = ast.literal_eval(repl.execute("print(repr(os.listdir('/')))"))
+    repl.execute("def _exists(path):\n try:\n  os.stat(path)\n  return True\n except OSError:\n  return False")
     for name in names:
-        if name in existing:
+        if repl.execute(f"print(_exists('/{name}'))") == "True":
             previous = ast.literal_eval(repl.execute(f"print(repr(open('/{name}', 'rb').read()))"))
-            (backup / name).write_bytes(previous)
+            saved = backup / name
+            saved.parent.mkdir(parents=True, exist_ok=True)
+            saved.write_bytes(previous)
             if name == "node_config.py" and not node_config:
                 contents[name] = previous
                 print("Preserving this board's saved role and configuration.", flush=True)
     if node_config and not legacy:
         contents["node_config.py"] = Path(node_config).read_bytes()
     for name, data in contents.items():
-        compile(data, name, "exec")
+        if name.endswith(".py"):
+            compile(data, name, "exec")
     for name, data in contents.items():
+        if "/" in name:
+            parent = name.rsplit("/", 1)[0]
+            repl.execute(f"if not _exists('/{parent}'):\n os.mkdir('/{parent}')")
         repl.execute(f"f = open('/{name}.tmp', 'wb')")
         for offset in range(0, len(data), 1024):
             repl.execute(f"f.write({data[offset:offset + 1024]!r})")
@@ -249,10 +269,13 @@ def deploy_serial(repl, node_config=None, legacy=False):
         uploaded = ast.literal_eval(repl.execute(f"print(repr(open('/{name}', 'rb').read()))"))
         if uploaded != data:
             raise RuntimeError(f"Final readback failed for {name}")
+    # Verify the newly installed recovery app in maintenance mode. A hard reset
+    # restores normal field ownership and the existing confirmed OTA selection.
+    repl.execute("storage.remount('/', readonly=True)")
     print(f"Verified {len(names)} application files; restarting.", flush=True)
 
 
-def deploy(port, board_id, mount=None, node_config=None, legacy=False):
+def deploy(port, board_id, mount=None, node_config=None, legacy=False, base_only=False):
     repl = Repl(port)
     try:
         repl.enter()
@@ -272,9 +295,15 @@ def deploy(port, board_id, mount=None, node_config=None, legacy=False):
             repl.execute("import espnow; from ulab import numpy, utils")
         if board_id == S2_BOARD:
             repl.execute("import audioi2sin")
-            deploy_s2(repl, mount, node_config)
+            if base_only:
+                deploy_s2(repl, mount, base_only=True)
+            else:
+                deploy_s2(repl, mount, node_config)
         else:
-            deploy_serial(repl, node_config, legacy)
+            if base_only:
+                deploy_serial(repl, base_only=True)
+            else:
+                deploy_serial(repl, node_config, legacy)
         repl.restart(board_id, legacy=legacy)
     finally:
         repl.serial.close()
@@ -317,8 +346,11 @@ def main():
     parser.add_argument("--mount")
     parser.add_argument("--node-config", help="Explicitly replace saved node configuration")
     parser.add_argument("--firmware")
+    parser.add_argument("--base-only", action="store_true", help="Update USB base while preserving recovery app and OTA slots")
     parser.add_argument("--legacy-rainbow", action="store_true", help="Deploy the original ESP32 V2 rainbow example")
     args = parser.parse_args()
+    if args.base_only and (args.action != "deploy" or args.node_config or args.legacy_rainbow):
+        parser.error("--base-only requires deploy without node-config or legacy-rainbow")
     if args.board == "auto" and args.action != "deploy":
         parser.error("Automatic board selection is supported only for deploy")
     if args.action == "ports":
@@ -334,7 +366,7 @@ def main():
     port = find_port(args.port)
     print(f"Using {port}", flush=True)
     if args.action == "deploy":
-        deploy(port, args.board, args.mount, args.node_config, args.legacy_rainbow)
+        deploy(port, args.board, args.mount, args.node_config, args.legacy_rainbow, args.base_only)
     elif args.action in ("test-mic", "test-buttons", "benchmark"):
         if args.board != S2_BOARD:
             parser.error("Producer diagnostics are configured for the FeatherS2 wiring")
@@ -349,8 +381,8 @@ def main():
                           "Audio and lighting are paused; results appear when the test ends.", flush=True)
                     print(repl.execute(BUTTON_TEST_SOURCE, timeout=30))
                 else:
-                    command = "code.test_microphone(10)" if args.action == "test-mic" else "code.benchmark(5)"
-                    print(repl.execute("import code; " + command, timeout=25))
+                    command = "app.test_microphone(10)" if args.action == "test-mic" else "app.benchmark(5)"
+                    print(repl.execute("from ota_bootstrap import load_app; app, _ = load_app(); " + command, timeout=25))
             finally:
                 repl.restart(S2_BOARD)
         finally:
