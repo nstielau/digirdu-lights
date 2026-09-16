@@ -1231,3 +1231,21 @@ Producer logs showed 3.117 seconds from sleep request to alarm handoff, with
 no application traceback. Resetting each board then restored sound response
 on both wings, as visually confirmed by the user. Holding a pin can add some sleep current; electrical
 power consumption remains unmeasured.
+
+### OTA activity light (USB base 1.0.2)
+
+During the boot-time OTA check, download, or confirmation report, one cyan
+pixel advances along the 32-pixel wing about every two seconds, wrapping
+around after pixel 32. Brightness is capped at **15%** (GRB `38, 0, 38`).
+This shows activity, not percentage complete; blocking Wi-Fi/TLS operations
+hold the current pixel until they return. The indicator clears and releases
+the wing pin before normal audio effects start, including when Wi-Fi fails.
+The existing full-wing blue flash still marks the USB maintenance window.
+
+Install this optional **USB base 1.0.2** with `make deploy-base` on each board.
+For FeatherS2, first tap RESET, then press/release BOOT during the blue flash.
+The deploy command backs up and verifies the base files, preserving credentials,
+node settings, recovery app and OTA slots. A normal RESET afterward checks OTA
+and shows the new indicator. This base change cannot be delivered through an
+app-only OTA release. The sound-reactive app remains **1.0.6**, and future
+compatible app bundles still accept base 1.0.1.

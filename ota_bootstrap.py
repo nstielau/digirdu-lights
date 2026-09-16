@@ -11,6 +11,53 @@ from ota_http import DeviceHTTP
 
 TRIAL_SECONDS = 30
 NVM_MARKER = b"DGO1"  # Reserved bytes 0..4; never store device secrets in NVM.
+OTA_PIXEL_COUNT = 32
+OTA_PIXEL_BRIGHTNESS = 0.15
+OTA_PIXEL_STEP_S = 2.0
+
+
+class OTAIndicator:
+    """One cyan pixel advances while boot-time networking services its watchdog.
+
+    This is activity, not a download percentage. Blocking Wi-Fi/TLS calls leave
+    the current pixel lit until they return. No application modules are loaded.
+    """
+    def __init__(self):
+        import board
+        import digitalio
+        from neopixel_write import neopixel_write
+        pins = {"unexpectedmaker_feathers2": "IO38",
+                "adafruit_feather_esp32_v2": "D32"}
+        self.pin = digitalio.DigitalInOut(getattr(board, pins[board.board_id]))
+        self.write = neopixel_write
+        self.pixels = bytearray(OTA_PIXEL_COUNT * 3)
+        self.index = -1
+        self.next_step = 0.0
+        try:
+            self.pin.switch_to_output(value=False)
+            self.update()
+        except BaseException:
+            self.pin.deinit()
+            raise
+
+    def update(self):
+        now = time.monotonic()
+        if now < self.next_step:
+            return
+        self.pixels[:] = bytes(len(self.pixels))
+        self.index = (self.index + 1) % OTA_PIXEL_COUNT
+        level = int(255 * OTA_PIXEL_BRIGHTNESS)
+        # GRB: cyan, one pixel only, at the same 15% ceiling as the app.
+        self.pixels[self.index * 3] = level
+        self.pixels[self.index * 3 + 2] = level
+        self.write(self.pin, self.pixels)
+        self.next_step = now + OTA_PIXEL_STEP_S
+
+    def close(self):
+        try:
+            self.write(self.pin, bytes(len(self.pixels)))
+        finally:
+            self.pin.deinit()
 
 
 def load_app(directory="/recovery"):
@@ -66,11 +113,15 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
     import socketpool
     started = time.monotonic()
     deadline = started + 90
+    indicator = None
     def service():
         if time.monotonic() >= deadline:
             raise OSError("maintenance_deadline")
         watchdog.feed()
+        if indicator is not None:
+            indicator.update()
     try:
+        indicator = OTAIndicator()
         nvm_flag(True)  # Watchdog/reset in network phase skips it once next boot.
         time.sleep(int.from_bytes(os.urandom(2), "little") / 65535 * 2)
         service()
@@ -98,9 +149,13 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
         # Never print endpoint response bodies, credentials or raw socket objects.
         print("OTA unavailable: " + type(error).__name__)
     finally:
-        wifi.radio.stop_station()
-        gc.collect()
-        nvm_flag(False)
+        try:
+            wifi.radio.stop_station()
+            gc.collect()
+            nvm_flag(False)
+        finally:
+            if indicator is not None:
+                indicator.close()
     return False
 
 

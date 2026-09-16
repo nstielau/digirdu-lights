@@ -476,3 +476,28 @@ The user then reset each board with BOOT released and confirmed **both wings
 respond to claps again**. Producer USB reconnected and passive logs showed
 changing audio features. This completes the two-board visual fade/dark-state
 and physical-reset wake test for 1.0.6.
+
+## USB base 1.0.2: OTA activity indicator
+
+The base now shows one cyan pixel during check-in, download and confirmation
+reporting, moving to the next physical pixel at two-second service intervals.
+Only one of 32 pixels is lit, at 15% maximum brightness; blocking network calls
+pause movement. It is an activity marker, not a download percentage. Cleanup
+blacks the wing and releases its pin on both normal and network-error exits.
+Audio/ESP-NOW resumes through the existing boot flow.
+
+This requires `make deploy-base` over USB on each node (FeatherS2 requires
+BOOT-after-RESET maintenance mode). Preserve recovery/active/trial slots,
+settings and node identity. App remains 1.0.6; base 1.0.1 remains compatible
+with app OTA, with APP_MINIMUM_BASE separate from the installed BASE_VERSION.
+Host checks pass 104 tests, including pin mapping, capped single-pixel stepping,
+wraparound, error cleanup and unchanged app compatibility. Hardware deployment
+and visual confirmation are tracked separately below.
+
+The FeatherS2 producer received all seven base files through `make deploy-base`
+with successful readback. After unmounting CIRCUITPY and a normal hard reset,
+serial reported app **1.0.6 / base 1.0.2**, completed network maintenance and
+resumed I2S/ESP-NOW. Firebase confirmed current 1.0.6, sequence 11, base 1.0.2,
+no error. The ESP32 V2 consumer still reports base 1.0.1 and needs its own USB
+base deployment. Visual confirmation of the activity indicator is separate
+from file verification and the successful boot.

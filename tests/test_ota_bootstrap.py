@@ -7,7 +7,62 @@ import unittest
 from unittest.mock import Mock,patch,mock_open
 from types import SimpleNamespace
 from audio_features import AudioFeatures
-from ota_bootstrap import Health,TrialReady,main
+from ota_bootstrap import Health,TrialReady,main,OTAIndicator,network
+
+
+class OTAIndicatorTests(unittest.TestCase):
+    def test_verified_pins_single_cyan_pixel_timing_wrap_and_cleanup(self):
+        for board_id, pin_name in (('unexpectedmaker_feathers2','IO38'),
+                                   ('adafruit_feather_esp32_v2','D32')):
+            clock=[0.0]; frames=[]; pin=Mock(); gpio=object()
+            digital=Mock(return_value=pin)
+            modules={'board':SimpleNamespace(board_id=board_id,**{pin_name:gpio}),
+                     'digitalio':SimpleNamespace(DigitalInOut=digital),
+                     'neopixel_write':SimpleNamespace(neopixel_write=lambda p,b:frames.append(bytes(b)))}
+            with patch.dict(sys.modules,modules), patch('ota_bootstrap.time.monotonic',side_effect=lambda:clock[0]):
+                indicator=OTAIndicator()
+                digital.assert_called_once_with(gpio)
+                for step in range(33):
+                    clock[0]=step*2.0; indicator.update()
+                    frame=frames[-1]
+                    self.assertEqual(len(frame),96)
+                    self.assertEqual(sum(bool(v) for v in frame),2)
+                    self.assertEqual(frame[(step%32)*3:(step%32)*3+3],bytes((38,0,38)))
+                    count=len(frames);clock[0]+=.5;indicator.update()
+                    self.assertEqual(len(frames),count)
+                indicator.close()
+                self.assertEqual(frames[-1],bytes(96))
+                pin.deinit.assert_called_once()
+
+    def test_network_releases_indicator_on_success_and_connection_failure(self):
+        for failure in (False,True):
+            radio=Mock()
+            if failure:radio.connect.side_effect=OSError('no access point')
+            progress=Mock();store=Mock();store.state={'report_pending':False}
+            client=Mock();client.request.return_value=None
+            modules={'wifi':SimpleNamespace(radio=radio),
+                     'socketpool':SimpleNamespace(SocketPool=Mock())}
+            cfg={'ssid':'openwireless.org','id':'test','token':'unused','api':'unused'}
+            with patch.dict(sys.modules,modules), \
+                 patch('ota_bootstrap.OTAIndicator',return_value=progress), \
+                 patch('ota_bootstrap.DeviceHTTP',return_value=client), \
+                 patch('ota_bootstrap.report_body',return_value={}), \
+                 patch('ota_bootstrap.nvm_flag'), patch('ota_bootstrap.time.sleep'):
+                self.assertFalse(network(store,cfg,'1.0.6','session',1,Mock()))
+                progress.update.assert_called()
+                progress.close.assert_called_once()
+                radio.stop_station.assert_called_once()
+
+    def test_pin_released_even_if_blackout_write_fails(self):
+        indicator=object.__new__(OTAIndicator)
+        indicator.pin=Mock();indicator.pixels=bytearray(96)
+        indicator.write=Mock(side_effect=OSError('write failure'))
+        with self.assertRaises(OSError):indicator.close()
+        indicator.pin.deinit.assert_called_once()
+
+    def test_optional_base_update_does_not_raise_app_minimum(self):
+        from tools.bundle import application,manifest
+        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.0.1')
 
 class RecoveryBootTests(unittest.TestCase):
     def test_new_rollback_skips_network_but_later_boot_reports(self):
