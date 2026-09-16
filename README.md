@@ -12,6 +12,11 @@ stays in RAM; only normalized features and animation state are transmitted.
 [OTA operations and recovery](docs/ota-operations.md) describe the implemented
 GitHub release/Firebase update workflow, device enrollment and validation status.
 Devices try open `openwireless.org` at boot and return to ESP-NOW for playing.
+Manage enrolled devices at [Digirdu Lights](https://digirdu-lights.firebaseapp.com):
+view their reported versions, follow the latest release, pin a version, or pause
+updates. Each board needs a one-time USB bootstrap and its own credential.
+Updates preserve the node's role, wiring and settings. A failing candidate
+rolls back to the previous app; CircuitPython and the OTA base remain USB-managed.
 The [original proposal](docs/ota-plan.md) records the approved design.
 
 ## What the playing controls

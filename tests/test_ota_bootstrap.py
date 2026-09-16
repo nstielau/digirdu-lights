@@ -4,9 +4,37 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import Mock,patch
+from unittest.mock import Mock,patch,mock_open
+from types import SimpleNamespace
 from audio_features import AudioFeatures
-from ota_bootstrap import Health,TrialReady
+from ota_bootstrap import Health,TrialReady,main
+
+class RecoveryBootTests(unittest.TestCase):
+    def test_new_rollback_skips_network_but_later_boot_reports(self):
+        class AppRunning(BaseException):
+            pass
+        for recovered in (True,False):
+            store=Mock()
+            store.state={'generation':5,'trial':None,'outcome':'rolled_back'}
+            def select():
+                if recovered:store.state['generation']+=1
+                return None
+            store.select.side_effect=select
+            app=Mock();app.main.side_effect=AppRunning
+            modules={'board':SimpleNamespace(),
+                     'storage':SimpleNamespace(getmount=lambda _:SimpleNamespace(readonly=False)),
+                     'microcontroller':SimpleNamespace(watchdog=Mock()),
+                     'watchdog':SimpleNamespace(WatchDogMode=SimpleNamespace(RESET=1))}
+            with patch.dict(sys.modules,modules), \
+                 patch('ota_bootstrap.os.getenv',return_value='1'), \
+                 patch('ota_bootstrap.settings',return_value={}), \
+                 patch('ota_bootstrap.UpdateStore',return_value=store), \
+                 patch('ota_bootstrap.nvm_flag',return_value=False), \
+                 patch('ota_bootstrap.open',mock_open(read_data='APP_VERSION="1.0.1"')), \
+                 patch('ota_bootstrap.load_app',return_value=(app,'1.0.1')), \
+                 patch('ota_bootstrap.network',return_value=False) as network:
+                with self.assertRaises(AppRunning):main()
+                self.assertEqual(network.call_count,0 if recovered else 1)
 
 class HealthTests(unittest.TestCase):
     def test_trial_requires_completed_calibration_and_sustained_progress(self):

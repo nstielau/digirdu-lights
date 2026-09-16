@@ -77,6 +77,7 @@ $(VENV)/.dev-ready: $(VENV)/.ready requirements-dev.txt
 	touch $@
 
 check: $(VENV)/.dev-ready
+	$(PY) -m py_compile tools/cloud.py tools/firmware_release.py tools/ota_provision.py
 	$(PY) -m py_compile boot.py ota_manifest.py ota_store.py ota_http.py ota_bootstrap.py app_version.py lights_app.py tools/bundle.py code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
 	$(PY) -m unittest discover -s tests
 	git diff --check

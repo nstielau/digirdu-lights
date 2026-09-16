@@ -158,3 +158,10 @@ HTTP uses per-device hashed credentials. Preserve these independent boundaries.
 Feather ESP32 V2 maintenance uses board.BUTTON/GPIO38 with its external pull-up;
 GPIO0 is its status NeoPixel. FeatherS2 uses BOOT/IO0 during the startup blue
 window, after RESET is released. Never transplant button pin assumptions.
+
+OTA base 1.0.1 skips networking on the first boot that rejects an interrupted
+trial or corrupt active slot; preserve this immediate return to lighting. Report
+on a later normal boot. A native ESP32 V2 test with base 1.0.0 rejected a hung
+candidate but hit a CircuitPython hard fault during the immediate Wi-Fi phase.
+Keep the serial connection open across trial resets; reconnecting a USB-UART
+bridge can interrupt the trial and correctly cause rollback.

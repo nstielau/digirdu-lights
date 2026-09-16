@@ -165,15 +165,19 @@ def main():
     watchdog.timeout = 20
     watchdog.mode = WatchDogMode.RESET
     store = UpdateStore()
+    generation = store.state["generation"]
     selected = store.select()
     trial = store.state["trial"] is not None
+    # Resume lighting first after an interrupted trial or corrupt active slot.
+    # Do not immediately exercise Wi-Fi/TLS again following a watchdog reset.
+    recovered = store.state["generation"] != generation and not trial
     directory = store.path(selected) if selected else "/recovery"
     with open(directory + "/app_version.py") as f:
         identity = {}
         exec(f.read(), identity)
     version = identity["APP_VERSION"]
     session = os.urandom(8).hex()
-    skip = nvm_flag()
+    skip = nvm_flag() or recovered
     nvm_flag(False)
     print("OTA app=%s base=%s state=%s" % (version, BASE_VERSION, store.state["outcome"]))
     if not trial and not skip and network(store, cfg, version, session, 1, watchdog):

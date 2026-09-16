@@ -8,7 +8,7 @@ See the validation section below for what has actually been tested.
 ## Versions and files
 
 `app_version.py` identifies the application (first OTA release 1.0.1);
-`ota_manifest.py` identifies the USB-installed base, currently 1.0.0. CircuitPython remains pinned to 10.3.1.
+`ota_manifest.py` identifies the USB-installed base, currently 1.0.1. CircuitPython remains pinned to 10.3.1.
 
 - `code.py`, `boot.py`, `ota_*.py` and `certs/` are the USB-managed base.
 - `lights_app.py` contains the previous audio/render/control loops. The other
@@ -27,6 +27,12 @@ recovery, HTTP, certificates, manifest compatibility or the loader needs a new
 base version and deliberate USB deployment. Application OTA cannot replace the
 base or CircuitPython itself. The API boundary is a convention for trusted
 Python, not a sandbox against malicious release authors.
+
+Base 1.0.1 resumes lighting immediately after an interrupted trial or corrupt
+active slot, deferring the cloud report until a later normal boot. This avoids
+reconnecting Wi-Fi during the first watchdog recovery boot. Base 1.0.0 boards
+need `make deploy-base` over USB; application release 1.0.2 requires base 1.0.1.
+App 1.0.2 retains the same audio, effects and ESP-NOW protocol as 1.0.1.
 
 ## Initial deployment and enrollment
 
@@ -88,7 +94,9 @@ This is a deliberate recovery operation, not part of routine deploy.
 
 Field mode writes through CircuitPython. A selected trial is marked started
 before import. Failure or a reset before confirmation reselects the previous
-working copy. A watchdog catches a stuck application loop. After a failed
+working copy. A watchdog catches a stuck application loop. The immediate recovery boot
+skips networking so the working app can resume; its saved failure report is
+sent on a later normal boot. After a failed
 candidate, the same deployment sequence is not retried; assign a newer sequence
 or release. There is always a USB recovery path, but FAT/filesystem corruption
 can still require manual repair. Two directories are not independent flash banks.
@@ -180,7 +188,7 @@ until the device reports it. No API or credentials are service-worker cached.
 
 ## Validation
 
-Implemented checks include 72 host firmware tests, backend contract tests,
+Implemented checks include 73 host firmware tests, backend contract tests,
 Firestore emulator authorization/transaction/rule tests, and mobile Chromium
 and WebKit dashboard tests. Emulator tests refuse non-local database targets.
 The consumer has booted the USB recovery bundle and resumed real ESP-NOW
@@ -190,9 +198,31 @@ has passed native SHA-256 and storage-capacity probes.
 A native HTTPS check-in succeeded over open `openwireless.org`: Firebase recorded
 consumer app 1.0.0, base 1.0.0 and the correct hardware/role. The consumer then
 returned to ESP-NOW channel 1 and received changing Spectrum data. The dashboard
-loads publicly; unauthenticated device requests return HTTP 401.
+loads publicly; unauthenticated device requests return HTTP 401. Google sign-in
+is enabled and its live popup reaches accounts.google.com; an authenticated
+fleet-view check is still pending.
 
-Remaining bench results will be recorded here as testing proceeds: application
-download/trial/confirmation, intentional bad-code/watchdog
-rollback, physical maintenance and power-loss recovery, producer timing, and
-Google sign-in on the live dashboard. Host tests do not establish those results.
+The consumer downloaded and SHA-256 verified all ten 1.0.1 release modules over
+HTTPS, ran the 30-second trial, and reported `state=current` with 931 frames and
+362 received packets. After the confirmation reboot it resumed ESP-NOW channel 1.
+A locally injected candidate that raises `RuntimeError` on import rolled back
+to the verified 1.0.1 slot and resumed reception. Fault candidates are never
+published to GitHub or imported into the cloud.
+
+The initial network attempt reset and recovered into lighting; its cause was
+not established. A diagnostic download with the watchdog disabled succeeded;
+the subsequent trial and confirmation used the normal watchdog. Reopening the
+USB serial bridge also interrupted an early trial, correctly causing rollback.
+Keep one serial connection open across resets when measuring a whole update.
+
+A deliberately frozen candidate triggered the 20-second watchdog. Base 1.0.0
+selected the correct previous slot but suffered a CircuitPython hard fault
+while immediately reconnecting Wi-Fi. After USB installation of base 1.0.1,
+the repeated frozen-candidate test rolled back, skipped that network phase and
+resumed live ESP-NOW reception (13 packets by frame 33). The server's deployment
+counter was advanced beyond the local fault-test sequences; no faulty releases
+were published. Application 1.0.2 requires this updated base.
+
+Remaining bench results: a complete unattended boot/download cycle, physical
+maintenance and power-loss recovery, producer timing, and an authenticated fleet
+view. Host tests do not establish those results.
