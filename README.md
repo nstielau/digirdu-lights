@@ -798,10 +798,15 @@ The original board's rainbow was deployed and visually confirmed on September
 
 ## Current didgeridoo validation
 
-- The effect-number indicator is deployed on the ESP32 V2 consumer. An on-board
-  test generated and wrote all four glyphs: 10/13/13/12 lit pixels for numbers
-  1/2/3/4, peak channel value 38, then resumed normal radio reception. Producer
-  indicator deployment and physical orientation confirmation are pending.
+- The effect-number indicator is deployed on both the FeatherS2 producer and
+  ESP32 V2 consumer, with all ten application files verified on each. The
+  consumer's on-board test generated and wrote all four glyphs: 10/13/13/12 lit
+  pixels for numbers 1/2/3/4, peak channel value 38, then resumed reception.
+  The producer also rendered and broadcast two automatic cycles (2,3,4,1),
+  submitting 188 radio updates with zero reported errors/skips, then resumed
+  the microphone app on Culvert. The demo paused audio capture; normal button
+  indicators run alongside capture. Send success alone does not verify consumer
+  display, and physical readability/mirroring confirmation is still pending.
 - A consumer redeployment with music playing near the powered producer passed
   all ten file readbacks and startup verification. After joining, eight status
   samples stayed `link=live`, reaching **104 accepted packets, zero rejected**.
