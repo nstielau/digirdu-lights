@@ -357,3 +357,18 @@ checks at normal boot, runs a 30-second health trial, confirms and resumes
 ESP-NOW. Use RESET alone, without pressing the maintenance button. Keep open
 `openwireless.org` in range. Confirm actual reported versions and outcomes;
 publishing a target alone does not prove that boards installed it.
+
+### 1.0.4 rollout evidence (September 16, 2026)
+
+Release source `804f988` and tag `firmware-v1.0.4` were pushed. GitHub's source
+checks and release-import workflow passed. The immutable ten-module bundle is
+64,209 bytes; Firebase selected deployment sequence 9. The website now labels
+the effect library and saved replay as firmware 1.0.4.
+
+The USB-connected ESP32 V2 consumer downloaded and staged 1.0.4 over HTTPS,
+rebooted into its trial, then confirmed. Firebase recorded **1.0.4 / base 1.0.1**,
+`state=current`, sequence **9**, empty error, **931 frames / 308 packets** in
+the trial report. Serial logs showed the cyan number 5, Chroma pixel output
+responding to transmitted sound features, and zero rejected packets. After
+confirmation/reboot, the consumer resumed Chroma on ESP-NOW channel 1.
+These are packet/pixel-buffer observations, not new physical LED confirmation.

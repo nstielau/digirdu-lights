@@ -259,3 +259,10 @@ is authorized for the site. Keep original feature captures local and ignored.
 Regenerate the snapshot after renderer changes; website builds use the saved
 asset without reading private captures. Preserve paused-by-default playback,
 seek controls, synthetic-tail labelling, fetch-failure fallback and OTA compatibility notes. The replay cannot send device commands or record audio.
+
+Firmware 1.0.4 is released from commit `804f988` / tag `firmware-v1.0.4`.
+GitHub checks and immutable import passed. ESP32 V2 consumer OTA was confirmed
+at deployment sequence 9: 931 frames / 308 packets in the trial report, then
+normal Chroma reception with zero rejected packets. Producer OTA requires a
+normal boot (RESET alone); no periodic update polling or remote reset exists.
+Check live fleet reports before claiming both nodes run the new release.
