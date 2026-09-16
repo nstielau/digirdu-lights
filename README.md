@@ -12,7 +12,8 @@ stays in RAM; only normalized features and animation state are transmitted.
 [OTA operations and recovery](docs/ota-operations.md) describe the implemented
 GitHub release/Firebase update workflow, device enrollment and validation status.
 Devices try open `openwireless.org` at boot and return to ESP-NOW for playing.
-App 1.0.5 adds hold-to-sleep with a synchronized red fade. App 1.0.4 added
+App 1.0.6 keeps the wing data line LOW through sleep to prevent stray pixels.
+App 1.0.5 added hold-to-sleep with a synchronized red fade. App 1.0.4 added
 Chroma, stronger musical effects and the IO43 effect button.
 It keeps the app 1.0.3 fix for an intermittent CircuitPython ESP-NOW receive-buffer error that
 could stop a consumer or trigger OTA recovery.
@@ -21,7 +22,7 @@ view their reported versions, follow the latest release, pin a version, or pause
 updates. Each board needs a one-time USB bootstrap and its own credential.
 Your Google profile photo opens the account menu in the top right; sign out
 from that menu. The public [Effects guide](https://digirdu-lights.firebaseapp.com/effects.html)
-describes Spectrum, Ember, Aurora, Ripple and Chroma for app 1.0.5, including frequency
+describes Spectrum, Ember, Aurora, Ripple and Chroma for app 1.0.6, including frequency
 bands, musical layers, BOOT selection and the mirrored number indicator.
 Both web pages use a cyan/hot-pink 1980s laser theme with the supplied horizon
 artwork, bundled locally in `web/assets/laser-horizon.png`.
@@ -1165,7 +1166,7 @@ remains Spectrum; see OTA operations for release rollout results.
 
 The website’s [Effects overview](https://digirdu-lights.firebaseapp.com/effects.html)
 includes the five-effect comparison, play/pause/seek controls, and Chroma’s
-calibration and blending details for firmware 1.0.5. The saved performance is
+calibration and blending details for firmware 1.0.6. The saved performance is
 from September 16; the animations use the released renderer.
 
 `make replay-web` regenerates `web/assets/effects-replay.json` from `CAPTURE`
@@ -1213,3 +1214,16 @@ connection. Use battery or a power-only supply to assess true low-power behavior
 USB logs are not proof of current consumption. The wing/microphone power rails
 are not switched off by this firmware, so peripherals can still draw power.
 See the official [CircuitPython alarm documentation](https://docs.circuitpython.org/en/latest/shared-bindings/alarm/index.html).
+
+
+### Sleep output hold (1.0.6)
+
+A 1.0.5 sleep test left one wing pixel white with slight color changes despite
+the completed red fade. The cause is not yet proven; the data GPIO was released
+when the app unwound its hardware contexts. Version 1.0.6 reclaims that same
+wing GPIO, writes a final black frame, waits for it to latch and preserves the
+output LOW with `preserve_dios` through CircuitPython cleanup/deep sleep. It is
+an output hold, not a wake alarm. Reset restores normal pin initialization.
+The fix applies to FeatherS2 IO38 and ESP32 V2 D32 without changing wiring.
+Holding a pin can add some sleep current; actual power and visual confirmation
+remain separate from software tests.

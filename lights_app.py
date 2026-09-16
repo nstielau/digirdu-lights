@@ -288,9 +288,17 @@ def enter_deep_sleep():
     microcontroller.watchdog.mode = None
     supervisor.runtime.autoreload = False
     wifi.radio.enabled = False
-    print("SLEEP entering deep sleep; reset each board to wake")
-    # No timer, pin or radio wake source: hardware RESET/power cycle restarts boot.py.
-    alarm.exit_and_deep_sleep_until_alarms()
+    # Keep the powered wing's data input LOW through VM teardown and sleep.
+    # Releasing it to high impedance can latch stray bits after the black frame.
+    # Do not use a with/finally here: DeepSleepRequest unwinds Python contexts.
+    sleep_pin = digitalio.DigitalInOut(PIXEL_PIN)
+    sleep_pin.switch_to_output(value=False)
+    neopixel_write(sleep_pin, bytes(CONFIG.pixel_count * 3))
+    sleep_pin.value = False
+    time.sleep(0.001)  # Allow the all-black frame to latch before holding the pin.
+    print("SLEEP entering deep sleep; wing data held LOW; reset each board to wake")
+    # Pin preservation is an output hold, NOT a PinAlarm or other wake source.
+    alarm.exit_and_deep_sleep_until_alarms(preserve_dios=(sleep_pin,))
 
 
 def main(health=None):

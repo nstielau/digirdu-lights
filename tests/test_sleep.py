@@ -142,7 +142,13 @@ class ShutdownTests(unittest.TestCase):
             with self.assertRaises(DeepSleep):app.main()
         self.assertIsNone(mcu.watchdog.mode);self.assertFalse(wifi.radio.enabled)
         self.assertFalse(supervisor.runtime.autoreload)
-        alarm.exit_and_deep_sleep_until_alarms.assert_called_once_with()
+        pin=app.digitalio.DigitalInOut.return_value
+        app.digitalio.DigitalInOut.assert_called_once_with(app.PIXEL_PIN)
+        pin.switch_to_output.assert_called_once_with(value=False)
+        app.neopixel_write.assert_called_once_with(pin,bytes(96))
+        self.assertFalse(pin.value)
+        pin.deinit.assert_not_called()  # DeepSleepRequest must not release the hold.
+        alarm.exit_and_deep_sleep_until_alarms.assert_called_once_with(preserve_dios=(pin,))
         self.assertFalse(issubclass(app.SleepRequested,Exception))
 
     def test_follower_blacks_out_and_deinitializes_radio_before_sleep(self):

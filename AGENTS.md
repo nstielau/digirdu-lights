@@ -299,3 +299,12 @@ consumer reception resumed. A user-triggered hold subsequently produced a native
 physical appearance, sleep current and reset wake-up remain unconfirmed.
 Do not equate successful OTA or USB idle with measured deep-sleep power. USB-connected simulated
 sleep is not proof of deep-sleep power draw.
+
+
+Sleep hotfix 1.0.6 responds to a user-reported white/changing pixel on the wing
+following 1.0.5 sleep. Floating data is a hypothesis, not an established cause.
+After normal cleanup, enter_deep_sleep reclaims the verified wing GPIO, writes
+black, drives LOW, allows 1 ms latch time and passes it via preserve_dios. Do
+not deinit that pin in a with/finally around the alarm: DeepSleepRequest unwinds
+Python. Preserve output state across VM teardown; do not add a wake alarm or
+change the hardware pin. Real sleep current and visual results need measurement.

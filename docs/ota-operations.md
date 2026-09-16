@@ -436,3 +436,14 @@ low-power current on USB, the producer's physical appearance, or reset wake-up.
 Logs remain ignored under `.artifacts/sleep-physical-test.log` and
 `.artifacts/sleep-physical-events.jsonl`. User visual/reset confirmation remains
 separate from the native consumer result.
+
+
+## Sleep output hold 1.0.6
+
+After the native 1.0.5 sleep test, the user reported one bright white pixel on
+the wing with slight color changes. This is not a passed dark-state visual
+check. Version 1.0.6 addresses the potentially floating GPIO during VM teardown:
+reclaim the verified wing pin after cleanup, send black, drive LOW, wait 1 ms,
+then preserve its output state through the alarm call. It uses no wake alarms
+and does not require an updated USB base. The suspected cause still needs a
+physical retest. Both nodes need a normal reset to wake/check for this update.
