@@ -272,3 +272,20 @@ recorded `state=current`, sequence 9, base 1.0.1, no error, 415 frames and
 286 sends. Both nodes now report 1.0.4. Consumer logs showed expected fading
 during producer confirmation/reboot followed by live Spectrum reception with
 zero rejected packets. These are fleet/serial observations, not visual proof.
+
+
+## Hold-to-sleep (1.0.5)
+
+Producer BOOT/IO0 and IO43 use ButtonGesture: short action on debounced release,
+long hold once at 3 seconds, never both. A long hold latches an irreversible
+3-second all-red fade capped by brightness, then raises SleepRequested to
+unwind I2S/GPIO/ESP-NOW before deep sleep. This is BaseException so it bypasses
+OTA error rollback; main handles it and calls alarm with zero wake alarms.
+Disable watchdog/autoreload/Wi-Fi first. Each node needs its own hardware reset
+to wake. Never add an automatic timer wake. USB/BLE may simulate sleep; do not
+claim measured low power without electrical measurement.
+Repeated 17-byte DGRS controls alternate with unchanged v3 feature frames and
+share session/sequence counters. Preserve MAC/group/session/freshness validation,
+late fade progress, irreversible deadline, native RX completion gating and the
+one-outstanding-send bound. Old consumers do not sleep: all nodes need 1.0.5.
+Ignore sleep during the OTA health trial to preserve candidate qualification.

@@ -12,7 +12,7 @@ from audio_spectrum import Spectrum
 from audio_features import Analyzer
 from animation import CulvertAnimation
 from sound_reactive import measure
-from effects import DebouncedButton, EFFECT_NAMES
+from effects import ButtonGesture, SleepTransition, EFFECT_NAMES
 
 if board.board_id == "unexpectedmaker_feathers2":
     PIXEL_PIN = board.IO38  # Factory jumper's physical position, not D6 alias.
@@ -36,16 +36,25 @@ class EffectButtons:
                 if gpio is None:
                     continue
                 pin = digitalio.DigitalInOut(getattr(board, "IO%d" % gpio))
-                self.inputs.append((pin, DebouncedButton(CONFIG.button_debounce_s), step))
+                self.inputs.append((pin, ButtonGesture(CONFIG.button_debounce_s, CONFIG.button_sleep_hold_s), step))
                 pin.switch_to_input(pull=digitalio.Pull.UP)
                 print("BUTTON GPIO%d step=%+d pull=UP" % (gpio, step))
         except Exception:
             self.deinit()
             raise
 
-    def poll(self, animation, now):
+    def poll(self, animation, now, sleep, allow_sleep=True):
         for pin, button, step in self.inputs:
-            if button.update(not pin.value, now):
+            gesture = button.update(not pin.value, now)
+            if sleep.started is not None:
+                continue
+            if gesture == ButtonGesture.HOLD:
+                if allow_sleep:
+                    sleep.request(now, CONFIG.sleep_fade_s)
+                    print("SLEEP requested: red fade %.1f s" % CONFIG.sleep_fade_s)
+                else:
+                    print("SLEEP ignored during OTA trial; retry after confirmation")
+            elif gesture == ButtonGesture.SHORT:
                 animation.set_effect((animation.effect + step) % len(EFFECT_NAMES))
                 print("EFFECT %d %s display=%d" %
                       (animation.effect, EFFECT_NAMES[animation.effect], animation.effect + 1))
@@ -120,6 +129,7 @@ def run(seconds=None, drive_pixels=True, health=None):
     samples = array.array("h", [0] * CONFIG.hop_size)
     period = CONFIG.hop_size / CONFIG.sample_rate
     buttons = EffectButtons()
+    sleep = SleepTransition()
     gc.collect()
     with digitalio.DigitalInOut(PIXEL_PIN) as pin:
         pin.switch_to_output(value=False)
@@ -159,14 +169,17 @@ def run(seconds=None, drive_pixels=True, health=None):
                         flat_since = None
                     if flat_since is not None and now - flat_since > CONFIG.flat_timeout_s:
                         raise RuntimeError("Microphone data is flat; check GPIO 5/6/9, power and SEL=GND")
-                    buttons.poll(animation, now)
-                    pixels = animation.render(features, max(period / 2, dt))
+                    buttons.poll(animation, now, sleep, allow_sleep=not (health and health.trial))
+                    pixels = (sleep.pixels(now, CONFIG) if sleep.started is not None else
+                              animation.render(features, max(period / 2, dt)))
                     if drive_pixels:
                         neopixel_write(pin, pixels)
                     if radio is not None:
-                        radio.publish(features, animation, now)
+                        radio.publish(features, animation, now, sleep)
                     if health is not None:
                         health(features, radio)
+                    if sleep.done(now):
+                        raise SleepRequested()
                     if features.attackEvent:
                         print("ATTACK strength=%.2f" % features.attack)
                     if features.yellEvent:
@@ -213,17 +226,32 @@ def run_follower(health=None):
         try:
             previous = next_log = time.monotonic()
             frames = 0
+            sleep_announced = False
             while True:
                 now = time.monotonic()
                 dt = max(0.001, now - previous)
                 previous = now
                 features = radio.receive(now, animation)
                 lost = radio.receiver.fade_if_lost(now, dt)
-                pixels = animation.render(features, dt)
+                # Ignore sleep during the initial OTA health trial. An intentional
+                # sleep/reset must not be mistaken for a failed candidate.
+                sleep = radio.receiver.sleep
+                if health and health.trial:
+                    if sleep.started is not None:
+                        print("SLEEP ignored during OTA trial; retry after confirmation")
+                        sleep.started = None
+                if sleep.started is not None and not sleep_announced:
+                    print("SLEEP received: red fade remaining=%.2f s" %
+                          max(0.0, sleep.duration - sleep.elapsed(now)))
+                    sleep_announced = True
+                pixels = (sleep.pixels(now, CONFIG) if sleep.started is not None else
+                          animation.render(features, dt))
                 neopixel_write(pin, pixels)
                 radio.receiver.clear_events()
                 if health is not None:
                     health(features, radio)
+                if sleep.done(now):
+                    raise SleepRequested()
                 frames += 1
                 if now >= next_log:
                     age_ms = (int((now - radio.receiver.last_receive) * 1000)
@@ -246,11 +274,33 @@ def run_follower(health=None):
             radio.deinit()
 
 
+class SleepRequested(BaseException):
+    """Unwind hardware contexts without triggering the OTA failure handler."""
+
+
+def enter_deep_sleep():
+    import alarm
+    import microcontroller
+    import supervisor
+    import wifi
+    # The caller has already blacked out LEDs and closed I2S, GPIO and ESP-NOW.
+    # Disable the watchdog also for CircuitPython's USB-connected simulated sleep.
+    microcontroller.watchdog.mode = None
+    supervisor.runtime.autoreload = False
+    wifi.radio.enabled = False
+    print("SLEEP entering deep sleep; reset each board to wake")
+    # No timer, pin or radio wake source: hardware RESET/power cycle restarts boot.py.
+    alarm.exit_and_deep_sleep_until_alarms()
+
+
 def main(health=None):
-    if CONFIG.radio_role == "follower":
-        run_follower(health=health)
-    else:
-        run(health=health)
+    try:
+        if CONFIG.radio_role == "follower":
+            run_follower(health=health)
+        else:
+            run(health=health)
+    except SleepRequested:
+        enter_deep_sleep()
 
 
 if __name__ == "__main__":

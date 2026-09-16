@@ -75,3 +75,56 @@ def spectrum_frequency(levels, centers, curve):
         total += power
         weighted += power * center
     return weighted / total if total > 1e-12 else 0.0
+
+
+class ButtonGesture:
+    """A short release or one long hold; a hold never also advances an effect."""
+    SHORT = 1
+    HOLD = 2
+
+    def __init__(self, debounce_s, hold_s):
+        self.button = DebouncedButton(debounce_s)
+        self.hold_s = hold_s
+        self.pressed_at = None
+        self.held = False
+
+    def update(self, pressed, now):
+        was_pressed = self.button.stable
+        if self.button.update(pressed, now):
+            self.pressed_at = self.button.changed_at
+            self.held = False
+        if was_pressed and not self.button.stable:
+            duration = self.button.changed_at - self.pressed_at
+            self.pressed_at = None
+            if not self.held:
+                return self.HOLD if duration >= self.hold_s else self.SHORT
+        if (self.button.stable and self.button.raw and not self.held
+                and now - self.pressed_at >= self.hold_s):
+            self.held = True
+            return self.HOLD
+        return 0
+
+
+class SleepTransition:
+    """Monotonic, irreversible red fade using local time; duplicates can't extend it."""
+    def __init__(self):
+        self.started = None
+        self.duration = 0.0
+
+    def request(self, now, duration, elapsed=0.0):
+        if self.started is None:
+            self.started = now - elapsed
+            self.duration = duration
+            return True
+        return False
+
+    def elapsed(self, now):
+        return max(0.0, now - self.started) if self.started is not None else 0.0
+
+    def done(self, now):
+        return self.started is not None and self.elapsed(now) >= self.duration
+
+    def pixels(self, now, config):
+        level = max(0.0, 1.0 - self.elapsed(now) / self.duration)
+        # GRB, pure red, with the same installation-wide brightness cap.
+        return bytes((0, int(255 * config.brightness * level), 0)) * config.pixel_count

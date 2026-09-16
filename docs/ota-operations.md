@@ -384,3 +384,20 @@ and reboot, then resumed live Spectrum reception with zero rejected packets
 startup effect; Chroma remains effect 5. No new visual LED confirmation was
 requested or inferred from these logs. This also verifies the producer's first
 newer-version OTA download/trial beyond its USB bootstrap.
+
+
+## Hold-to-sleep release 1.0.5
+
+App 1.0.5 adds a three-second button hold followed by a three-second red fade
+and reset-only deep sleep. Short effect presses now fire on release. Install
+consumers first, then the producer; 1.0.4 and older ignore sleep-control packets.
+The feature protocol remains v3 and base 1.0.1 needs no USB change. An independent
+DGRS control frame carries the repeated sleep countdown. A consumer must have
+received a recent feature frame from the same producer session before it accepts
+sleep; duplicate/stale/wrong-source commands cannot restart a fade.
+Sleep is ignored during the initial 30-second OTA health trial. After confirming,
+the reboot starts the app normally and enables sleep. An ordinary intentional
+sleep leaves confirmed OTA journals intact; no rollback or persistent sleep flag
+is written. Reset each sleeping board separately to wake and run its boot-time
+update check. With a USB/BLE host attached, CircuitPython may simulate sleep.
+Host regression tests do not establish actual sleep current or visual behavior.

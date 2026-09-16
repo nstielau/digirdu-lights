@@ -127,6 +127,8 @@ class Config:
     button_extra_next_gpio = 43  # FeatherS2 external next button to GND; None disables it.
     button_previous_gpio = None  # Optional external button to GND.
     button_debounce_s = 0.04
+    button_sleep_hold_s = 3.0
+    sleep_fade_s = 3.0
 
     # One microphone leader; each wireless follower has its own ESP32 + wing.
     radio_role = "follower"  # New nodes consume; producer role is saved per board.
@@ -186,6 +188,9 @@ class Config:
             raise ValueError("Invalid yell hysteresis")
         if not 0 <= self.attack_off < self.attack_on <= 1:
             raise ValueError("Invalid attack hysteresis")
+        if (not 0.1 <= self.sleep_fade_s <= 10
+                or not self.button_debounce_s < self.button_sleep_hold_s <= 60):
+            raise ValueError("Invalid sleep timing")
         if self.max_pulses < 1 or self.pulse_width <= 0 or self.pulse_speed <= 0:
             raise ValueError("Invalid pulse configuration")
         for limits in (self.visual_timbre_range, self.visual_growl_range, self.visual_vocal_range):

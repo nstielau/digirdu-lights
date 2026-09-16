@@ -24,6 +24,7 @@ class Wireless:
         self.receiver = None
         self.next_send = 0.0
         self.sent = self.errors = self.skipped = 0
+        self.sleep_turn = True
         self.pending = False
         self.completed = 0
         self.read_count = 0
@@ -36,7 +37,7 @@ class Wireless:
         print("RADIO role=%s mac=%s channel=%d group=%d" %
               (config.radio_role, bytes(wifi.radio.mac_address).hex(), config.radio_channel, config.radio_group))
 
-    def publish(self, features, animation, now):
+    def publish(self, features, animation, now, sleep=None):
         self.transmitter.observe(features, now)
         if now < self.next_send:
             return
@@ -49,7 +50,14 @@ class Wireless:
             return
         self.pending = False
         self.completed = completed
-        message = self.transmitter.encode(features, animation, now)
+        # Alternate repeated sleep commands and features. Feature frames allow
+        # a consumer joining during the fade to establish the producer session.
+        if sleep is not None and sleep.started is not None and self.sleep_turn:
+            message = self.transmitter.encode_sleep(sleep, now)
+        else:
+            message = self.transmitter.encode(features, animation, now)
+        if sleep is not None and sleep.started is not None:
+            self.sleep_turn = not self.sleep_turn
         try:
             self.radio.send(message, self.peer)
             self.pending = True

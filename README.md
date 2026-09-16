@@ -12,7 +12,8 @@ stays in RAM; only normalized features and animation state are transmitted.
 [OTA operations and recovery](docs/ota-operations.md) describe the implemented
 GitHub release/Firebase update workflow, device enrollment and validation status.
 Devices try open `openwireless.org` at boot and return to ESP-NOW for playing.
-App 1.0.4 adds Chroma, stronger musical effects and the IO43 effect button.
+App 1.0.5 adds hold-to-sleep with a synchronized red fade. App 1.0.4 added
+Chroma, stronger musical effects and the IO43 effect button.
 It keeps the app 1.0.3 fix for an intermittent CircuitPython ESP-NOW receive-buffer error that
 could stop a consumer or trigger OTA recovery.
 Manage enrolled devices at [Digirdu Lights](https://digirdu-lights.firebaseapp.com):
@@ -20,7 +21,7 @@ view their reported versions, follow the latest release, pin a version, or pause
 updates. Each board needs a one-time USB bootstrap and its own credential.
 Your Google profile photo opens the account menu in the top right; sign out
 from that menu. The public [Effects guide](https://digirdu-lights.firebaseapp.com/effects.html)
-describes Spectrum, Ember, Aurora, Ripple and Chroma for app 1.0.4, including frequency
+describes Spectrum, Ember, Aurora, Ripple and Chroma for app 1.0.5, including frequency
 bands, musical layers, BOOT selection and the mirrored number indicator.
 Both web pages use a cyan/hot-pink 1980s laser theme with the supplied horizon
 artwork, bundled locally in `web/assets/laser-horizon.png`.
@@ -834,8 +835,8 @@ accept `producer`/`consumer` as well as the internal `leader`/`follower` names.
 
 App 1.0.4 also accepts a normally-open button between **FeatherS2
 IO43 (TX) and GND**, alongside BOOT/IO0. Both inputs have internal pull-ups, independent
-40 ms debouncing, and advance one effect per press; holding either does not
-repeat. Both trigger the same number indicator and ESP-NOW effect update.
+40 ms debouncing, and advance one effect on a short release. In 1.0.5, holding either for three
+seconds starts sleep instead of changing effects. Both trigger the same number indicator and ESP-NOW effect update.
 No external pull-up is required. Set `button_extra_next_gpio=None` to disable
 the added input or change it to another unused GPIO. This additional input is
 included in OTA release 1.0.4.
@@ -1164,7 +1165,7 @@ remains Spectrum; see OTA operations for release rollout results.
 
 The website’s [Effects overview](https://digirdu-lights.firebaseapp.com/effects.html)
 includes the five-effect comparison, play/pause/seek controls, and Chroma’s
-calibration and blending details for firmware 1.0.4. The saved performance is
+calibration and blending details for firmware 1.0.5. The saved performance is
 from September 16; the animations use the released renderer.
 
 `make replay-web` regenerates `web/assets/effects-replay.json` from `CAPTURE`
@@ -1175,3 +1176,40 @@ the renderers. The normal website build copies this checked-in asset and does
 not require access to private captures. Playback starts paused and stops when
 the browser tab is hidden. If the asset cannot load, the written guide remains
 available. Public playback never controls connected lights.
+
+
+## Hold to sleep (1.0.5)
+
+On the producer, hold **BOOT/IO0 or the external IO43 button** continuously:
+
+1. At **three seconds**, every pixel turns pure red at the configured 0.15 cap.
+2. Red fades linearly to black over the next **three seconds**. Releasing the
+   button after the red fade starts does not cancel it or change the effect.
+3. The app closes microphone, buttons and ESP-NOW, disables the watchdog and
+   Wi-Fi, and requests deep sleep with **no wake alarms**.
+
+A short press changes effects **on release**, with the existing debounce and
+number indicator. Sleep works independently of which effect is selected.
+`button_sleep_hold_s` and `sleep_fade_s` configure the default 3 + 3 seconds.
+
+The producer alternates repeated 17-byte `DGRS` sleep-control packets with
+normal 51-byte `DGRD` v3 feature packets during the fade. Controls include the
+producer session, shared sequence number, elapsed fade milliseconds and total
+fade duration. Consumers require the configured producer MAC/group and a recent
+feature frame from that session. Late receivers join the remaining fade;
+duplicates cannot restart it, and losing the link cannot cancel an accepted
+sleep. This is best-effort broadcast: a node that misses every command remains
+awake. Old apps ignore the control packets, so update **all nodes to 1.0.5**.
+
+**Reset each sleeping board to wake it** (or power-cycle it). Reset starts the
+normal boot/OTA check and Spectrum again. A producer reset cannot wake sleeping
+consumers over ESP-NOW because their radios are off. Release BOOT before RESET
+to avoid the ROM loader. Sleep requests are ignored during the first OTA
+health trial; retry after the update confirms and reboots, so intentional sleep
+cannot be mistaken for a failed candidate.
+
+CircuitPython can simulate deep sleep while maintaining a USB/BLE host
+connection. Use battery or a power-only supply to assess true low-power behavior;
+USB logs are not proof of current consumption. The wing/microphone power rails
+are not switched off by this firmware, so peripherals can still draw power.
+See the official [CircuitPython alarm documentation](https://docs.circuitpython.org/en/latest/shared-bindings/alarm/index.html).
