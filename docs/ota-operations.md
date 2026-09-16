@@ -233,10 +233,9 @@ recorded app 1.0.2, base 1.0.1, deployment sequence 6 and `state=current`.
 After the confirmation reboot it resumed live Spectrum reception on channel 1.
 Both GitHub check runs and the release-import workflow passed for 1.0.2.
 
-The producer is enrolled but still needs its one-time USB bootstrap/provisioning.
-Remaining bench results: physical maintenance and power-loss recovery, and
-producer timing. Host tests do not establish those
-results. Serial reception and pixel-buffer values are not a new visual
+Both boards have completed USB bootstrap and provisioning; producer details
+are below. Physical maintenance and power-loss qualification are tracked
+separately from the host tests. Serial reception and pixel-buffer values are not a new visual
 confirmation of the installed LEDs.
 
 ### Follow-up: intermittent receiver failure
@@ -271,6 +270,45 @@ Upstream details: CircuitPython 10.3.1's
 The connected ESP32 V2's USB recovery copy was also updated to 1.0.3 using
 `make deploy`, with all 18 deployed files verified and node credentials/profile
 preserved. Recovery startup received 85 valid packets in its startup check.
-The FeatherS2 continues transmitting over ESP-NOW but has not enumerated on USB; its
-OTA bootstrap is still pending the data connection. Near-silent spectrum
-values can legitimately leave the wing dark despite a live radio link.
+Near-silent spectrum values can legitimately leave the wing dark despite a
+live radio link.
+
+### Producer bootstrap (September 16, 2026)
+
+The FeatherS2 `c7fd1a30c4c2` was identified through both USB and CIRCUITPY.
+`make deploy` installed and verified all 18 base/recovery files, preserving
+`radio_role="producer"` and BOOT/GPIO0. The first staging attempt hit a host USB
+I/O error before replacing the original app. The original root app files were
+backed up; `diskutil verifyVolume` reported a clean filesystem and remounted
+the drive. The retry succeeded without erasing or reformatting flash.
+
+The device-specific credential was provisioned and OTA enabled. The reserved
+NVM bytes were checked before use. The host volume was cleanly unmounted before
+a hard reset transferred filesystem ownership to CircuitPython; macOS then
+mounted CIRCUITPY read-only. Firebase recorded the producer's actual app **1.0.3**,
+base **1.0.1**, CircuitPython **10.3.1**, correct board/role and no error.
+It disconnected from the AP, resumed ESP-NOW channel 1 and showed microphone
+RMS levels changing from roughly 2 to 370 with rising/falling spectrum bars in
+the output data. A 65-second observation completed without a reset. This is
+serial/feature evidence, not a new visual confirmation on both wings.
+
+The producer reports `state=recovery`, sequence 0 because it is running the
+USB-installed app, which already matches the latest release. This is expected
+and is not a failed update. A future newer compatible release will download
+into an OTA slot and undergo its 30-second trial. Actual OTA download/trial
+was verified on the consumer; the producer's current test verifies enrollment,
+HTTPS check-in, filesystem ownership, microphone processing and radio startup.
+
+The LED-enabled benchmark with watchdog and health checks measured 146 frames
+in 12 seconds (12.1 fps), 74.6 ms mean / 93.0 ms maximum work, 136 frames over
+the 64 ms budget, zero detected discontinuities and 146 sends without errors
+or skips. See [benchmark interpretation](../README.md#producer-with-ota-health-monitoring-september-16-2026).
+
+During the user's RESET-then-BOOT test, a host poll observed
+`DIGIRDU_BOOT mode=maintenance` in `boot_out.txt`. The board subsequently
+returned to normal OTA mode with CIRCUITPY read-only to the host. A new Firebase
+check-in reported app 1.0.3 with no error, and a passive ten-second serial check
+showed continuing microphone levels, spectrum changes and attack events.
+This verifies that the physical maintenance branch was reached; host writes
+during that window were not tested. Consumer physical maintenance and power-cut
+qualification remain separate outstanding checks.

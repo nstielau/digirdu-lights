@@ -170,7 +170,7 @@ The ESP32 V2 consumer completed a fully automatic OTA 1.0.1 -> 1.0.2 with base
 1.0.1: ten files verified, 30-second trial confirmed, Firebase actual-version
 report recorded, and ESP-NOW channel 1 reception resumed. Native exception and
 watchdog rollback were exercised; physical maintenance/power-cut qualification
-and the producer USB bootstrap remain pending. See operations for current status.
+is tracked separately. See operations for current status.
 
 ESP-NOW receive reads must be gated by the native `read_success` counter,
 which advances after the complete RX callback. CircuitPython 10.3.1's `read()`
@@ -182,3 +182,22 @@ separately from accepted protocol packets, handle 32-bit wrap, and retain the
 On September 16, 2026, the user confirmed Google sign-in and viewing the consumer
 in the live Firebase fleet dashboard. The authenticated read flow is verified;
 this confirmation does not establish live administrative mutation tests.
+
+The producer FeatherS2 completed USB bootstrap/provisioning on September 16,
+2026: app 1.0.3, base 1.0.1, OTA enabled, Firebase check-in verified, followed
+by I2S capture and ESP-NOW channel 1. It reports recovery/sequence 0 because
+the USB copy already equals latest; it has not yet performed a newer-app OTA
+trial. The LED-enabled 12-second benchmark with watchdog/health monitoring
+measured 12.1 fps, 74.6 ms mean work, 136/146 frames over 64 ms, and no radio
+errors. Preserve this limitation in reporting; zero detected discontinuities
+does not prove lossless audio capture. With OTA enabled, run USB deployment and
+producer diagnostics from BOOT-after-reset maintenance mode.
+The user's RESET-then-BOOT test reached `DIGIRDU_BOOT mode=maintenance` in
+boot_out.txt, then returned to OTA mode with host read-only storage, a fresh
+Firebase report and continuing audio. Host writes in that maintenance window
+and physical power-cut qualification were not tested.
+
+The web account control is shared by the fleet and public Effects guide.
+Use Firebase's user photo with an initials fallback; keep sign-out in its
+keyboard-accessible dropdown. Update `web/effects.html` alongside changes to
+the released effect library/defaults and its documented firmware version.

@@ -1,1 +1,113 @@
 :root{font-family:system-ui,sans-serif;color:#e8eef9;background:#0d1423;color-scheme:dark}*{box-sizing:border-box}body{margin:0}header,main{max-width:1100px;margin:auto;padding:28px}header{display:flex;justify-content:space-between;align-items:center;gap:24px;border-bottom:1px solid #283750}h1{font-size:clamp(28px,5vw,44px);margin:8px 0}h2{margin-top:32px}p{color:#aebed5;line-height:1.5}.eyebrow{color:#75e7c3;letter-spacing:.16em;font-size:12px;font-weight:700}.toolbar,.section-head,.card-head{display:flex;justify-content:space-between;align-items:center;gap:14px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}.card{background:#162137;border:1px solid #30415e;border-radius:16px;padding:22px}.card h3{margin:0;font-size:22px}.badge{color:#75e7c3;background:#203e40;padding:5px 9px;border-radius:8px;font-size:12px}.identity{font-family:monospace;overflow-wrap:anywhere}dl{display:grid;grid-template-columns:1fr 1.3fr;gap:10px}dt{color:#9bafcb}dd{margin:0;overflow-wrap:anywhere}button,select{padding:10px 13px;border:1px solid #455c7e;border-radius:8px;background:#233652;color:#fff;font:inherit;cursor:pointer}button:hover{background:#365074}button:disabled,select:disabled{opacity:.5;cursor:wait}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions select{width:100%}.danger{color:#ffb6ae}.hint{font-size:14px}#status{min-height:24px;color:#a4e4ff}.release{padding:14px 0;border-bottom:1px solid #283750}a{color:#8edbc8}[hidden]{display:none!important}@media(max-width:600px){header,main{padding:20px}header{align-items:flex-start;flex-direction:column}.toolbar{flex-wrap:wrap}dl{grid-template-columns:1fr 1fr}}
+/* Shared navigation and account menu. */
+header{display:grid;grid-template-columns:1fr auto;gap:18px;position:relative}
+.brand{font-size:13px;font-weight:750;letter-spacing:.16em;text-decoration:none}
+header nav{grid-column:1/-1;display:flex;gap:24px}
+header nav a{color:#aebed5;text-decoration:none;padding:6px 0}
+header nav a[aria-current="page"]{color:#75e7c3;box-shadow:0 2px #75e7c3}
+#account-control{justify-self:end;position:relative}
+.avatar{width:44px;height:44px;padding:0;position:relative;display:grid;place-items:center;border-radius:50%;overflow:hidden;background:#284354;color:#b4f3df;font-weight:700}
+.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.profile-menu{position:absolute;right:0;top:calc(100% + 12px);z-index:10;width:280px;max-width:calc(100vw - 40px);padding:18px;background:#19263c;border:1px solid #455c7e;border-radius:14px;box-shadow:0 12px 40px #0008}
+.profile-menu strong,.profile-menu span{display:block;overflow-wrap:anywhere}
+.profile-menu span{font-size:14px;color:#aebed5;margin:6px 0 18px}
+.profile-menu button{width:100%;text-align:left}
+:focus-visible{outline:2px solid #75e7c3;outline-offset:4px}
+.page-heading{max-width:1100px;margin:0 auto;padding:32px 28px 0}
+.page-heading p{max-width:680px}
+main{padding-top:12px}
+
+/* Effect guide. Colors label the effect, not live device state. */
+.effects-page{max-width:960px}
+.effects-page #status:empty{display:none}
+.effects-page h2{font-size:26px;line-height:1.2}
+.effects-page h3{margin:26px 0 8px;font-size:18px}
+.effects-page strong{color:#e8eef9}
+.effect-controls{padding-bottom:20px}
+.effect-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.effect-links a{padding:10px 14px;border:1px solid #30415e;border-radius:24px;text-decoration:none;background:#162137}
+.effect-links a:hover{border-color:#75e7c3}
+.effect-detail{--accent:#93b5ff;scroll-margin-top:24px;margin:28px 0;padding:30px;border:1px solid #30415e;border-top:3px solid var(--accent);border-radius:18px;background:#131e31}
+.ember{--accent:#ffac77}.aurora{--accent:#75e7c3}.ripple{--accent:#c29cff}
+.effect-title{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.effect-title h2{margin:4px 0}.effect-title .eyebrow{margin:0;color:var(--accent);font-size:11px}
+.effect-number{width:48px;height:56px;display:grid;place-items:center;font-size:32px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:10px}
+.effect-title .badge{margin-left:auto;color:var(--accent);background:#233049}
+.effect-intro{font-size:20px;color:#d1dcef;line-height:1.55}
+.spectrum-figure{margin:28px auto;max-width:480px;padding:20px;border:1px solid #30415e;border-radius:12px;background:#0d1423}
+.spectrum-example{display:flex;gap:6px;height:150px}
+.spectrum-example span{flex:1;border-radius:3px;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 5px),#0d1423 calc(25% - 5px),#0d1423 25%),linear-gradient(to top,hsl(var(--hue) 85% 60%) var(--level),#1c2b42 var(--level))}
+.frequency-direction{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:#b8cbe5;margin:10px 0 16px}
+figcaption{font-size:13px;color:#aebed5;line-height:1.5}
+.table-scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.5}
+caption{text-align:left;color:#aebed5;margin-bottom:12px}
+th{text-align:left;color:#e8eef9}td{color:#aebed5}th,td{padding:12px 8px;border-bottom:1px solid #30415e;vertical-align:top}
+td:nth-child(2){white-space:nowrap}
+.musical-layers{padding:24px 10px}
+.layer-list{grid-template-columns:minmax(150px,1fr) 3fr;gap:20px;margin-top:28px;line-height:1.6}
+.layer-list dt{color:#75e7c3}.layer-list dd{color:#aebed5}
+.effect-notes{border-top:1px solid #30415e;padding:0 10px 24px}
+@media(max-width:600px){
+  header{display:grid;gap:16px;align-items:center}
+  .page-heading{padding:24px 20px 0}
+  .brand{font-size:11px;letter-spacing:.1em}
+  #sign-in{font-size:13px;max-width:160px}
+  .effect-detail{padding:22px 18px}
+  .effect-title{gap:12px}.effect-title .badge{margin-left:0}
+  .effect-intro{font-size:18px}.spectrum-figure{padding:14px}
+  .layer-list{grid-template-columns:1fr;gap:8px}.layer-list dd{margin-bottom:14px}
+  th,td{padding:10px 4px}
+}
+
+/* 1980s laser palette, with the supplied horizon artwork in both banners. */
+:root{color:#f2edff;background:#080612;--laser-cyan:#59eeff;--laser-pink:#ff57bd;--panel:#110d20}
+body{background:radial-gradient(1px 1px at 22px 32px,#8ea8e955,transparent),radial-gradient(1px 1px at 146px 110px,#b2d3e944,transparent),radial-gradient(ellipse at 80% 0,#11244080,transparent 55%);background-size:190px 210px,260px 250px,100% 100%;min-height:100vh}
+header{border-bottom:1px solid #5e294f;background:#080612e8;z-index:2}
+.brand{color:var(--laser-cyan);text-shadow:0 0 18px #10daf788;font-style:italic;font-size:16px;letter-spacing:.13em}
+header nav{gap:28px}
+header nav a{font:700 12px ui-monospace,SFMono-Regular,Consolas,monospace;text-transform:uppercase;letter-spacing:.15em;padding:8px 0;color:#c1b4d6}
+header nav a[aria-current="page"]{color:var(--laser-pink);box-shadow:0 2px var(--laser-pink);text-shadow:0 0 14px #ff239988}
+.page-heading{position:relative;isolation:isolate;overflow:hidden;min-height:370px;padding:46px 40px;margin:24px auto 12px;border:1px solid #643353;border-radius:3px;background:#060d19;box-shadow:0 0 28px #f01ca312}
+.page-heading::before{content:"";position:absolute;inset:0;z-index:-2;background:url('./assets/laser-horizon.png') no-repeat right 51%;background-size:auto 170%;opacity:.9}
+.page-heading::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#090918 0%,#090918ed 33%,#09091845 72%,#09091800),linear-gradient(0deg,#09091866,transparent 30%)}
+.hero-copy{max-width:600px}
+h1{font-size:clamp(38px,5.6vw,66px);font-weight:850;line-height:1.03;text-transform:uppercase;font-style:italic;letter-spacing:-.045em;color:#fff3ff;text-shadow:3px 2px 0 #8d2c68,0 0 25px #dc40e13b;margin:20px 0}
+.page-heading p:not(.eyebrow){max-width:480px;color:#d4c5e5;line-height:1.7}
+.eyebrow{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--laser-cyan);letter-spacing:.14em;font-size:11px}
+.hero-tag{display:inline-block;margin-top:12px;padding:8px 12px;border-left:2px solid var(--laser-pink);background:#170e29b3;color:#ff96d7;font:11px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.12em}
+h2{letter-spacing:-.025em}h3{color:#f7eaff}
+p,dd,.hint{color:#c0b5d2}dt{color:#af9bc6}
+a{color:var(--laser-cyan)}a:hover{color:#ff98d9}
+button,select{background:#1b122c;border:1px solid #70507d;border-radius:5px}
+button:hover{background:#322041;border-color:var(--laser-pink);box-shadow:0 0 14px #ff57bd22}
+:focus-visible{outline-color:var(--laser-cyan)}
+.avatar{border-radius:50%;border:2px solid var(--laser-cyan);box-shadow:0 0 16px #59eeff33;color:var(--laser-cyan);background:#162a38}
+.profile-menu{background:#171024;border:1px solid #ba4e9c;box-shadow:0 8px 38px #000b,0 0 20px #ff57bd22;border-radius:8px}
+.profile-menu span{color:#c0b5d2}
+.card{background:linear-gradient(145deg,#19112b,#100e1e);border:1px solid #59365f;border-radius:8px;box-shadow:inset 0 2px #e340a833}
+.badge{color:var(--laser-cyan);background:#14303d;border-radius:4px}
+.release{border-color:#3c254d;color:#c0b5d2}.danger{color:#ff9bae}#status{color:var(--laser-cyan)}
+.effect-links a{border-color:#754366;background:#1c112b;border-radius:5px;color:#ffb3e2;font:600 13px ui-monospace,SFMono-Regular,Consolas,monospace}
+.effect-links a:hover{border-color:var(--laser-pink);box-shadow:0 0 16px #ff57bd22}
+.effect-detail{border-color:#46314f;border-top-color:var(--accent);border-radius:6px;background:linear-gradient(130deg,#191127,#100e1e);box-shadow:0 8px 30px #0002}
+.effect-title h2{font-style:italic;text-transform:uppercase;letter-spacing:.01em}
+.effect-number{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;border-radius:3px;text-shadow:0 0 15px var(--accent);background:#090914}
+.effect-title .badge{background:#282039}.effect-intro{color:#e4d5ee}
+.spectrum{--accent:#75b5ff}.ember{--accent:#ffae77}.aurora{--accent:#59f5d3}.ripple{--accent:#d5a0ff}
+.spectrum-figure{border-color:#6f3c67;background:#080b18;border-radius:5px;box-shadow:0 0 24px #f52ab910}
+.frequency-direction,figcaption,caption,td{color:#c0b5d2}th{color:#f2edff}th,td{border-color:#46314f}
+.layer-list dt{color:var(--laser-cyan)}.layer-list dd{color:#c0b5d2}
+.effect-notes{border-color:#70305b}.effects-page strong{color:#f9eaff}
+@media(min-width:1148px){.page-heading{max-width:1044px}}
+@media(max-width:600px){
+  .brand{font-size:13px;letter-spacing:.08em}
+  header{padding-top:18px;padding-bottom:14px}
+  .page-heading{min-height:370px;margin:16px 14px 0;padding:28px 22px}
+  .page-heading::before{background-position:65% 55%;background-size:auto 145%;opacity:.75}
+  .page-heading::after{background:linear-gradient(90deg,#090918e8,#09091870),linear-gradient(0deg,#09091880,transparent)}
+  .page-heading .eyebrow{font-size:10px;line-height:1.7;max-width:260px}
+  h1{font-size:43px;margin:22px 0;max-width:300px}
+  .page-heading p:not(.eyebrow){font-size:14px;max-width:275px}
+  .hero-tag{font-size:9px;letter-spacing:.08em}
+}

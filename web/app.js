@@ -1,4 +1,5 @@
-import {signIn,signOut,onUser,overview,change,currentUser} from './gateway.js';
+import {overview,change,currentUser} from './gateway.js';
+import {initAccount} from './account.js';
 import {describeDevice} from './view.mjs';
 const $=id=>document.getElementById(id);
 let generation=0,busy=false;
@@ -42,11 +43,9 @@ function render(data){
   $('fleet').hidden=false;
 }
 async function refresh(){const current=generation;const {data}=await overview();if(current===generation&&currentUser())render(data);}
-$('sign-in').onclick=async()=>{try{await signIn();}catch{message('Sign-in did not complete. Please try again.');}};
-$('sign-out').onclick=()=>signOut();
 $('refresh').onclick=async()=>{locking(true);try{await refresh();message('Reports refreshed.');}catch{message('Unable to load reports. Check your connection and administrator access.');}finally{locking(false);}};
-onUser(async user=>{
-  generation++;$('sign-in').hidden=!!user;$('sign-out').hidden=!user;$('refresh').hidden=!user;
+initAccount(async user=>{
+  generation++;$('refresh').hidden=!user;
   $('fleet').hidden=true;$('devices').replaceChildren();$('releases').replaceChildren();
   $('account').textContent=user?.email||'Sign in to manage your devices.';message('');
   if(user){try{await refresh();}catch{message('Administrator access is required, or the service is unavailable.');}}

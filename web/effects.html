@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Effects · Digirdu Lights</title><link rel="stylesheet" href="./styles.css"></head>
+<body>
+<header><a class="brand" href="/">DIGIRDU LIGHTS</a><div id="account-control"></div><nav aria-label="Main"><a href="/">Fleet</a><a href="/effects.html" aria-current="page">Effects</a></nav></header>
+<div class="page-heading"><div class="hero-copy"><p class="eyebrow">THE EFFECT LIBRARY · FIRMWARE 1.0.3</p><h1>See what<br>you hear.</h1><p>Four ways to turn a didgeridoo’s drone, voice, and rhythm into light on your 32-pixel FeatherWings.</p><span class="hero-tag">04 EFFECTS / ONE SHARED PULSE</span></div></div>
+<main class="effects-page">
+  <p id="status" role="status" aria-live="polite"></p>
+  <section class="effect-controls" aria-labelledby="choose-effect">
+    <h2 id="choose-effect">Choose an effect on the producer</h2>
+    <p>During normal playback, press and release <strong>BOOT on the microphone FeatherS2</strong> to cycle through 1 → 2 → 3 → 4 → 1. If a quick tap is missed, hold for about a second, then release before pressing again. Holding a press does not keep cycling.</p>
+    <p>Each change displays its number for <strong>1.5 seconds</strong> on the producer and connected consumers. The number uses the wing’s portrait 4×8 orientation; Spectrum uses landscape 8×4. Audio processing continues behind the number. The effect is sent in every ESP-NOW packet, so a consumer that misses a change catches up on the next accepted packet.</p>
+    <p class="hint">This page describes the latest release’s defaults; it does not select effects remotely. The producer starts in Spectrum after a reset unless its node configuration overrides that default. For effect selection, use BOOT without RESET.</p>
+    <nav class="effect-links" aria-label="Effect library"><a href="#spectrum">1 · Spectrum</a><a href="#ember">2 · Ember</a><a href="#aurora">3 · Aurora</a><a href="#ripple">4 · Ripple</a></nav>
+  </section>
+
+  <article id="spectrum" class="effect-detail spectrum">
+    <div class="effect-title"><span class="effect-number">1</span><div><p class="eyebrow">READ THE SOUND</p><h2>Spectrum</h2></div><span class="badge">Default · blue number</span></div>
+    <p class="effect-intro">Eight rainbow columns rise and fall with the sound in eight frequency bands. Start here to check that the microphone hears you and every wing is receiving updates.</p>
+    <figure class="spectrum-figure">
+      <div class="spectrum-example" role="img" aria-label="Illustrative eight-column spectrum: stronger low-frequency bars on the left and quieter high-frequency bars on the right. Four pixels tall; not live audio.">
+        <span style="--level:75%;--hue:0"></span><span style="--level:100%;--hue:36"></span><span style="--level:65%;--hue:72"></span><span style="--level:45%;--hue:108"></span><span style="--level:55%;--hue:144"></span><span style="--level:30%;--hue:180"></span><span style="--level:20%;--hue:216"></span><span style="--level:10%;--hue:252"></span>
+      </div><div class="frequency-direction"><span>Low frequencies</span><span>High frequencies →</span></div>
+      <figcaption>Illustrative 8×4 layout, not live audio. Bar height runs from zero to four pixels.</figcaption>
+    </figure>
+    <h3>What the columns mean</h3>
+    <div class="table-scroll"><table><caption>Frequency bands, left to right</caption><thead><tr><th>Column</th><th>Frequency</th><th>What to listen for</th></tr></thead><tbody>
+      <tr><td>1</td><td>45–90 Hz</td><td>The lowest part of the drone.</td></tr>
+      <tr><td>2</td><td>90–180 Hz</td><td>Higher drone fundamentals and low harmonics.</td></tr>
+      <tr><td>3</td><td>180–350 Hz</td><td>Low harmonics and body.</td></tr>
+      <tr><td>4</td><td>350–700 Hz</td><td>Midrange resonance and mouth shaping.</td></tr>
+      <tr><td>5</td><td>700–1,400 Hz</td><td>Upper formants and vocal presence.</td></tr>
+      <tr><td>6</td><td>1,400–2,800 Hz</td><td>Brighter vocal and harmonic content.</td></tr>
+      <tr><td>7</td><td>2,800–5,000 Hz</td><td>Upper vocal content and attack noise.</td></tr>
+      <tr><td>8</td><td>5,000–8,000 Hz</td><td>High-frequency breath and noise.</td></tr>
+    </tbody></table></div>
+    <p>These are frequency ranges, not instrument labels: a clap can light several columns, and a drone also produces harmonics above its fundamental. Color stays fixed across frequency, from red through green and cyan to violet. A partly lit top pixel makes changes smoother than four hard steps.</p>
+    <h3>How it responds</h3>
+    <p>Each band subtracts its learned background energy. All eight bands share one slowly adapting level reference, so the display preserves their relative strength instead of making every column equally tall. Quieter harmonics are lifted by amplitude compression. Bars rise quickly (50 ms smoothing) and fall more gently (300 ms smoothing); these are smoothing settings, not a guarantee of end-to-end latency.</p>
+    <p>There is no extra background glow or attack/yell overlay in Spectrum. When the room becomes quiet, the bars settle toward black. A dark wing can therefore be normal silence. Try a sustained drone, change your mouth shape, then clap: watch the low columns hold, the balance move across columns, and the clap briefly broaden the display.</p>
+  </article>
+
+  <section class="musical-layers" aria-labelledby="layers-title">
+    <p class="eyebrow">HOW EFFECTS 2–4 LISTEN</p><h2 id="layers-title">One sound, several layers of light</h2>
+    <p>Ember, Aurora, and Ripple share the same musical layers, with different colors and emphasis. They can respond to a drone and a vocalization at the same time.</p>
+    <dl class="layer-list">
+      <dt>Drone → atmosphere</dt><dd>A sustained low drone supports a continuous moving field. Overall level adds a smaller contribution, and a lingering sound envelope keeps the scene alive after playing stops.</dd>
+      <dt>Harmonics → movement</dt><dd>More harmonic energy speeds the underlying wave motion and adds spatial detail. Mouth and tongue changes shift the base hue through the measured timbre position, even without a large change in loudness.</dd>
+      <dt>Growl → texture</dt><dd>The growl estimate combines midrange energy with spectral noisiness, spreading, and modulation. It adds moving, contrasting flecks to the field; volume alone does not trigger this layer.</dd>
+      <dt>Vocal → ribbons</dt><dd>Higher-frequency energy relative to the drone and total sound creates brighter moving ribbons. A strong vocal onset also launches a broader, paler yell pulse.</dd>
+      <dt>Attack → outward pulses</dt><dd>Rapid energy rises and positive spectral changes launch light fronts from the virtual player’s midpoint toward both ends. Stronger attacks make stronger pulses; their speed is theatrical, not the measured speed of sound.</dd>
+      <dt>Silence → afterglow</dt><dd>The sound envelope decays over about 3.5 seconds, pixel trails over 1.2 seconds, and pulses over 1.6 seconds. These are exponential time constants, so light fades gradually rather than shutting off on a timer.</dd>
+    </dl>
+    <p class="hint">On a single wing, physical pixels preview positions along the culvert’s length; these three effects are not frequency-bar charts. Consumers with the same coordinates mirror the scene. Per-node coordinates can give different wings different positions in the installation.</p>
+  </section>
+
+  <article id="ember" class="effect-detail ember">
+    <div class="effect-title"><span class="effect-number">2</span><div><p class="eyebrow">WARM &amp; TEXTURED</p><h2>Ember</h2></div><span class="badge">Orange number</span></div>
+    <p class="effect-intro">A warm red-to-orange field with a strong bed of light and pronounced growl texture.</p>
+    <h3>What changes with your playing</h3>
+    <p>The drone fills the wing with slow, broad waves. Timbre shifts the base color through a restrained warm range, so a mouth-shape change looks like a change in the heat of the field. Growls introduce contrasting, cooler flecks; layered vocals bring brighter ribbons across that warm base. Pops and hard articulations launch broad, pale fronts outward.</p>
+    <p>Of the three musical effects, Ember has the strongest background field and the strongest growl texture. Its base wave density is the lowest, so large areas tend to move together. Its pulses are wider than Ripple’s and narrower than Aurora’s. Trails keep the scene glowing between articulations.</p>
+    <h3>Try this</h3><p>Hold a steady drone, then add a low vocal growl without getting much louder. Look for texture building over the warm field. Move your tongue while sustaining the drone to explore the smaller color shifts.</p>
+  </article>
+
+  <article id="aurora" class="effect-detail aurora">
+    <div class="effect-title"><span class="effect-number">3</span><div><p class="eyebrow">FLOWING &amp; LAYERED</p><h2>Aurora</h2></div><span class="badge">Mint-green number</span></div>
+    <p class="effect-intro">A blue-to-violet field with denser waves, a wider timbre-driven color range, and sweeping vocal accents.</p>
+    <h3>What changes with your playing</h3>
+    <p>The underlying drone creates repeated folds of light. Harmonics make those folds move faster and become more closely spaced, while mouth shaping moves the base color from blue toward violet and magenta. Growl adds a gentler contrasting texture than Ember. Vocal ribbons and broad yell pulses can wash across several positions at once.</p>
+    <p>Aurora uses the highest base wave density and the widest event pulses in this library. Its timbre-to-color range is also the largest of the musical effects. Its continuous field is slightly softer than Ember’s, leaving room for layered color and broad accents.</p>
+    <h3>Try this</h3><p>Keep the drone’s level steady and slowly sweep your mouth from a rounded vowel to a brighter one. Watch the color and pattern change. Add a higher vocalization to bring out the ribbons and, on a strong onset, an expanding pale pulse.</p>
+  </article>
+
+  <article id="ripple" class="effect-detail ripple">
+    <div class="effect-title"><span class="effect-number">4</span><div><p class="eyebrow">SPACE FOR RHYTHM</p><h2>Ripple</h2></div><span class="badge">Violet number</span></div>
+    <p class="effect-intro">A subdued green-to-cyan field that gives narrow, outward-moving attack pulses room to stand out.</p>
+    <h3>What changes with your playing</h3>
+    <p>A continuous drone still creates an environment, but the background is much dimmer than Ember or Aurora. Timbre shifts the base toward cyan. Growl texture stays restrained, while tongue attacks, pops, and hard “DOOTs” make compact light fronts travel away from the midpoint. Strong vocal onsets launch a wider front than ordinary attacks within this effect.</p>
+    <p>Ripple has the weakest field and growl texture, and the narrowest pulses, of the three musical effects. Pulse speed and decay are shared with Ember and Aurora; the quieter background and smaller pulse width make the rhythm easier to distinguish. The violet number identifies the effect, but does not dictate its green-to-cyan scene colors.</p>
+    <h3>Try this</h3><p>Play a sparse pattern of short attacks over a quiet drone. Leave space after each one to see the fronts travel and fade. A sustained sound without sharp changes can look deliberately subdued here.</p>
+  </article>
+
+  <aside class="effect-notes"><h2>Listening in the culvert</h2><p>Allow two quiet seconds at startup for calibration. Background estimates and level normalization adapt slowly so a single loud sound does not immediately flatten the response. All effects retain the configured 15% brightness cap.</p><p>These musical labels are tunable acoustic estimates, not guaranteed recognition of a playing technique. Echoes, microphone placement, and your instrument will affect them. Use Spectrum to understand the sound first, then compare the musical effects at a similar level.</p><p>This guide describes firmware <a href="https://github.com/nstielau/digirdu-lights/releases/tag/firmware-v1.0.3">1.0.3</a> with default settings. Check the <a href="/">fleet page</a> for each device’s reported version.</p></aside>
+</main>
+<script type="module" src="./effects-page.js"></script>
+</body></html>

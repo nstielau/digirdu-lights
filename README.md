@@ -17,6 +17,12 @@ could stop a consumer or trigger OTA recovery.
 Manage enrolled devices at [Digirdu Lights](https://digirdu-lights.firebaseapp.com):
 view their reported versions, follow the latest release, pin a version, or pause
 updates. Each board needs a one-time USB bootstrap and its own credential.
+Your Google profile photo opens the account menu in the top right; sign out
+from that menu. The public [Effects guide](https://digirdu-lights.firebaseapp.com/effects.html)
+describes Spectrum, Ember, Aurora and Ripple for app 1.0.3, including frequency
+bands, musical layers, BOOT selection and the mirrored number indicator.
+Both web pages use a cyan/hot-pink 1980s laser theme with the supplied horizon
+artwork, bundled locally in `web/assets/laser-horizon.png`.
 Updates preserve the node's role, wiring and settings. A failing candidate
 rolls back to the previous app; CircuitPython and the OTA base remain USB-managed.
 The [original proposal](docs/ota-plan.md) records the approved design.
@@ -455,7 +461,8 @@ make ports
 make benchmark PORT=/dev/cu.usbmodem...
 ```
 
-This invokes `code.benchmark(5)` on the board through the REPL. It stops the
+With OTA enabled, first enter [USB maintenance](docs/ota-operations.md#maintenance-and-usb-repair).
+This loads the recovery app and invokes `lights_app.benchmark(5)` through the REPL. It stops the
 running app, creates fresh analysis/render/radio state, and runs for about five
 seconds including the initial two-second calibration. Stay quiet during
 calibration, then play or clap to exercise the feature and pulse layers. The
@@ -542,7 +549,30 @@ produced a peak of **38**, with every pixel reaching at least 20 in one channel.
 These are output-byte checks, not measured light intensity or an acoustic test.
 The producer's full file readback and startup passed with effect 0 selected.
 
-### Spectrum preview: current producer measurement
+### Producer with OTA health monitoring (September 16, 2026)
+
+After installing app **1.0.3** and base **1.0.1** on FeatherS2, a 12-second
+mostly quiet run used `lights_app.run(seconds=12, health=Health(watchdog, False))`.
+It included actual NeoPixel writes, the 20-second watchdog and OTA feature-health
+checks, as well as microphone capture, FFT, Spectrum rendering and ESP-NOW.
+
+| Measurement | Result |
+| --- | --- |
+| Frames / update rate | 146 / 12.1 fps |
+| Post-capture work | 74.6 ms mean / 93.0 ms maximum |
+| Work over the 64 ms budget | 136 of 146 frames |
+| Detected discontinuities | 0 |
+| ESP-NOW sends / errors / skips | 146 / 0 / 0 |
+| Free Python heap before the run | 7,678,640 bytes |
+
+Most frames exceeded the processing budget. Zero detected discontinuities does
+not prove lossless capture; the driver cannot report every DMA overflow. These
+numbers include LED writes and the health monitor, so they are not directly
+comparable to the LED-disabled measurements below. After enabling OTA, the board
+checked in to Firebase over HTTPS, returned to ESP-NOW channel 1 and continued
+processing changing microphone levels for the 65-second observation window.
+
+### Spectrum preview: measurement before OTA
 
 After replacing effect 1 with the eight-band display, `make deploy` verified all
 ten application files on the FeatherS2 and retained its producer profile.
