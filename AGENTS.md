@@ -165,3 +165,9 @@ on a later normal boot. A native ESP32 V2 test with base 1.0.0 rejected a hung
 candidate but hit a CircuitPython hard fault during the immediate Wi-Fi phase.
 Keep the serial connection open across trial resets; reconnecting a USB-UART
 bridge can interrupt the trial and correctly cause rollback.
+
+The ESP32 V2 consumer completed a fully automatic OTA 1.0.1 -> 1.0.2 with base
+1.0.1: ten files verified, 30-second trial confirmed, Firebase actual-version
+report recorded, and ESP-NOW channel 1 reception resumed. Native exception and
+watchdog rollback were exercised; physical maintenance/power-cut qualification
+and the producer USB bootstrap remain pending. See operations for current status.

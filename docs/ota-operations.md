@@ -223,6 +223,16 @@ resumed live ESP-NOW reception (13 packets by frame 33). The server's deployment
 counter was advanced beyond the local fault-test sequences; no faulty releases
 were published. Application 1.0.2 requires this updated base.
 
-Remaining bench results: a complete unattended boot/download cycle, physical
-maintenance and power-loss recovery, producer timing, and an authenticated fleet
-view. Host tests do not establish those results.
+A complete automatic update from 1.0.1 to **1.0.2** then passed with the normal
+watchdog enabled throughout. On boot the consumer joined the open SSID,
+downloaded all ten modules (58,207 bytes), verified/staged them, rebooted into
+the trial and confirmed after 931 frames / 373 received packets. Firebase
+recorded app 1.0.2, base 1.0.1, deployment sequence 6 and `state=current`.
+After the confirmation reboot it resumed live Spectrum reception on channel 1.
+Both GitHub check runs and the release-import workflow passed for 1.0.2.
+
+The producer is enrolled but still needs its one-time USB bootstrap/provisioning.
+Remaining bench results: physical maintenance and power-loss recovery, producer
+timing, and an authenticated fleet view. Host tests do not establish those
+results. Serial reception and pixel-buffer values are not a new visual
+confirmation of the installed LEDs.
