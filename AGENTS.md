@@ -98,6 +98,9 @@ Two-node reception was verified on September 15, 2026: ESP32 V2 consumer
 MAC 14:33:5c:97:f2:a0 received 94 packets with zero rejected from the FeatherS2
 producer during eight seconds of startup. This does not prove culvert range,
 visual synchronization, or musical recognition. Document measured evidence.
+The user subsequently visually confirmed matching, readable effect numbers on
+both wings during the automatic 2,3,4,1 demo. The default indicator orientation
+and consumer mirroring are confirmed; musical classification remains unverified.
 
 Native USB consoles need DTR asserted. Serial USB-UART bridges on the old ESP32
 use low DTR/RTS. FeatherS2 deployment must write through the mounted USB drive,

@@ -805,8 +805,9 @@ The original board's rainbow was deployed and visually confirmed on September
   The producer also rendered and broadcast two automatic cycles (2,3,4,1),
   submitting 188 radio updates with zero reported errors/skips, then resumed
   the microphone app on Culvert. The demo paused audio capture; normal button
-  indicators run alongside capture. Send success alone does not verify consumer
-  display, and physical readability/mirroring confirmation is still pending.
+  indicators run alongside capture. The user then visually confirmed that
+  **both wings show matching, readable effect numbers** during the demo,
+  verifying the default orientation and consumer mirroring.
 - A consumer redeployment with music playing near the powered producer passed
   all ten file readbacks and startup verification. After joining, eight status
   samples stayed `link=live`, reaching **104 accepted packets, zero rejected**.
@@ -826,8 +827,8 @@ The original board's rainbow was deployed and visually confirmed on September
   with RMS 706.65 for a 1000-amplitude sine. Native packet decoding passed.
 - [Recorded benchmark results](#recorded-results--september-15-2026) document
   producer timing, overruns, renderer stress, and the scope of radio evidence.
-- The earlier clap-reactive rainbow was visually confirmed. The new musical
-  layers and simultaneous visual effect changes still need user confirmation.
+- The earlier clap-reactive rainbow and matching effect-number indicators were
+  visually confirmed. The new musical layers still need an instrument trial.
   Culvert classification accuracy and RF coverage are unmeasured.
 - Both the FeatherS2 producer and ESP32 V2 consumer now have the clearer
   Culvert renderer. Each deployment passed all ten file readbacks and startup
