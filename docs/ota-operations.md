@@ -614,3 +614,35 @@ observed startup, and this run did not visually validate the revised gauge.
 The producer's latest fleet report remains app 1.0.6 / base 1.0.3; its USB base
 upgrade is still needed. Do not infer that the visual report for both displays
 establishes both firmware versions.
+
+### Producer deployment and recovery, September 20, 2026
+
+FeatherS2 UID `c7fd1a30c4c2` entered USB maintenance and verified all eight
+base files with `make deploy-base`. After unmounting CIRCUITPY, a normal-mode
+reset started OTA. The first network attempt returned `OSError` and resumed
+app 1.0.6; a second boot downloaded and confirmed **1.0.8 / base 1.0.4**,
+sequence **13**, with **399 frames / 267 sends** in the trial report. Firebase
+reports no OTA error and `battery: {status: "unsupported", voltage: null}`.
+The ESP32 V2 also reports current 1.0.8/base1.0.4/sequence13; its latest
+battery snapshot after disconnecting laptop USB was **3.691 V** (uncalibrated).
+
+The producer's post-confirmation reset entered CircuitPython native
+`SafeModeReason.HARD_FAULT`, with software reset reason and no previous Python
+traceback. The slot journal remained current 1.0.8 and BOOT read released.
+After cleanly unmounting the drive, an explicit normal-mode reset with the
+one-boot network skip restored microphone processing and ESP-NOW initialization.
+This recovers operation but does not establish the native fault's cause or fix
+it. No flash erase or slot replacement was performed. Logs are
+`.artifacts/battery-gauge-producer-base.log`,
+`.artifacts/battery-gauge-producer-ota.log`, and
+`.artifacts/battery-gauge-producer-recovery.log`.
+
+The user was asked to select Battery for the two-wing gauge-only visual check;
+that confirmation remains separate from firmware/report validation.
+
+The recovered producer then registered all five short presses through
+Ember/Aurora/Ripple/Chroma to `EFFECT 5 Battery display=6`, with audio processing
+continuing. The user confirmed the consumer shows a steady gauge with no
+scrolling and the FeatherS2 shows two amber dashes. The gauge-only two-wing
+visual check is complete. Passive host monitoring was stopped, leaving the
+normal application running in the selected Battery effect.
