@@ -1237,6 +1237,12 @@ power consumption remains unmeasured.
 
 ### Unexpected pixels after sleep: hardware protection
 
+**Status: deferred at the user's request (September 20, 2026).** Resume when
+requested. The affected board(s) and dependence on USB versus battery power
+are still unknown. No proposed resistor or power-switch modification has been
+installed. Start by identifying the affected wing and observing it asleep
+before resetting it; then compare USB-connected and battery-only operation.
+
 The user subsequently reported intermittent bright pixels after long-press
 sleep, including battery operation. The earlier passing test does not establish
 that the symptom is eliminated. App 1.0.8 still sends black, drives the wing
