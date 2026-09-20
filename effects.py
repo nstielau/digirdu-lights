@@ -49,20 +49,8 @@ def effect_indicator_pixels(effect, config):
     return bytes(wing) * (config.pixel_count // 32)
 
 
-VOLTAGE_FONT = {
-    "0": ("111", "101", "101", "101", "101", "101", "111"),
-    "7": ("111", "001", "001", "010", "010", "010", "010"),
-    "8": ("111", "101", "101", "111", "101", "101", "111"),
-    "9": ("111", "101", "101", "111", "001", "001", "111"),
-    ".": ("000", "000", "000", "000", "000", "000", "010"),
-    "V": ("101", "101", "101", "101", "101", "101", "010"),
-}
-for _number, _glyph in enumerate(EFFECT_DIGITS, 1):
-    VOLTAGE_FONT[str(_number)] = _glyph
-
-
-def battery_pixels(voltage, config, elapsed):
-    """Local portrait voltage gauge alternating with scrolling decimal volts."""
+def battery_pixels(voltage, config):
+    """Local portrait voltage gauge; numeric volts belong in device reports."""
     logical = bytearray(32)
     valid = voltage is not None and 2.0 <= voltage <= 4.5
     low, high = config.battery_voltage_range
@@ -74,26 +62,13 @@ def battery_pixels(voltage, config, elapsed):
         for y in (3, 5):
             for x in (1, 2):logical[y * 4 + x] = 1
     else:
-        tenths = int(voltage * 10 + .5)
-        text = "%d.%dV" % (tenths // 10, tenths % 10)
-        columns = len(text) * 4 + 4
-        phase = elapsed % (config.battery_gauge_s + columns * config.battery_scroll_s)
-        if phase < config.battery_gauge_s:
-            logical[1] = logical[2] = 1  # Battery terminal.
-            for y in range(1, 8):
-                logical[y * 4] = logical[y * 4 + 3] = 1
-            for x in range(4):logical[4 + x] = logical[28 + x] = 1
-            rows = int(level * 5 + .5)
-            for y in range(7 - rows, 7):
-                logical[y * 4 + 1] = logical[y * 4 + 2] = 1
-        else:
-            shift = int((phase - config.battery_gauge_s) / config.battery_scroll_s) - 4
-            for x in range(4):
-                column = x + shift
-                if 0 <= column < len(text) * 4 and column % 4 < 3:
-                    glyph = VOLTAGE_FONT[text[column // 4]]
-                    for y, row in enumerate(glyph):
-                        logical[y * 4 + x] = int(row[column % 4])
+        logical[1] = logical[2] = 1  # Battery terminal.
+        for y in range(1, 8):
+            logical[y * 4] = logical[y * 4 + 3] = 1
+        for x in range(4):logical[4 + x] = logical[28 + x] = 1
+        rows = int(level * 5 + .5)
+        for y in range(7 - rows, 7):
+            logical[y * 4 + 1] = logical[y * 4 + 2] = 1
     r, g, b = rgb
     gain = 255 * min(config.brightness, config.battery_brightness)
     color = bytes((int(g * gain), int(r * gain), int(b * gain)))

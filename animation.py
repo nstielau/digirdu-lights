@@ -41,7 +41,6 @@ class CulvertAnimation:
         self.chroma_log_span = math.log(config.chroma_frequency_hz[1]) - self.chroma_log_low
         self.effect = config.effect_index
         self.battery_voltage = None
-        self.battery_time = 0.0
         self.indicator_remaining = 0.0
         self.indicator_pixels = None
         # Factory progressive rows, top -> bottom; repeat for complete wings.
@@ -54,7 +53,6 @@ class CulvertAnimation:
             raise ValueError("Unknown effect")
         if effect != self.effect:
             self.effect = effect
-            self.battery_time = 0.0
             self.indicator_pixels = effect_indicator_pixels(effect, self.c)
             self.indicator_remaining = (self.c.effect_indicator_s
                                         if self.indicator_pixels is not None else 0.0)
@@ -68,8 +66,6 @@ class CulvertAnimation:
         c, f = self.c, features
         offset, hue_scale, cycles, field_level, texture_level, width_scale = PALETTES[self.effect]
         self.time += dt
-        if self.indicator_remaining <= 0:
-            self.battery_time += dt
         self.phase = (self.phase + dt * (c.base_speed + c.harmonic_speed * f.harmonics)) % 1
         for pulse in self.pulses:
             pulse[0] += dt
@@ -86,7 +82,7 @@ class CulvertAnimation:
         # Track Chroma even under another effect so switching has no stale hue.
         self._update_chroma(f, dt)
         if self.effect == 5:
-            return self._overlay(battery_pixels(self.battery_voltage, c, self.battery_time), dt)
+            return self._overlay(battery_pixels(self.battery_voltage, c), dt)
         if self.effect == 4:
             low, high = c.chroma_hue_range
             rgb = hsv(low + (high - low) * self.chroma_position, 1.0,

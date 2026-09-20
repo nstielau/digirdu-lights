@@ -1254,24 +1254,24 @@ and shows the new indicator. This base change cannot be delivered through an
 app-only OTA release. The sound-reactive app remains **1.0.6**, and future
 compatible app bundles still accept base 1.0.1.
 
-## Battery voltage: effect 6 and device reports (app 1.0.7 / base 1.0.4)
+## Battery voltage: effect 6 and device reports (app 1.0.8 / base 1.0.4)
 
 Press/release the producer's BOOT or IO43 button to cycle
 **Spectrum → Ember → Aurora → Ripple → Chroma → Battery → Spectrum**.
 The effect selection is broadcast; **each board displays its own voltage**.
 The producer's voltage is never substituted for a consumer's reading.
 
-After the dim amber number 6, the portrait 4×8 wing alternates a two-second
-battery gauge with scrolling volts, e.g. **3.9V**. The gauge fills across
+After the dim amber number 6, the portrait 4×8 wing shows a persistent
+battery gauge. Numeric voltage is available in device reports. The gauge fills across
 **3.3–4.2 V**, with red/amber/green coloring. It is a voltage scale, **not charge
 percentage**. It stays visible in silence and after radio loss. The same
 portrait rotation/custom mapping as the effect-number indicator applies.
 Audio processing and radio continue; short press returns to Spectrum, and
 the three-second hold still triggers shared red-fade sleep.
 
-The display uses a separate **3% cap**, samples every two seconds, and scrolls
-one column every 0.18 seconds. Tune `battery_brightness`, `battery_sample_s`,
-`battery_voltage_range`, `battery_gauge_s`, and `battery_scroll_s` in Config.
+The display uses a separate **3% cap** and samples every two seconds.
+Tune `battery_brightness`, `battery_sample_s`, and `battery_voltage_range`
+in Config. App 1.0.8 removes the scrolling text; base 1.0.4 remains compatible.
 Readings use eight ADC samples plus a discarded initial conversion. They are
 approximate; compare with a multimeter before changing the shared reader's
 `CALIBRATION_GAIN` in `battery.py`.

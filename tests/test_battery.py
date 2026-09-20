@@ -69,21 +69,24 @@ class BatteryTests(unittest.TestCase):
         self.assertTrue(any(b.render(rx.features,.1)))
         b.set_effect(0);self.assertEqual(b.effect,0)
 
-    def test_gauge_scrolling_unknown_rotation_and_brightness(self):
+    def test_persistent_gauge_unknown_rotation_and_brightness(self):
         c=Config()
-        empty=battery_pixels(3.3,c,0);full=battery_pixels(4.2,c,0);unknown=battery_pixels(None,c,0)
+        empty=battery_pixels(3.3,c);full=battery_pixels(4.2,c);unknown=battery_pixels(None,c)
         count=lambda p:sum(any(p[i:i+3]) for i in range(0,len(p),3))
         self.assertEqual(count(full)-count(empty),10)
         self.assertNotEqual(unknown,empty)
-        self.assertEqual(unknown,battery_pixels(None,c,50))
-        frames=[battery_pixels(3.9,c,i*.18) for i in range(40)]
-        self.assertGreater(len(set(frames)),10)
-        self.assertLessEqual(max(max(p) for p in frames),7)
+        animation=CulvertAnimation(Config(effect_index=5))
+        animation.battery_voltage=3.9
+        expected=battery_pixels(3.9,c)
+        # The gauge persists beyond the former scrolling interval.
+        for _ in range(120):
+            self.assertEqual(animation.render(AudioFeatures(),.5),expected)
+        self.assertLessEqual(max(expected),7)
         from effects import FEATHERWING_PORTRAIT as mapping
-        rotated=battery_pixels(4.2,Config(effect_indicator_rotation=180),0)
+        rotated=battery_pixels(4.2,Config(effect_indicator_rotation=180))
         for i in range(32):self.assertEqual(full[mapping[i]*3:mapping[i]*3+3],rotated[mapping[31-i]*3:mapping[31-i]*3+3])
-        self.assertEqual(battery_pixels(4.2,Config(pixel_count=64),0),full*2)
-        self.assertEqual(battery_pixels(4.2,Config(pixel_count=2),0),bytes(6))
+        self.assertEqual(battery_pixels(4.2,Config(pixel_count=64)),full*2)
+        self.assertEqual(battery_pixels(4.2,Config(pixel_count=2)),bytes(6))
 
     def test_report_uses_fresh_local_snapshot(self):
         from ota_bootstrap import report_body

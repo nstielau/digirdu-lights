@@ -572,3 +572,34 @@ pending. Existing base 1.0.3 devices retain compatible app 1.0.6 until their
 USB base upgrade. `.artifacts/battery-preview.html` previews actual renderer
 frames using clearly labelled simulated 3.3/3.7/4.2 V values and unavailable
 state; these are not hardware measurements or saved playing data.
+
+### Consumer deployment, September 20, 2026
+
+The user confirmed LiPo batteries on BAT/JST. After USB enumeration returned,
+the first deployment attempt lost its USB connection during setup. A retry
+verified all **eight base files** without erasing flash. The ESP32 V2 consumer
+then downloaded and confirmed app **1.0.7 / base 1.0.4**, deployment sequence
+**12**, with no OTA error and **931 frames** in its health trial. No producer
+packets were received during this trial; this does not verify the current RF
+link. Firebase accepted the new battery report, **4.379 V / measured**.
+
+An independent native ADC sequence sampled at 20 ms intervals returned
+**4.382–4.388 V**. The readings are stable, but not checked against a
+multimeter; no calibration gain was changed to force an expected voltage.
+The USB-powered charging state can affect the terminal reading. Base readback
+and OTA logs are `.artifacts/battery-consumer-base-deploy.log` and
+`.artifacts/battery-consumer-ota.log`. Producer base/app upgrade and visual
+acceptance are tracked separately from this successful consumer report.
+
+
+### Gauge-only display: app 1.0.8
+
+The user confirmed both displays appeared, but found scrolling voltage hard to
+read. App 1.0.8 keeps the portrait battery gauge visible continuously after the
+effect number. Numeric voltage remains in device reports. The 3% cap,
+two-second sampling, local readings and unavailable dashes are unchanged.
+This is an app-only OTA change; USB base 1.0.4 remains compatible.
+
+The repeated consumer demo ran 60 seconds / 1,063 frames with readings
+4.380–4.387 V and peak output 7, then restored normal app 1.0.7 startup.
+This confirms the original display ran; gauge-only deployment is pending.

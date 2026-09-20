@@ -121,8 +121,6 @@ class Config:
     battery_brightness = 0.03
     battery_sample_s = 2.0
     battery_voltage_range = (3.3, 4.2)  # Voltage scale, not charge percentage.
-    battery_gauge_s = 2.0
-    battery_scroll_s = 0.18  # Seconds per text column.
     effect_index = 0
     effect_indicator_enabled = True
     effect_indicator_s = 1.5

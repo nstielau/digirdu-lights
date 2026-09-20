@@ -357,8 +357,9 @@ is attached while the charger is powered. Reports are boot-time snapshots.
 Battery is protocol effect ID5/display6, appended after Chroma. Each node
 samples its own voltage every two seconds while selected, independent of
 audio/radio features. Preserve microphone capture, health and sleep behavior.
-The portrait gauge (3.3–4.2 V, not SOC) alternates with scrolling decimal volts,
-with a separate 3% cap and the existing portrait rotation/map. It remains
+App 1.0.8 keeps the portrait gauge (3.3–4.2 V, not SOC) continuously visible,
+with a separate 3% cap and the existing portrait rotation/map. Numeric voltage
+is available in device reports; scrolling text was removed for readability. It remains
 visible on silence/link loss. Old consumers reject ID5: update every node
 before selecting it. Keep replay limited to the five audio effects because
 the saved take has no battery measurements.
