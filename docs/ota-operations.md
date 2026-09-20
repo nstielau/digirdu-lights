@@ -534,3 +534,28 @@ ESP-NOW. No flash erase or app-slot replacement was needed. Both devices now
 report base 1.0.3/current app 1.0.6 with no OTA error. The capture is
 `.artifacts/ota-dim-producer-boot.log`. GitHub checks passed; the revised
 brightness/speed preference has not yet been visually assessed by the user.
+
+## Battery support: app 1.0.7 / USB base 1.0.4
+
+The optional `battery` report field has an explicit status and nullable voltage;
+the API still accepts old reports without it. The fleet view labels it as the
+last reported BAT/JST voltage, not a live percentage or battery-presence signal.
+ESP32 V2 uses its ADC1 GPIO35 divider. Original FeatherS2 reports unsupported
+until external sensing is explicitly wired and implemented.
+
+`battery.py` is a shared base module preloaded by ota_bootstrap, and is included
+in the eight USB base files. Base deployment preserves recovery/OTA slots and
+credentials. App 1.0.7 requires minimum base 1.0.4; publish/deploy the compatible
+API first, then USB bases, then boot into app OTA. Existing bases stay compatible
+with earlier app releases and old-format reports. No credentials or sensor
+values are included in release assets.
+
+Effect 6 selects the local battery gauge/scrolling voltage on each wing. Voltage
+does not enter the ESP-NOW feature packet; it remains protocol v3. Upgrade all
+consumers before selecting Battery. The display refreshes locally every two
+seconds, while cloud snapshots occur only during boot-time network maintenance.
+ADC resources are released after each read, and errors replace stale readings.
+Host checks cover sensor conversion/cleanup, unsupported S2, error/null states,
+report snapshots, local display after radio loss, gauge/scroll/rotation/caps and
+cloud schema/round-trip behavior. Native readings, multimeter calibration and
+visual acceptance require hardware and are tracked separately.

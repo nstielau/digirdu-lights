@@ -1,9 +1,9 @@
 """USB-managed release contract, shared by device and host tooling."""
 import hashlib
 
-BASE_VERSION = "1.0.3"
+BASE_VERSION = "1.0.4"
 # App compatibility is independent of optional USB-base improvements.
-APP_MINIMUM_BASE = "1.0.1"
+APP_MINIMUM_BASE = "1.0.4"  # Battery effect imports the shared base sensor.
 APP_API = 1
 BOARDS = ("unexpectedmaker_feathers2", "adafruit_feather_esp32_v2")
 APP_FILES = ("animation.py", "app_version.py", "audio_features.py", "audio_spectrum.py",

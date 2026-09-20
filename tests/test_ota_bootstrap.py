@@ -60,9 +60,9 @@ class OTAIndicatorTests(unittest.TestCase):
         with self.assertRaises(OSError):indicator.close()
         indicator.pin.deinit.assert_called_once()
 
-    def test_optional_base_update_does_not_raise_app_minimum(self):
+    def test_battery_app_requires_base_with_shared_sensor(self):
         from tools.bundle import application,manifest
-        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.0.1')
+        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.0.4')
 
 class RecoveryBootTests(unittest.TestCase):
     def test_new_rollback_skips_network_but_later_boot_reports(self):

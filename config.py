@@ -118,6 +118,11 @@ class Config:
     chroma_attack_s = 0.06
     chroma_release_s = 0.80
     chroma_min_volume = 0.10  # Hold last hue below this level; still fade light.
+    battery_brightness = 0.03
+    battery_sample_s = 2.0
+    battery_voltage_range = (3.3, 4.2)  # Voltage scale, not charge percentage.
+    battery_gauge_s = 2.0
+    battery_scroll_s = 0.18  # Seconds per text column.
     effect_index = 0
     effect_indicator_enabled = True
     effect_indicator_s = 1.5
@@ -204,6 +209,9 @@ class Config:
             raise ValueError("Invalid Chroma frequency, hue or gate range")
         if not 0 <= self.wave_floor <= 1:
             raise ValueError("Invalid wave_floor")
+        if (not 0 < self.battery_brightness <= 1 or len(self.battery_voltage_range) != 2
+                or not 2.0 <= self.battery_voltage_range[0] < self.battery_voltage_range[1] <= 4.5):
+            raise ValueError("Invalid battery display tuning")
         for value in (self.drone_field_gain, self.volume_field_gain, self.decay_field_gain,
                       self.vocal_ribbon_gain, self.attack_bloom_gain, self.yell_bloom_gain,
                       self.pulse_gain, self.growl_texture):

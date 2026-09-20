@@ -148,13 +148,15 @@ def feature_frames(records, config, fps=20, tail=8):
 
 
 def render_replay(records, config, fps=20, tail=8):
-    scenes = [CulvertAnimation(Config(**dict(vars(config), effect_index=i))) for i in range(len(EFFECT_NAMES))]
+    # Saved audio has no device-voltage measurements; replay only audio effects.
+    names = EFFECT_NAMES[:5]
+    scenes = [CulvertAnimation(Config(**dict(vars(config), effect_index=i))) for i in range(len(names))]
     frames, sections = [], []
     for now, section, features in feature_frames(records, config, fps, tail):
         # All effects get exactly the same features and event edges.
         frames.append(base64.b64encode(b''.join(a.render(features, 1/fps) for a in scenes)).decode())
         sections.append(section)
-    return {'fps': fps, 'names': EFFECT_NAMES, 'frames': frames, 'sections': sections,
+    return {'fps': fps, 'names': names, 'frames': frames, 'sections': sections,
             'brightness': config.brightness, 'duration': now, 'limits': LIMITS}
 
 

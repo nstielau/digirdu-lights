@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from ota_manifest import APP_FILES, APP_MINIMUM_BASE, BASE_VERSION, BOARDS, bundle_digest, sha256, validate
 
-BASE_FILES = ('ota_manifest.py', 'ota_store.py', 'ota_http.py', 'ota_bootstrap.py',
+BASE_FILES = ('ota_manifest.py', 'ota_store.py', 'ota_http.py', 'ota_bootstrap.py', 'battery.py',
               'certs/google-roots.pem', 'boot.py', 'code.py')
 
 

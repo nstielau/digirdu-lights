@@ -335,3 +335,30 @@ credentials and node configuration. App stays 1.0.6. APP_MINIMUM_BASE remains
 1.0.1 independently of BASE_VERSION=1.0.3: optional base improvements must not
 unnecessarily block app OTA for other nodes. Read fleet/serial reports before
 claiming the base is installed on a particular device.
+
+## Battery effect and reports (app 1.0.7 / USB base 1.0.4)
+
+`battery.py` is a USB-base module, imported by ota_bootstrap before load_app
+removes root from sys.path, and shared with lights_app. Keep it in BASE_FILES,
+not APP_FILES; app remains the same ten-file contract. App 1.0.7 requires
+APP_MINIMUM_BASE=1.0.4 for this reader. Install the backward-compatible cloud
+report validator before device bases start sending the optional battery field.
+Do not claim that app-only OTA installs the new report/sensor support.
+
+Only ESP32 V2's factory VOLTAGE_MONITOR/GPIO35 (ADC1) is supported: eight
+averaged samples, 2:1 divider, reference_voltage conversion, optional measured
+calibration gain. Original Unexpected Maker FeatherS2 has NO built-in battery
+monitor. Never infer a pin from the FeatherS2 Neo or Adafruit S2, nor initialize
+I2C on microphone GPIO9. Unsupported/out-of-range/error states report null
+voltage and render two amber dashes, not an empty battery or zero volts.
+BAT/JST voltage cannot identify a USB power bank's charge or prove a battery
+is attached while the charger is powered. Reports are boot-time snapshots.
+
+Battery is protocol effect ID5/display6, appended after Chroma. Each node
+samples its own voltage every two seconds while selected, independent of
+audio/radio features. Preserve microphone capture, health and sleep behavior.
+The portrait gauge (3.3–4.2 V, not SOC) alternates with scrolling decimal volts,
+with a separate 3% cap and the existing portrait rotation/map. It remains
+visible on silence/link loss. Old consumers reject ID5: update every node
+before selecting it. Keep replay limited to the five audio effects because
+the saved take has no battery measurements.

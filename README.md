@@ -12,6 +12,9 @@ stays in RAM; only normalized features and animation state are transmitted.
 [OTA operations and recovery](docs/ota-operations.md) describe the implemented
 GitHub release/Firebase update workflow, device enrollment and validation status.
 Devices try open `openwireless.org` at boot and return to ESP-NOW for playing.
+App 1.0.7 adds Battery as the sixth effect. USB base 1.0.4 adds voltage to
+device reports and supplies the shared sensor reader; install that base on
+each board before it can receive app 1.0.7.
 App 1.0.6 keeps the wing data line LOW through sleep to prevent stray pixels.
 App 1.0.5 added hold-to-sleep with a synchronized red fade. App 1.0.4 added
 Chroma, stronger musical effects and the IO43 effect button.
@@ -22,7 +25,7 @@ view their reported versions, follow the latest release, pin a version, or pause
 updates. Each board needs a one-time USB bootstrap and its own credential.
 Your Google profile photo opens the account menu in the top right; sign out
 from that menu. The public [Effects guide](https://digirdu-lights.firebaseapp.com/effects.html)
-describes Spectrum, Ember, Aurora, Ripple and Chroma for app 1.0.6, including frequency
+describes Spectrum, Ember, Aurora, Ripple, Chroma and Battery for app 1.0.7, including frequency
 bands, musical layers, BOOT selection and the mirrored number indicator.
 Both web pages use a cyan/hot-pink 1980s laser theme with the supplied horizon
 artwork, bundled locally in `web/assets/laser-horizon.png`.
@@ -1250,3 +1253,57 @@ node settings, recovery app and OTA slots. A normal RESET afterward checks OTA
 and shows the new indicator. This base change cannot be delivered through an
 app-only OTA release. The sound-reactive app remains **1.0.6**, and future
 compatible app bundles still accept base 1.0.1.
+
+## Battery voltage: effect 6 and device reports (app 1.0.7 / base 1.0.4)
+
+Press/release the producer's BOOT or IO43 button to cycle
+**Spectrum → Ember → Aurora → Ripple → Chroma → Battery → Spectrum**.
+The effect selection is broadcast; **each board displays its own voltage**.
+The producer's voltage is never substituted for a consumer's reading.
+
+After the dim amber number 6, the portrait 4×8 wing alternates a two-second
+battery gauge with scrolling volts, e.g. **3.9V**. The gauge fills across
+**3.3–4.2 V**, with red/amber/green coloring. It is a voltage scale, **not charge
+percentage**. It stays visible in silence and after radio loss. The same
+portrait rotation/custom mapping as the effect-number indicator applies.
+Audio processing and radio continue; short press returns to Spectrum, and
+the three-second hold still triggers shared red-fade sleep.
+
+The display uses a separate **3% cap**, samples every two seconds, and scrolls
+one column every 0.18 seconds. Tune `battery_brightness`, `battery_sample_s`,
+`battery_voltage_range`, `battery_gauge_s`, and `battery_scroll_s` in Config.
+Readings use eight ADC samples plus a discarded initial conversion. They are
+approximate; compare with a multimeter before changing the shared reader's
+`CALIBRATION_GAIN` in `battery.py`.
+
+| Board | Sensor and display |
+| --- | --- |
+| Adafruit Feather ESP32 V2 | Factory BAT/JST divider on ADC1 GPIO35, `board.VOLTAGE_MONITOR`; double the measured ADC voltage. No added wiring. |
+| Original Unexpected Maker FeatherS2 | No onboard battery sensor. Reports `unsupported` and displays two amber dashes. An external divider/sensor and explicit future wiring configuration are required. |
+
+The hardware assignments follow [Adafruit's pinout](https://learn.adafruit.com/adafruit-esp32-feather-v2/pinouts)
+and the [FeatherS2 manufacturer FAQ](https://feathers2.io/). Do not use the S2
+microphone's GPIO9/SCL for I2C battery sensing. No extra sensor pins are claimed.
+
+Each boot check-in and confirmation report includes, for example,
+`"battery": {"voltage": 3.876, "status": "measured"}`. Unsupported hardware,
+ADC failures, or readings outside 2.0–4.5 V use `voltage: null` with status
+`unsupported`, `read_error`, or `out_of_range`; a failed refresh clears the old
+reading. Older bases can still submit reports without this field.
+The dashboard labels the value **Battery terminal (last report)**: it is a
+startup snapshot, not a live feed. It does not measure a USB power bank's
+remaining charge, and a charger can produce a plausible BAT voltage with no
+battery attached. A numeric reading is not battery-presence detection.
+
+### Install
+
+1. Deploy the backward-compatible device API, then install **USB base 1.0.4**
+   using `make deploy-base` on each board. FeatherS2 requires BOOT-after-RESET
+   maintenance mode. This preserves credentials, node settings and app slots.
+2. Reset normally to check OTA and install **app 1.0.7**. Its manifest requires
+   base 1.0.4 because the shared `battery.py` reader is part of the USB base.
+3. Update every consumer before selecting effect 6. Older apps reject that
+   effect ID; the feature packet stays protocol v3 and does not carry voltage.
+
+The saved didgeridoo take contains no battery measurements. Replay continues
+to render only the five audio effects; no battery data is invented.

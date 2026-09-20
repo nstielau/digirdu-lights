@@ -41,6 +41,8 @@ function compatible(m, report) {
 function validateReport(b,id) {
   const keys=['device_id','board','role','version','base_version','circuitpython','protocol_send',
     'protocol_receive','session','report_sequence','state','deployment_sequence','error','health'];
+  // Optional for older USB bases; when present, validate the complete reading.
+  if (Object.hasOwn(b || {},'battery')) keys.push('battery');
   if (!exact(b,keys) || b.device_id!==id || !BOARDS.includes(b.board) || !['producer','consumer'].includes(b.role) ||
     (b.board===BOARDS[1] && b.role!=='consumer') || !version(b.version) || !version(b.base_version) ||
     !version(b.circuitpython) || !Number.isInteger(b.protocol_send) || !Array.isArray(b.protocol_receive) ||
@@ -52,6 +54,13 @@ function validateReport(b,id) {
     Object.keys(b.health).some(k=>!['frames','active','received','sent'].includes(k)) ||
     Object.entries(b.health).some(([k,v])=>k==='active'?typeof v!=='boolean':!Number.isInteger(v)||v<0||v>2147483647)) {
     throw new Error('invalid_report');
+  }
+  if (Object.hasOwn(b,'battery')) {
+    const reading=b.battery;
+    if (!exact(reading,['voltage','status']) ||
+      !['measured','unsupported','out_of_range','read_error'].includes(reading.status) ||
+      (reading.status==='measured' ? typeof reading.voltage!=='number' || !Number.isFinite(reading.voltage) ||
+        reading.voltage<2 || reading.voltage>4.5 : reading.voltage!==null)) throw new Error('invalid_report');
   }
   return b;
 }

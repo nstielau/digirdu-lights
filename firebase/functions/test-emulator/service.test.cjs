@@ -39,6 +39,15 @@ test('repeat report is idempotent; older session cannot overwrite a newer report
  await assert.rejects(svc.checkIn(id,token,report()),e=>e.status===409);
 });
 test('report-only does not select an update',async()=>{assert.equal((await svc.checkIn(id,token,report(),true)).manifest,null);});
+test('battery voltage survives check-in and authenticated fleet overview',async()=>{
+ const battery={voltage:3.91,status:'measured'};
+ await svc.checkIn(id,token,{...report(),battery});
+ const fleet=await svc.overview(admin);
+ assert.deepEqual(fleet.devices.find(d=>d.id===id).report.battery,battery);
+ clock+=2000;
+ await svc.checkIn(id,token,{...report(2),battery:{voltage:null,status:'read_error'}},true);
+ assert.equal((await svc.overview(admin)).devices.find(d=>d.id===id).report.battery.voltage,null);
+});
 test('pause, incompatible base and missing producer are independent',async()=>{
  await db.doc('devices/'+id).update({paused:true});assert.equal((await svc.checkIn(id,token,report())).reason,'paused');
  await db.doc('devices/'+id).update({paused:false});await db.doc('releases/1.1.0').update({manifest:manifest('1.1.0','9.0.0')});clock+=2000;

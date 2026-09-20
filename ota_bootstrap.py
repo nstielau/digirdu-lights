@@ -8,6 +8,7 @@ import time
 from ota_manifest import APP_API, BASE_VERSION, BOARDS, MAX_MANIFEST, validate
 from ota_store import UpdateStore
 from ota_http import DeviceHTTP
+from battery import read_battery
 
 TRIAL_SECONDS = 30
 NVM_MARKER = b"DGO1"  # Reserved bytes 0..4; never store device secrets in NVM.
@@ -96,7 +97,7 @@ def report_body(store, cfg, version, session, sequence, health=None):
             "protocol_send": 3, "protocol_receive": [3], "session": session,
             "report_sequence": sequence, "state": store.state["outcome"],
             "deployment_sequence": store.state["floor"], "error": store.state["error"],
-            "health": health or {}}
+            "health": health or {}, "battery": read_battery()}
 
 
 def nvm_flag(value=None):

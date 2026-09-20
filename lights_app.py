@@ -13,6 +13,7 @@ from audio_features import Analyzer
 from animation import CulvertAnimation
 from sound_reactive import measure
 from effects import ButtonGesture, SleepTransition, EFFECT_NAMES
+from battery import BatteryMonitor
 
 if board.board_id == "unexpectedmaker_feathers2":
     PIXEL_PIN = board.IO38  # Factory jumper's physical position, not D6 alias.
@@ -122,6 +123,7 @@ def run(seconds=None, drive_pixels=True, health=None):
     spectrum = Spectrum(CONFIG)
     analyzer = Analyzer(CONFIG)
     animation = CulvertAnimation(CONFIG)
+    battery = BatteryMonitor(CONFIG.battery_sample_s)
     radio = None
     if CONFIG.radio_role == "leader":
         from wireless import Wireless
@@ -170,6 +172,8 @@ def run(seconds=None, drive_pixels=True, health=None):
                     if flat_since is not None and now - flat_since > CONFIG.flat_timeout_s:
                         raise RuntimeError("Microphone data is flat; check GPIO 5/6/9, power and SEL=GND")
                     buttons.poll(animation, now, sleep, allow_sleep=not (health and health.trial))
+                    if animation.effect == 5:
+                        animation.battery_voltage = battery.update(now)["voltage"]
                     pixels = (sleep.pixels(now, CONFIG) if sleep.started is not None else
                               animation.render(features, max(period / 2, dt)))
                     if drive_pixels:
@@ -220,6 +224,7 @@ def run(seconds=None, drive_pixels=True, health=None):
 def run_follower(health=None):
     from wireless import Wireless
     animation = CulvertAnimation(CONFIG)
+    battery = BatteryMonitor(CONFIG.battery_sample_s)
     radio = Wireless(CONFIG)
     with digitalio.DigitalInOut(PIXEL_PIN) as pin:
         pin.switch_to_output(value=False)
@@ -233,6 +238,8 @@ def run_follower(health=None):
                 previous = now
                 features = radio.receive(now, animation)
                 lost = radio.receiver.fade_if_lost(now, dt)
+                if animation.effect == 5:
+                    animation.battery_voltage = battery.update(now)["voltage"]
                 # Ignore sleep during the initial OTA health trial. An intentional
                 # sleep/reset must not be mistaken for a failed candidate.
                 sleep = radio.receiver.sleep

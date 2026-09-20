@@ -1,6 +1,6 @@
 """Shared effect IDs and button debouncing; independent of hardware."""
 
-EFFECT_NAMES = ("Spectrum", "Ember", "Aurora", "Ripple", "Chroma")
+EFFECT_NAMES = ("Spectrum", "Ember", "Aurora", "Ripple", "Chroma", "Battery")
 # Hue offset, timbre hue scale, wave frequency, field level, texture level,
 # pulse width. IDs are transmitted; keep order identical across all nodes.
 PALETTES = (
@@ -11,15 +11,19 @@ PALETTES = (
     (0.0, 1.0, 1.0, 1.0, 1.0, 1.0),
 )
 
-# Display numbers are 1..5; protocol IDs remain 0..4. Three columns, seven rows.
+# Battery has no audio palette; keep ID-indexed tables aligned.
+PALETTES += ((0.0, 1.0, 1.0, 1.0, 1.0, 1.0),)
+
+# Display numbers are 1..6; protocol IDs remain 0..5. Three columns, seven rows.
 EFFECT_DIGITS = (
     ("010", "110", "010", "010", "010", "010", "111"),
     ("111", "001", "001", "111", "100", "100", "111"),
     ("111", "001", "001", "111", "001", "001", "111"),
     ("101", "101", "101", "111", "001", "001", "001"),
     ("111", "100", "100", "111", "001", "001", "111"),
+    ("111", "100", "100", "111", "101", "101", "111"),
 )
-INDICATOR_COLORS = ((0, 0, 1), (1, .2, 0), (0, 1, .6), (.6, 0, 1), (0, 1, 1))
+INDICATOR_COLORS = ((0, 0, 1), (1, .2, 0), (0, 1, .6), (.6, 0, 1), (0, 1, 1), (1, .5, 0))
 # Factory PCB has four progressive rows of eight. Portrait view: pixel 0 at
 # bottom left, logical row-major 4x8 coordinates -> physical pixel index.
 FEATHERWING_PORTRAIT = tuple(8 * x + 7 - y for y in range(8) for x in range(4))
@@ -31,7 +35,8 @@ def effect_indicator_pixels(effect, config):
         return None
     mapping = config.effect_indicator_map or FEATHERWING_PORTRAIT
     red, green, blue = INDICATOR_COLORS[effect]
-    grb = bytes(int(v * config.brightness * 255) for v in (green, red, blue))
+    brightness = min(config.brightness, config.battery_brightness) if effect == 5 else config.brightness
+    grb = bytes(int(v * brightness * 255) for v in (green, red, blue))
     wing = bytearray(96)
     for y, row in enumerate(EFFECT_DIGITS[effect]):
         for x, bit in enumerate(row):
@@ -42,6 +47,63 @@ def effect_indicator_pixels(effect, config):
                 offset = mapping[logical] * 3
                 wing[offset:offset + 3] = grb
     return bytes(wing) * (config.pixel_count // 32)
+
+
+VOLTAGE_FONT = {
+    "0": ("111", "101", "101", "101", "101", "101", "111"),
+    "7": ("111", "001", "001", "010", "010", "010", "010"),
+    "8": ("111", "101", "101", "111", "101", "101", "111"),
+    "9": ("111", "101", "101", "111", "001", "001", "111"),
+    ".": ("000", "000", "000", "000", "000", "000", "010"),
+    "V": ("101", "101", "101", "101", "101", "101", "010"),
+}
+for _number, _glyph in enumerate(EFFECT_DIGITS, 1):
+    VOLTAGE_FONT[str(_number)] = _glyph
+
+
+def battery_pixels(voltage, config, elapsed):
+    """Local portrait voltage gauge alternating with scrolling decimal volts."""
+    logical = bytearray(32)
+    valid = voltage is not None and 2.0 <= voltage <= 4.5
+    low, high = config.battery_voltage_range
+    level = max(0.0, min(1.0, (voltage - low) / (high - low))) if valid else 0.0
+    rgb = (0, 1, .1) if level >= .6 else ((1, .5, 0) if level >= .25 else (1, 0, 0))
+    if not valid:
+        # Two amber dashes mean unavailable, never an empty/zero-volt battery.
+        rgb = (1, .5, 0)
+        for y in (3, 5):
+            for x in (1, 2):logical[y * 4 + x] = 1
+    else:
+        tenths = int(voltage * 10 + .5)
+        text = "%d.%dV" % (tenths // 10, tenths % 10)
+        columns = len(text) * 4 + 4
+        phase = elapsed % (config.battery_gauge_s + columns * config.battery_scroll_s)
+        if phase < config.battery_gauge_s:
+            logical[1] = logical[2] = 1  # Battery terminal.
+            for y in range(1, 8):
+                logical[y * 4] = logical[y * 4 + 3] = 1
+            for x in range(4):logical[4 + x] = logical[28 + x] = 1
+            rows = int(level * 5 + .5)
+            for y in range(7 - rows, 7):
+                logical[y * 4 + 1] = logical[y * 4 + 2] = 1
+        else:
+            shift = int((phase - config.battery_gauge_s) / config.battery_scroll_s) - 4
+            for x in range(4):
+                column = x + shift
+                if 0 <= column < len(text) * 4 and column % 4 < 3:
+                    glyph = VOLTAGE_FONT[text[column // 4]]
+                    for y, row in enumerate(glyph):
+                        logical[y * 4 + x] = int(row[column % 4])
+    r, g, b = rgb
+    gain = 255 * min(config.brightness, config.battery_brightness)
+    color = bytes((int(g * gain), int(r * gain), int(b * gain)))
+    mapping = config.effect_indicator_map or FEATHERWING_PORTRAIT
+    wing = bytearray(96)
+    for i, lit in enumerate(logical):
+        if lit:
+            physical = mapping[31 - i if config.effect_indicator_rotation == 180 else i] * 3
+            wing[physical:physical + 3] = color
+    return bytes(wing) * (config.pixel_count // 32) + bytes((config.pixel_count % 32) * 3)
 
 
 class DebouncedButton:

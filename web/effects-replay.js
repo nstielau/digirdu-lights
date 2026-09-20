@@ -78,6 +78,6 @@ export async function initReplay() {
     play.disabled = seek.disabled = false;
   } catch {
     grids.replaceChildren();
-    section.textContent = 'The saved replay could not load. You can still read all five effect descriptions below. Reload to try again.';
+    section.textContent = 'The saved replay could not load. You can still read the effect descriptions below. Reload to try again.';
   }
 }
