@@ -646,3 +646,20 @@ continuing. The user confirmed the consumer shows a steady gauge with no
 scrolling and the FeatherS2 shows two amber dashes. The gauge-only two-wing
 visual check is complete. Passive host monitoring was stopped, leaving the
 normal application running in the selected Battery effect.
+
+
+### Recurrent sleep illumination investigation
+
+After the successful gauge rollout, the user reported intermittent LEDs turning
+bright after long-press sleep. App 1.0.8 already uses the output-hold sequence
+introduced in 1.0.6. Read-only source inspection and a passive 12-second USB
+listen were performed; the connected FeatherS2 console was idle with a Done
+title. No reset, GPIO reconfiguration or new firmware was applied during this
+inspection, so the board's existing sleep/stopped state was left undisturbed.
+The affected node and USB-versus-battery reproduction remain unconfirmed.
+
+README now documents an input-side 10 kΩ pull-down as a proposed floating-input
+test, and default-off wing power switching as the stronger hardware solution.
+The wing's DIN pad is level-shifted; both its diode-fed VBAT and VUSB sources
+must be considered for power isolation. Neither hardware change is installed.
+Do not treat the older two-wing visual pass as resolution of this recurrence.

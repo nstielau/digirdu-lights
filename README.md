@@ -1235,6 +1235,48 @@ no application traceback. Resetting each board then restored sound response
 on both wings, as visually confirmed by the user. Holding a pin can add some sleep current; electrical
 power consumption remains unmeasured.
 
+### Unexpected pixels after sleep: hardware protection
+
+The user subsequently reported intermittent bright pixels after long-press
+sleep, including battery operation. The earlier passing test does not establish
+that the symptom is eliminated. App 1.0.8 still sends black, drives the wing
+GPIO LOW and requests `preserve_dios`; no new software fix has been validated.
+A quiet USB console cannot distinguish simulated sleep from a stopped app.
+
+For a floating-input hypothesis, a practical first hardware test is a **10 kΩ
+pull-down resistor from the selected data GPIO to GND**, placed near the wing:
+
+| Board | Resistor connections (controller side of the wing's level shifter) |
+| --- | --- |
+| Original FeatherS2 producer | IO38 → 10 kΩ → GND |
+| Feather ESP32 V2 consumer | D32/GPIO32 → 10 kΩ → GND |
+
+Power down before wiring. This is a resistor to ground, not a direct short;
+it biases the signal LOW when the MCU releases it. It cannot clear a color
+already latched in a powered pixel or prove the cause of an intermittent fault.
+The FeatherWing's labelled DIN pad is on the **level-shifted output** side;
+use the selected GPIO/header connection for this input pull-down.
+
+For dependable darkness independent of a floating pin or MCU failure, switch
+**the wing's LED/level-shifter power** off with a suitable default-off high-side
+load switch. Keep grounds connected and data LOW while the wing is unpowered.
+The wing accepts **both VBAT and VUSB through diodes**: cutting only one source
+leaves the other able to power it. Isolate both wing feeds or switch their
+combined supply, while preserving power to the MCU. There is no configured
+wing power-enable GPIO in this project; this requires a reviewed hardware
+modification and corresponding firmware, not an OTA-only change. Do not connect
+LED power directly to a GPIO or assign a switch pin without checking conflicts.
+
+Test with laptop USB attached, then battery-only after a fresh reset. Confirm
+both red fades finish, leave the boards asleep long enough to reproduce the
+intermittent symptom, and check reset restores normal effects. USB connection
+changes alone are not proof of true deep sleep or measured battery savings.
+
+Sources: [FeatherWing power and level-shifter wiring](https://learn.adafruit.com/adafruit-neopixel-featherwing/pinouts),
+[CircuitPython sleep and pin-preservation behavior](https://docs.circuitpython.org/en/latest/shared-bindings/alarm/index.html).
+The pull-down and switched-power suggestions are circuit-design recommendations,
+not modifications already installed or verified on these boards.
+
 ### OTA activity light (USB base 1.0.3)
 
 During the boot-time OTA check, download, or confirmation report, one cyan
