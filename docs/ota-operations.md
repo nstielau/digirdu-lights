@@ -603,3 +603,14 @@ This is an app-only OTA change; USB base 1.0.4 remains compatible.
 The repeated consumer demo ran 60 seconds / 1,063 frames with readings
 4.380–4.387 V and peak output 7, then restored normal app 1.0.7 startup.
 This confirms the original display ran; gauge-only deployment is pending.
+
+Release **1.0.8**, source `1caaee7` / tag `firmware-v1.0.8`, was published and
+imported successfully. All 111 firmware tests, web/API checks, 30 browser tests,
+12 emulator tests and GitHub checks passed. The updated Effects guide is live.
+The connected ESP32 V2 consumer staged 1.0.8, confirmed it after its health
+trial, and resumed normal startup at **app 1.0.8 / base 1.0.4**. The capture is
+`.artifacts/battery-gauge-consumer-ota.log`. No packets arrived during the
+observed startup, and this run did not visually validate the revised gauge.
+The producer's latest fleet report remains app 1.0.6 / base 1.0.3; its USB base
+upgrade is still needed. Do not infer that the visual report for both displays
+establishes both firmware versions.
