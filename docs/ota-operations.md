@@ -559,3 +559,16 @@ Host checks cover sensor conversion/cleanup, unsupported S2, error/null states,
 report snapshots, local display after radio loss, gauge/scroll/rotation/caps and
 cloud schema/round-trip behavior. Native readings, multimeter calibration and
 visual acceptance require hardware and are tracked separately.
+
+Release **1.0.7**, tag `firmware-v1.0.7`, source `2243603`, was published and
+imported as stable. Firmware/dashboard GitHub checks passed. Local validation
+passed **111 firmware tests**, web/API tests, **30 browser tests** and **12
+Firestore emulator tests**. The deviceApi function and hosting were deployed
+successfully before release publication; old reports remain accepted.
+
+No USB board was connected during implementation, so base 1.0.4 deployment,
+native ADC accuracy, actual battery reports, and the two-wing visual test are
+pending. Existing base 1.0.3 devices retain compatible app 1.0.6 until their
+USB base upgrade. `.artifacts/battery-preview.html` previews actual renderer
+frames using clearly labelled simulated 3.3/3.7/4.2 V values and unavailable
+state; these are not hardware measurements or saved playing data.
