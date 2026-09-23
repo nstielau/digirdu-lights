@@ -12,3 +12,5 @@ web/firebase-config.js
 *-debug.log
 playwright-report/
 test-results/
+
+.worktrees/
