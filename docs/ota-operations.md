@@ -684,3 +684,12 @@ TFT/button orientation, MAX17048 reading, explicit-source receive and heartbeat,
 USB versus battery sleep/wake, later wired mic/wing and TFT-on/off benchmark.
 Keep 1.0.8 stable until qualification. The intermittent powered-Wing sleep-light
 issue remains deferred; no electrical fix or low-current measurement claimed.
+
+Independent whole-branch review found two important issues: TFT preparation ran
+before the audio budget gate, and runtime microphone faults lacked visible
+status. Both have regression tests and fixes. Display-disabled now explicitly
+blanks/stops native refresh, host S3 button diagnostics use correct aliases and
+polarities, and missing enrolled identity cannot enter interactive first-run
+setup. Deployment rejects versions other than pinned CircuitPython10.3.1 before
+writing. Final software gate: **139 firmware tests pass**. Hardware gates above
+remain pending; implementation commits are on `feature/reverse-tft`.
