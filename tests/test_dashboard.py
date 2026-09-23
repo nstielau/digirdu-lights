@@ -35,3 +35,28 @@ class DashboardTests(unittest.TestCase):
         self.assertFalse(ui.update(.7,state,spare=.02))
         self.assertFalse(ui.update(1,state,spare=.02))
         self.assertEqual(backend.draw.call_count,3)
+
+    def test_audio_budget_gate_precedes_snapshot_and_sensor_work(self):
+        from test_sleep import load_app
+        from audio_features import AudioFeatures
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        app=load_app();ui=Mock(failed=False,next_refresh=0,cost=.005,skipped=0)
+        battery=Mock();battery.update.return_value={}
+        rate=Mock();rate.update.return_value=0
+        with patch.object(app,'DISPLAY',ui),patch('dashboard.snapshot') as snapshot:
+            app.update_dashboard(1,AudioFeatures(),SimpleNamespace(effect=0),battery,None,rate,spare=0)
+        battery.update.assert_not_called();snapshot.assert_not_called();ui.update.assert_not_called()
+
+    def test_disabled_dashboard_blanks_native_display_for_real_off_benchmark(self):
+        from test_sleep import load_app
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        app=load_app();native=Mock(brightness=1,auto_refresh=True,root_group=object())
+        with patch.object(app,'PROFILE',{'display':True}), \
+             patch.object(app,'CONFIG',SimpleNamespace(display_enabled=False)), \
+             patch.object(app,'board',SimpleNamespace(DISPLAY=native)):
+            self.assertIsNone(app.start_dashboard())
+        self.assertEqual(native.brightness,0)
+        self.assertFalse(native.auto_refresh)
+        self.assertIsNone(native.root_group)

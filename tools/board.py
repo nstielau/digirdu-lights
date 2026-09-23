@@ -36,29 +36,31 @@ def inspect_buttons():
     print('BUTTON TEST role=%s next=%s extra_next=%s previous=%s' %
           (CONFIG.radio_role, CONFIG.button_next_gpio, extra_next, CONFIG.button_previous_gpio))
     try:
-        for gpio in (CONFIG.button_next_gpio, extra_next, CONFIG.button_previous_gpio):
+        reverse = board.board_id == 'adafruit_feather_esp32s3_reverse_tft'
+        gpios = (0,1,2) if reverse else (CONFIG.button_next_gpio, extra_next, CONFIG.button_previous_gpio)
+        for gpio in gpios:
             if gpio is None:
                 continue
-            pin = digitalio.DigitalInOut(getattr(board, 'IO%d' % gpio))
-            inputs.append([gpio, pin, DebouncedButton(CONFIG.button_debounce_s), None, 0, 0])
-            pin.switch_to_input(pull=digitalio.Pull.UP)
+            pin = digitalio.DigitalInOut(getattr(board, ('D%d' if reverse else 'IO%d') % gpio))
+            inputs.append([gpio, pin, DebouncedButton(CONFIG.button_debounce_s), None, 0, 0, reverse and gpio != 0])
+            pin.switch_to_input(pull=None if reverse else digitalio.Pull.UP)
         started = time.monotonic()
         while time.monotonic() - started < 20:
             now = time.monotonic()
             for row in inputs:
-                gpio, pin, button, previous, transitions, presses = row
+                gpio, pin, button, previous, transitions, presses, active_high = row
                 level = pin.value
                 if level != previous:
                     print('BUTTON GPIO%d level=%d (%s) t=%.2f' %
-                          (gpio, level, 'released' if level else 'pressed', now-started))
+                          (gpio, level, 'pressed' if level == active_high else 'released', now-started))
                     row[3] = level
                     if previous is not None:
                         row[4] += 1
-                if button.update(not level, now):
+                if button.update(level == active_high, now):
                     row[5] += 1
                     print('BUTTON GPIO%d accepted press=%d' % (gpio, row[5]))
             time.sleep(0.005)
-        for gpio, pin, button, previous, transitions, presses in inputs:
+        for gpio, pin, button, previous, transitions, presses, active_high in inputs:
             print('BUTTON RESULT GPIO%d transitions=%d presses=%d final_level=%d' %
                   (gpio, transitions, presses, pin.value))
         if not inputs:

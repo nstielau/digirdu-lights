@@ -669,7 +669,7 @@ Do not treat the older two-wing visual pass as resolution of this recurrence.
 Implemented shared board profiles, explicit role/source setup, dim TFT dashboard,
 D0/D1/D2 controls, DGRP consumer presence, MAX17048 readings and schema2 releases.
 Schema1 journal/rollback fixtures remain exact historical contracts. Firmware
-checks currently pass133 tests; web3/API5/browser30/emulator12 pass. Emulator
+checks currently pass138 tests; web3/API5/browser30/emulator12 pass. Emulator
 initially lacked worktree dependencies, then exposed historical fixtures using
 new dynamic constants; dependency links and explicit legacy fixtures fixed this.
 

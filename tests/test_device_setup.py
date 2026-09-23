@@ -23,3 +23,13 @@ class SetupTests(unittest.TestCase):
         self.assertFalse(a.confirmed)
         self.assertTrue(a.confirm(10));self.assertTrue(a.confirmed)
         flat=self.assessment();self.assertFalse(flat.confirm(10))
+
+    def test_enrolled_missing_identity_cannot_enter_interactive_setup(self):
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import device_setup
+        with patch.dict(sys.modules,{'board':SimpleNamespace(board_id='adafruit_feather_esp32s3_reverse_tft')}), \
+             patch('node_state.current',return_value={}),patch('os.getenv',return_value='provisioned'):
+            with self.assertRaisesRegex(ValueError,'enrolled'):
+                device_setup.ensure_configured()

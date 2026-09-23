@@ -60,3 +60,14 @@ class HardwareTests(unittest.TestCase):
             self.assertEqual(app.PIXEL_PIN,6)
             app.microphone()
         self.assertEqual(factory.call_args.args,(5,9,10))
+
+    def test_capture_failure_is_visible_without_role_change(self):
+        from test_sleep import load_app
+        app=load_app()
+        self.assertTrue(hasattr(app,'show_mic_fault'),'runtime microphone fault screen missing')
+        screen=__import__('unittest.mock',fromlist=['Mock']).Mock()
+        previous_role=app.CONFIG.radio_role
+        with patch.object(app,'PROFILE',{'display':True}),patch('hardware.BootScreen',return_value=screen):
+            app.show_mic_fault()
+        screen.phase.assert_called_once_with('MIC FAULT - check wiring / reset')
+        self.assertEqual(app.CONFIG.radio_role,previous_role)

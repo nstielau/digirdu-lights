@@ -99,9 +99,17 @@ class TFTButtons:
 
 def start_dashboard():
     global DISPLAY
+    DISPLAY = None
     if PROFILE['display'] and CONFIG.display_enabled:
         from dashboard import create
         DISPLAY = create(CONFIG)
+    elif PROFILE['display']:
+        try:
+            board.DISPLAY.auto_refresh = False
+            board.DISPLAY.brightness = 0
+            board.DISPLAY.root_group = None
+        except Exception as error:
+            print('TFT off unavailable:',type(error).__name__)
     return DISPLAY
 
 
@@ -109,6 +117,10 @@ def update_dashboard(now, features, animation, battery, radio, rate, spare,
                      overruns=0, sleep=None, buttons=None, fault=False):
     if not DISPLAY or DISPLAY.failed or now < DISPLAY.next_refresh:
         return
+    if spare < DISPLAY.cost + .002:
+        DISPLAY.skipped += 1
+        return
+    preparation_started = time.monotonic()
     from dashboard import snapshot
     from app_version import APP_VERSION
     receiver = radio.receiver if radio else None
@@ -132,7 +144,18 @@ def update_dashboard(now, features, animation, battery, radio, rate, spare,
                      battery=reading,channel=CONFIG.radio_channel,group=CONFIG.radio_group,
                      version=APP_VERSION,counters=counters,source=CONFIG.leader_mac if receiver else 'local',
                      overruns=overruns,message=message)
-    DISPLAY.update(now,state,spare)
+    preparation = time.monotonic() - preparation_started
+    DISPLAY.update(now,state,spare-preparation)
+    # Include sensor/format work in the next early gate, not just SPI refresh.
+    DISPLAY.cost = max(DISPLAY.cost, time.monotonic()-preparation_started)
+
+
+def show_mic_fault():
+    print('AUDIO microphone fault; role unchanged')
+    if PROFILE['display']:
+        from hardware import BootScreen
+        screen = BootScreen()
+        screen.phase('MIC FAULT - check wiring / reset')
 
 
 def microphone():
@@ -283,6 +306,9 @@ def run(seconds=None, drive_pixels=True, health=None):
                 if radio is not None:
                     print("RADIO BENCH sent=%d errors=%d skipped=%d" %
                           (radio.sent, radio.errors, radio.skipped))
+        except (OSError, RuntimeError):
+            show_mic_fault()
+            raise
         finally:
             neopixel_write(pin, bytes(CONFIG.pixel_count * 3))
             buttons.deinit()

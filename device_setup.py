@@ -35,8 +35,10 @@ def ensure_configured():
     from hardware import S3
     if board.board_id != S3 or node_state.current().get('radio_role'):
         return
-    import array
     import os
+    if os.getenv('OTA_DEVICE_TOKEN'):
+        raise ValueError('Missing enrolled identity; repair through host configuration')
+    import array
     import time
     import digitalio
     import storage
