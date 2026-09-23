@@ -3,6 +3,7 @@
 import argparse
 import ast
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -325,10 +326,14 @@ def deploy(port, board_id, mount=None, node_config=None, legacy=False, base_only
                 or "circuitpython" not in identity.lower()):
             raise RuntimeError(f"Wrong board or firmware; expected {board_id}.")
         if not legacy:
+            if not re.search(r"version=\(10,\s*3,\s*1[,) ]", identity):
+                raise RuntimeError("Shared app requires pinned CircuitPython 10.3.1")
             repl.execute("import espnow; from ulab import numpy, utils")
         if board_id in (S2_BOARD, S3_BOARD):
             repl.execute("import audioi2sin")
             native_options = {"board_id": board_id} if board_id == S3_BOARD else {}
+            if board_id == S3_BOARD:
+                repl.execute("import displayio, terminalio; from board import DISPLAY")
             if base_only:
                 deploy_s2(repl, mount, base_only=True, **native_options)
             else:

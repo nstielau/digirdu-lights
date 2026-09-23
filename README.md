@@ -1502,7 +1502,7 @@ legacy ten-file bundle.
 
 Host tests cover contracts/rollback, source/role persistence, pure display
 states, microphone assessment, button polarity/wake suppression, presence and
-bounded transport. The September 23 development check passed 138 firmware tests,
+bounded transport. The September 23 development check passed 139 firmware tests,
 3 web unit tests, 5 API contract tests, 30 browser checks and 12 emulator tests.
 These are not a hardware benchmark. New-board TFT orientation/button order,
 sensor readings, radio operation and sleep/wake remain to be verified; mic/LED

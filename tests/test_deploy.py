@@ -7,9 +7,9 @@ from tools import board
 
 
 class DeploymentSelectionTests(unittest.TestCase):
-    def deploy(self, detected, expected="auto", legacy=False):
+    def deploy(self, detected, expected="auto", legacy=False, version="10, 3, 1"):
         repl = Mock()
-        repl.execute.return_value = detected + "\n(name='circuitpython', version=(10, 3, 1))"
+        repl.execute.return_value = detected + "\n(name='circuitpython', version=(" + version + "))"
         with patch("builtins.print"), patch.object(board, "Repl", return_value=repl), \
                 patch.object(board, "deploy_s2") as usb, \
                 patch.object(board, "deploy_serial") as serial:
@@ -56,6 +56,10 @@ class DeploymentSelectionTests(unittest.TestCase):
         repl, usb, serial = self.deploy(name)
         serial.assert_not_called()
         usb.assert_called_once_with(repl, None, 'profile.py', board_id=name)
+
+    def test_wrong_circuitpython_version_refused_before_writes(self):
+        with self.assertRaisesRegex(RuntimeError,'10.3.1'):
+            self.deploy(board.S3_BOARD,version='9, 2, 8')
 
 class ConfigurationTests(unittest.TestCase):
     def test_native_configuration_verified_and_enrollment_locked(self):
