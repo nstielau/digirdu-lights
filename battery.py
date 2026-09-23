@@ -13,6 +13,9 @@ CALIBRATION_GAIN = 1.0  # Adjust only after comparison with a multimeter.
 
 def read_battery():
     import board
+    if board.board_id == "adafruit_feather_esp32s3_reverse_tft":
+        reading = read_gauge()
+        return {"voltage": reading["voltage"], "status": reading["status"]}
     if board.board_id != "adafruit_feather_esp32_v2":
         return {"voltage": None, "status": "unsupported"}
     try:
@@ -40,3 +43,35 @@ class BatteryMonitor:
             self.reading = read_battery()
             self.next_read = now + self.interval_s
         return self.reading
+
+
+def read_gauge():
+    """Read MAX17048 only; skip a busy I2C bus instead of delaying audio.
+
+    Register scaling/version mask follow Adafruit's MAX1704x driver. Do not
+    reset the gauge: its learned charge estimate must survive app reads.
+    """
+    import board
+    failure = {"voltage": None, "percent": None, "status": "read_error"}
+    locked = False
+    try:
+        bus = board.I2C()
+        locked = bus.try_lock()
+        if not locked:
+            return failure
+        response = bytearray(2)
+        def register(number):
+            bus.writeto_then_readfrom(0x36, bytes((number,)), response)
+            return (response[0] << 8) | response[1]
+        if register(8) & 0xfff0 != 0x0010:
+            return {"voltage": None, "percent": None, "status": "unsupported"}
+        volts = register(2) * 0.000078125
+        percent = register(4) / 256.0
+        if not 2.0 <= volts <= 4.5 or not 0 <= percent <= 100:
+            return {"voltage": None, "percent": None, "status": "out_of_range"}
+        return {"voltage": round(volts, 3), "percent": percent, "status": "measured"}
+    except (OSError, RuntimeError, ValueError, AttributeError):
+        return failure
+    finally:
+        if locked:
+            bus.unlock()
