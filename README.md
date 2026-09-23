@@ -1355,3 +1355,157 @@ battery attached. A numeric reading is not battery-presence detection.
 
 The saved didgeridoo take contains no battery measurements. Replay continues
 to render only the five audio effects; no battery data is invented.
+
+## Reverse TFT Feather (1.1.0 development)
+
+The shared app now supports **Adafruit Feather ESP32-S3 Reverse TFT**,
+`adafruit_feather_esp32s3_reverse_tft`, alongside the original FeatherS2 and
+Feather ESP32 V2. The 1.1.0 source is under hardware qualification; it has not
+been published as the fleet's stable OTA release. The currently connected
+Reverse TFT is bare, with no microphone or FeatherWing attached.
+
+### Wiring and first setup
+
+| Function | Reverse TFT pin |
+| --- | --- |
+| NeoPixel FeatherWing factory data jumper | D6 / GPIO6 |
+| Proposed ICS43434 BCLK | D5 / GPIO5 |
+| Proposed ICS43434 WS/LRCLK | D9 / GPIO9 |
+| Proposed ICS43434 DOUT | D10 / GPIO10 |
+| Microphone SEL / power | SEL→GND, VDD→3.3V, common GND |
+| Buttons | D0 active LOW; D1 and D2 active HIGH |
+
+Do not reuse FeatherS2's GPIO6 microphone clock: it conflicts with this wing.
+The existing FeatherS2 pins (5/6/9 mic, IO38 wing, IO43 button) and ESP32 V2
+D32 wing remain unchanged. GPIO0/1/2, I2C3/4, power7/21, SPI35/36/37,
+TFT40/41/42/45 and built-in NeoPixel33 are reserved on Reverse TFT.
+
+Use CircuitPython **10.3.1**. Inspect the bootloader with a double RESET tap;
+FTHRS3BOOT/INFO_UF2.TXT must show TinyUF2 **0.33.0 or newer** for this 4MB board.
+The [official upgrade guide](https://learn.adafruit.com/esp32-s3-reverse-tft-feather/update-tinyuf2-bootloader-for-circuitpython-10-4mb-boards-only)
+explains the changed flash layout. Save existing contents before installation.
+`make flash BOARD=adafruit_feather_esp32s3_reverse_tft` checks loader identity
+and version and backs up CURRENT.UF2 when the loader exposes it. If it cannot
+supply a backup, use the explicit ROM installation path (`make flash-rom` with
+that BOARD) which verifies the chip and 4MB flash and backs up the entire flash
+before erasing. Firmware installation is separate from routine `make deploy`.
+
+A new S3 deployment without NODE_CONFIG leaves `OVERRIDES = {}` and displays
+setup. D1 runs a ten-second quiet/sound microphone assessment; D2 confirms
+Producer only after varying, non-flat, unclipped samples. No noise threshold
+silently elects a producer, and later microphone failure never changes the role.
+D0 explains consumer setup through the host, since the consumer needs an
+explicit source MAC. Setup requires device-owned storage to save from the TFT;
+when USB owns the filesystem it displays the host command instead.
+
+```sh
+# Install the USB base/recovery application; identity and saved tuning survive.
+make deploy BOARD=adafruit_feather_esp32s3_reverse_tft
+
+# Explicit consumer source: use the actual producer's RADIO mac= log.
+make configure-node ROLE=consumer LEADER_MAC=7c:df:a1:03:4c:2c GROUP=1
+
+# After wiring and verifying the proposed microphone pins:
+make configure-node ROLE=producer GROUP=1
+```
+
+The example MAC above is the existing FeatherS2 producer, **not** the MAC of a
+new TFT producer. Reconfigure consumers when replacing their producer.
+`PORT=...` and `MOUNT=...` disambiguate USB devices/drives. Reset after
+configuration. The helper verifies UID/mount ownership and readback, backs up
+previous configuration, and preserves literal per-device tuning. It refuses
+dynamic Python profiles; use a reviewed `NODE_CONFIG=...` for those.
+
+Saved choices are bounded, validated `/node_state.json` data. Explicit
+`node_config.py` overrides take precedence. Configure the role before OTA
+enrollment; enrolled identity changes require a coordinated host profile,
+cloud re-enrollment and credential provisioning. Ordinary TFT setup cannot
+change an enrolled role. Credentials are never part of an app release.
+
+### TFT dashboard and controls
+
+The landscape 240×135 screen reserves the left side for physical button labels.
+Its main page shows role, local battery, effect number/name and a level meter.
+Producer levels are DC-removed RMS in dBFS; consumer levels are received,
+normalized percentages. QUIET, CALIBRATING, CLIPPING and LIVE/LOST are text
+states. D0 selects diagnostics with submitted/native TX counters, skips,
+accepted/rejected RX, source and audio overruns. A successful native send is
+not a delivery receipt.
+
+| Button | Producer | Consumer |
+| --- | --- | --- |
+| D0 release | Main/diagnostics page | Main/diagnostics page |
+| D1 short release | Next shared effect | FOLLOW: no group control |
+| D2 hold three seconds | Broadcast group sleep | Local sleep only |
+| Fresh D2 press after sleep | Wake this board | Wake this board |
+
+D2 sleep uses the existing three-second red fade. The TFT then asks for D2 to
+be released before arming wake; a held button cannot immediately wake it.
+The initial held input on restart is ignored until released. RESET always
+reboots. Sleeping radios cannot receive group wake: each node wakes locally.
+Sleep is disabled during OTA candidate trials. Existing boards keep their
+previous effect/sleep controls and reset-only wake.
+
+Display updates are limited to 5 Hz, with a default 12% backlight and refresh
+skipped when the audio frame has insufficient spare time. Tune
+`display_enabled`, `display_interval_s`, `display_brightness` (maximum .5), and
+`display_rotation` (0/180) in the node profile. Wing brightness remains .15.
+Boards without TFTs do not initialize the display backend. A failed backend is
+disabled with one warning. Boot-time OTA shows phase text and retains the dim
+cyan wing activity indicator; blocked Wi-Fi/TLS calls can pause it.
+
+Reverse TFT reads its MAX17048 at I2C address 0x36 without an external library.
+The local TFT displays its estimated state of charge and voltage. Device
+reports retain `{voltage, status}`; the Wing Battery effect remains a voltage
+gauge, not state of charge. Missing/unknown sensors and failed reads show
+unavailable. Battery sensing never probes the original FeatherS2's mic pins.
+
+Before Reverse TFT sleep, firmware releases the native display, disables
+backlight/TFT-I2C/onboard-NeoPixel power, and preserves those outputs plus wing
+data LOW through alarm handoff. CP10.3.1's preserved-pin mask bypasses the
+GPIO7 default-HIGH reset hook. This is source-level verification; USB simulated
+sleep and battery-powered sleep still need physical testing. **No current
+consumption claim is made.** The powered FeatherWing's separate BAT/USB rail
+and the deferred intermittent sleep-light issue remain unchanged.
+
+### ESP-NOW presence
+
+Audio remains the existing 51-byte DGRD v3 packet; sleep remains 17-byte DGRS.
+Updated consumers broadcast a separate DGRP v1 acknowledgment around every
+three seconds (±.5s jitter), only with recent valid audio from their configured
+producer. Replies name that producer MAC/session plus the consumer boot/session
+sequence and accepted audio sequence. The producer counts actual sender MACs,
+validates group/session/freshness and discards duplicates. There is no pairing,
+router, automatic election or discovery.
+
+**SEEN/10s** means listeners that acknowledged recently, not exact inventory or
+proof of visible LEDs. Entries expire after ten seconds. The table is bounded
+to 32 (`presence_capacity`); `+` indicates capacity reached. Old consumers still
+render but are uncounted. New consumers still follow old producers. Both sides
+retain one outstanding native send and bounded receive draining; sleep stops
+heartbeats. Protocol checks are not authentication against malicious RF senders.
+
+### OTA compatibility and qualification
+
+USB base/app 1.1.0 requires minimum base 1.1.0. The base adds `hardware.py` and
+`node_state.py`; app schema 2 adds `dashboard.py` and `device_setup.py`. Upgrade
+cloud validators before publishing a new release, then install the USB base
+on each board. This is a one-time USB dependency update, not an app-only OTA.
+
+Both base and cloud retain the exact historical schema-1 ten-file/two-board
+contract alongside schema 2's twelve files/three boards. Existing 1.0.x slots
+and rollback remain valid on upgraded old boards; old bases select compatible
+1.0.x releases. Reverse TFT requires a compatible 1.1.0 recovery bundle.
+`make deploy-base` preserves recovery/slots/configuration, while full deployment
+installs the new compatible recovery. Do not replace a new S3 recovery with a
+legacy ten-file bundle.
+
+Host tests cover contracts/rollback, source/role persistence, pure display
+states, microphone assessment, button polarity/wake suppression, presence and
+bounded transport. The September 23 development check passed 133 firmware tests,
+3 web unit tests, 5 API contract tests, 30 browser checks and 12 emulator tests.
+These are not a hardware benchmark. New-board TFT orientation/button order,
+sensor readings, radio operation and sleep/wake remain to be verified; mic/LED
+checks require wiring. Compare `make benchmark` with `display_enabled=False`
+and True after attaching the mic, recording FPS, mean/max work, 64ms misses
+and discontinuities. The previous FeatherS2 timing limitations still apply.

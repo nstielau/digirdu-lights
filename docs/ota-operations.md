@@ -663,3 +663,24 @@ test, and default-off wing power switching as the stronger hardware solution.
 The wing's DIN pad is level-shifted; both its diode-fed VBAT and VUSB sources
 must be considered for power isolation. Neither hardware change is installed.
 Do not treat the older two-wing visual pass as resolution of this recurrence.
+
+## September 23: Reverse TFT 1.1.0 development
+
+Implemented shared board profiles, explicit role/source setup, dim TFT dashboard,
+D0/D1/D2 controls, DGRP consumer presence, MAX17048 readings and schema2 releases.
+Schema1 journal/rollback fixtures remain exact historical contracts. Firmware
+checks currently pass133 tests; web3/API5/browser30/emulator12 pass. Emulator
+initially lacked worktree dependencies, then exposed historical fixtures using
+new dynamic constants; dependency links and explicit legacy fixtures fixed this.
+
+Connected bare board advertises VID239A/PID8123, serial64:e8:33:73:f3:84,
+`/dev/cu.usbmodem1101`. No CIRCUITPY drive or CircuitPython REPL response.
+Requested double RESET for FTHRS3BOOT inspection; awaiting physical action.
+No new board files flashed, no credentials provisioned, no cloud deployment or
+stable release publication yet. Old producer/consumer remain untouched.
+
+Outstanding hardware gates: compatible TinyUF2/CP installation with backup,
+TFT/button orientation, MAX17048 reading, explicit-source receive and heartbeat,
+USB versus battery sleep/wake, later wired mic/wing and TFT-on/off benchmark.
+Keep 1.0.8 stable until qualification. The intermittent powered-Wing sleep-light
+issue remains deferred; no electrical fix or low-current measurement claimed.

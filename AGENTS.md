@@ -363,3 +363,40 @@ is available in device reports; scrolling text was removed for readability. It r
 visible on silence/link loss. Old consumers reject ID5: update every node
 before selecting it. Keep replay limited to the five audio effects because
 the saved take has no battery measurements.
+
+## Reverse TFT development (app/base 1.1.0)
+
+Approved spec: docs/superpowers/specs/2026-09-23-reverse-tft-design.md.
+New ID `adafruit_feather_esp32s3_reverse_tft`, 4MB flash/2MB PSRAM/native USB,
+CP10.3.1; 4MB TinyUF2 must be >=0.33.0. Shared USB-base hardware.py profiles:
+wing D6; proposed mic D5/D9/D10, SEL grounded. Do not reuse S2 mic GPIO6.
+New connected board is bare; no new mic/wing hardware validation yet.
+Pins are verified against official board sources, not wired-device observation.
+
+One app with explicit saved identity, never automatic boot-time mic election.
+node_state.py is base-preloaded alongside hardware/battery before slot isolation.
+New S3 default profile is empty, not the repository's legacy consumer default.
+TFT mic test requires human confirmation. Consumer setup uses configure-node
+with explicit producer MAC. JSON state is bounded/validated; explicit profile
+wins. Host ownership prohibits device writes; enrollment locks role changes.
+
+Display uses built-in font/resources through hardware.TextScreen; dashboard.py
+is app-only, never imported by boot maintenance. Left labels D0 PAGE, D1 NEXT
+(producer)/FOLLOW (consumer), D2 SLEEP. D0 LOW, D1/D2 HIGH. D1 does not sleep;
+D2 hold3s + red fade3s, then stable release before local HIGH PinAlarm. Initial
+held wake press is ignored. Old boards retain reset-only wake. Hold TFT power7,
+backlight45, built-in pixel power21 and wingLOW through sleep. CP preserved pin
+mask skips GPIO7's board reset hook; electrical sleep remains unqualified.
+The deferred powered-Wing sleep-light issue is separate and remains deferred.
+
+TFT starts at 5Hz, backlight .12, audio-first budget skipping. Raw producer dBFS
+and received consumer percentage are different units. MAX17048 address0x36
+provides local SOC; cloud report keeps voltage/status only. No I2C on old S2.
+SEEN/10s counts bounded validated DGRP acknowledgments, not all consumers or
+proof of rendering. Legacy v3 audio/sleep packets are unchanged.
+
+Schema1 EXACT legacy10files/2boards must stay valid for existing journals and
+rollback. Schema2 EXACT12files/3boards requires base1.1.0; APP_API1/protocol3
+unchanged. New app modules dashboard.py/device_setup.py, new base hardware.py/
+node_state.py. Update cloud before any 1.1.0 publication. Release is not yet
+published/qualified. Record hardware bring-up in docs/ota-operations.md.
