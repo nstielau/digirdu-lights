@@ -6,13 +6,14 @@ import os
 from pathlib import Path
 import tomllib
 
-from board import Repl, ROOT, S2_BOARD, ESP32_BOARD, find_port, find_drive
+from board import Repl, ROOT, S2_BOARD, S3_BOARD, ESP32_BOARD, find_port, find_drive
 
 
 def render_settings(previous, credential, enabled):
     additions={'OTA_ENABLED':'1' if enabled else '0','OTA_WIFI_SSID':'openwireless.org',
                'OTA_API_BASE':credential['api'],'OTA_DEVICE_ID':credential['id'],
                'OTA_DEVICE_TOKEN':credential['token'],'OTA_CHANNEL':'stable'}
+    if 'role' in credential:additions['OTA_DEVICE_ROLE']=credential['role']
     # Preserve all unrelated top-level values and tables; insert OTA keys BEFORE tables.
     parsed=tomllib.loads(previous)
     lines=[line for line in previous.splitlines() if line.split('=',1)[0].strip() not in additions]
@@ -32,8 +33,11 @@ def provision(port, credential, enabled=False):
         r.enter()
         identity=ast.literal_eval(r.execute("import board,microcontroller; print(repr((board.board_id,microcontroller.cpu.uid.hex().lower())))"))
         if identity!=(credential['board'],credential['id']):raise ValueError('Credential does not match connected board')
+        configured=ast.literal_eval(r.execute("from node_state import current; print(repr(current().get('radio_role')))"))
+        if configured!=credential['role']:raise ValueError('Select the enrolled role before provisioning credentials')
         r.execute("import os,supervisor; supervisor.runtime.autoreload=False; os.stat('/ota_bootstrap.py'); os.stat('/recovery/lights_app.py')")
-        if identity[0]==S2_BOARD:
+        if identity[0] in (S2_BOARD, S3_BOARD):
+            if r.execute("import storage; print(storage.getmount('/').readonly)")!='True':raise ValueError('USB maintenance required')
             drive=find_drive('CIRCUITPY')
             info=(drive/'boot_out.txt').read_text().lower()
             if credential['id'] not in info:raise ValueError('Wrong CIRCUITPY mount')
@@ -46,7 +50,7 @@ def provision(port, credential, enabled=False):
         backup.parent.mkdir(parents=True,exist_ok=True)
         fd=os.open(backup,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
         with os.fdopen(fd,'w') as f:f.write(previous)
-        if identity[0]==S2_BOARD:
+        if identity[0] in (S2_BOARD, S3_BOARD):
             temporary=drive/'settings.toml.tmp'
             with temporary.open('wb') as f:f.write(contents);f.flush();os.fsync(f.fileno())
             if temporary.read_bytes()!=contents:raise ValueError('Settings readback failed')

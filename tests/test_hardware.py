@@ -42,3 +42,21 @@ class HardwareTests(unittest.TestCase):
         bus.writeto_then_readfrom = lambda a, c, r: r.__setitem__(slice(None), b'\xff\xff')
         with patch.dict(sys.modules, {'board':SimpleNamespace(I2C=lambda: bus)}):
             self.assertEqual(battery.read_gauge()['status'], 'unsupported')
+
+    def test_s3_app_claims_verified_mic_and_wing_only(self):
+        import importlib.util
+        from pathlib import Path
+        from config import Config
+        from unittest.mock import MagicMock
+        name='adafruit_feather_esp32s3_reverse_tft'
+        board=SimpleNamespace(board_id=name,D6=6,D5=5,D9=9,D10=10)
+        factory=MagicMock()
+        spec=importlib.util.spec_from_file_location('s3_app_test',Path(__file__).parents[1]/'lights_app.py')
+        app=importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules,{'board':board,'digitalio':MagicMock(),
+                       'neopixel_write':SimpleNamespace(neopixel_write=MagicMock()),
+                       'audioi2sin':SimpleNamespace(I2SIn=factory)}):
+            spec.loader.exec_module(app)
+            self.assertEqual(app.PIXEL_PIN,6)
+            app.microphone()
+        self.assertEqual(factory.call_args.args,(5,9,10))

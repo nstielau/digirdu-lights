@@ -9,9 +9,9 @@ function report(seq=1){return {device_id:id,board:c.BOARDS[1],role:'consumer',ve
  circuitpython:'10.3.1',protocol_send:3,protocol_receive:[3],session:'1'.repeat(16),report_sequence:seq,
  state:'current',deployment_sequence:0,error:'',health:{}};}
 function manifest(ver='1.1.0',base='1.0.0'){
- const files=c.FILES.map(name=>({name,size:1,sha256:c.hash('x')}));
+ const files=c.LEGACY_FILES.map(name=>({name,size:1,sha256:c.hash('x')}));
  return {schema:1,version:ver,git_commit:'a'.repeat(40),app_api:1,minimum_base:base,circuitpython:'10.3.1',
- boards:c.BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
+ boards:c.LEGACY_BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
  sha256:c.hash(files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''))};
 }
 const admin={auth:{uid:'owner',token:{email,email_verified:true,firebase:{sign_in_provider:'google.com'}}},app:{appId:'test'}};

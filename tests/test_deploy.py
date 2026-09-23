@@ -50,3 +50,51 @@ class DeploymentSelectionTests(unittest.TestCase):
         repl, _, serial = self.deploy(board.ESP32_BOARD, legacy=True)
         serial.assert_called_once_with(repl, "profile.py", True)
         repl.restart.assert_called_once_with(board.ESP32_BOARD, legacy=True)
+
+    def test_reverse_tft_uses_native_usb(self):
+        name = 'adafruit_feather_esp32s3_reverse_tft'
+        repl, usb, serial = self.deploy(name)
+        serial.assert_not_called()
+        usb.assert_called_once_with(repl, None, 'profile.py', board_id=name)
+
+class ConfigurationTests(unittest.TestCase):
+    def test_native_configuration_verified_and_enrollment_locked(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        self.assertTrue(hasattr(board,'configure_node'),'host identity setup missing')
+        name='adafruit_feather_esp32s3_reverse_tft';uid='123456789abc'
+        with tempfile.TemporaryDirectory() as directory:
+            drive=Path(directory)
+            (drive/'boot_out.txt').write_text('Board ID:'+name+'\nUID:'+uid)
+            (drive/'node_config.py').write_text("OVERRIDES = {'brightness': 0.12}\n")
+            repl=Mock()
+            def execute(code, **kw):
+                if 'board.board_id' in code:return repr((name,uid))
+                if 'readonly' in code:return 'True'
+                if 'OTA_DEVICE_TOKEN' in code:return repr((False,None))
+                return ''
+            repl.execute.side_effect=execute
+            with patch.object(board,'Repl',return_value=repl):
+                board.configure_node('port', 'consumer',1,'7c:df:a1:03:4c:2c', directory)
+            data=json.loads((drive/'node_state.json').read_text())
+            self.assertEqual(data['leader_mac'],'7c:df:a1:03:4c:2c')
+            self.assertIn("'brightness': 0.12",(drive/'node_config.py').read_text())
+            self.assertIn("'radio_role': 'consumer'",(drive/'node_config.py').read_text())
+            repl.execute.side_effect=lambda code,**kw: repr((name,uid)) if 'board.board_id' in code else repr((True,'producer'))
+            with patch.object(board,'Repl',return_value=repl):
+                with self.assertRaisesRegex(ValueError,'enrolled'):
+                    board.configure_node('port','consumer',1,'7c:df:a1:03:4c:2c',directory)
+
+    def test_reverse_tft_uf2_refuses_old_bootloader_before_copy(self):
+        import tempfile
+        from pathlib import Path
+        self.assertTrue(hasattr(board,'flash_native'),'native UF2 selection missing')
+        with tempfile.TemporaryDirectory() as directory:
+            drive=Path(directory)
+            firmware=drive/'adafruit-circuitpython-adafruit_feather_esp32s3_reverse_tft-en_US-10.3.1.uf2'
+            firmware.write_bytes(b'fixture')
+            (drive/'INFO_UF2.TXT').write_text('TinyUF2 Bootloader 0.32.0\nModel: Adafruit Feather ESP32-S3 Reverse TFT\nBoard-ID: ESP32S3-Feather-revTFT')
+            with self.assertRaisesRegex(RuntimeError,'0.33'):
+                board.flash_native(firmware,directory,board.S3_BOARD)
+            self.assertFalse((drive/'firmware.uf2').exists())

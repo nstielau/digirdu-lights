@@ -3,6 +3,11 @@
 
 class Config:
     # Confirmed hardware pins live only in code.py.
+    hardware_id = ""
+    display_enabled = True
+    display_brightness = 0.12
+    display_rotation = 0
+    display_interval_s = 0.2
     sample_rate = 16000
     fft_size = 1024
     hop_size = 1024
@@ -142,6 +147,10 @@ class Config:
     radio_timeout_s = 0.5
     radio_event_max_age_s = 0.5
     receiver_frame_s = 0.032
+    presence_capacity = 32
+    presence_expiry_s = 10.0
+    presence_interval_s = 3.0
+    presence_jitter_s = 0.5
 
     def __init__(self, **overrides):
         for name, value in overrides.items():
@@ -152,6 +161,12 @@ class Config:
         self.validate()
 
     def validate(self):
+        if not 0 < self.display_brightness <= 0.5 or self.display_rotation not in (0, 180):
+            raise ValueError("Invalid TFT brightness or rotation")
+        if self.hardware_id == "adafruit_feather_esp32s3_reverse_tft":
+            if (self.button_next_gpio != 1 or self.button_extra_next_gpio is not None
+                    or self.button_previous_gpio is not None):
+                raise ValueError("Reverse TFT uses reserved D0/D1/D2 controls")
         if self.sample_rate not in (16000, 22050):
             raise ValueError("sample_rate must be 16000 or 22050")
         if self.roughness_metric not in ("participation", "flatness"):
@@ -221,6 +236,9 @@ class Config:
             for x, angle in self.pixel_positions:
                 if not -1 <= x <= 1 or not 0 <= angle <= 1:
                     raise ValueError("Invalid pixel position")
+        if (type(self.presence_capacity) is not int or not 1 <= self.presence_capacity <= 32
+                or self.presence_jitter_s >= self.presence_interval_s):
+            raise ValueError("Invalid presence limits")
         if self.radio_role not in ("off", "leader", "follower"):
             raise ValueError("Invalid radio_role")
         if not 1 <= self.radio_channel <= 11 or not 0 <= self.radio_group <= 65535:
@@ -246,6 +264,14 @@ class Config:
             raise ValueError("Buttons must use different GPIOs")
 
 
-from node_config import OVERRIDES
-
+import sys
+if sys.implementation.name == 'circuitpython':
+    import board
+    from node_state import current
+    OVERRIDES = current()
+    if board.board_id == 'adafruit_feather_esp32s3_reverse_tft' and 'radio_role' not in OVERRIDES:
+        raise ValueError('Complete node setup before starting audio')
+    OVERRIDES['hardware_id'] = board.board_id
+else:
+    from node_config import OVERRIDES
 CONFIG = Config(**OVERRIDES)

@@ -7,19 +7,20 @@ host and application filesystem writes.
 import os
 import board
 import storage
+from hardware import profile, PROFILES
 
 mode = "usb"
-if os.getenv("OTA_ENABLED") == "1" and board.board_id in (
-        "unexpectedmaker_feathers2", "adafruit_feather_esp32_v2"):
+if os.getenv("OTA_ENABLED") == "1" and board.board_id in PROFILES:
     import time
     import digitalio
     import microcontroller
     from neopixel_write import neopixel_write
-    led_pin = board.IO38 if board.board_id == "unexpectedmaker_feathers2" else board.D32
-    button_pin = board.IO0 if board.board_id == "unexpectedmaker_feathers2" else board.BUTTON
+    p = profile(board.board_id)
+    led_pin = getattr(board, p["wing"])
+    button_pin = getattr(board, p["boot"])
     with digitalio.DigitalInOut(button_pin) as button, digitalio.DigitalInOut(led_pin) as pixels:
         # ESP32 V2 GPIO38 has an external pull-up and no internal pull-up support.
-        button.switch_to_input(pull=digitalio.Pull.UP if board.board_id == "unexpectedmaker_feathers2" else None)
+        button.switch_to_input(pull=digitalio.Pull.UP if board.board_id != "adafruit_feather_esp32_v2" else None)
         pixels.switch_to_output(value=False)
         neopixel_write(pixels, bytes((0, 0, 12)) * 32)
         end = time.monotonic() + 2

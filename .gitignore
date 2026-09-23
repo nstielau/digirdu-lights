@@ -1,11 +1,11 @@
-.venv/
+.venv
 .artifacts/
 .superpowers/
 __pycache__/
 *.pyc
 .DS_Store
 settings.toml
-node_modules/
+node_modules
 web/dist/
 web/firebase-config.js
 .firebase/

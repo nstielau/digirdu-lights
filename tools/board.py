@@ -14,12 +14,13 @@ from serial.tools import list_ports
 
 ESP32_BOARD = "adafruit_feather_esp32_v2"
 S2_BOARD = "unexpectedmaker_feathers2"
+S3_BOARD = "adafruit_feather_esp32s3_reverse_tft"
 ROOT = Path(__file__).resolve().parents[1]
 try:
-    from tools.bundle import deployment_contents, BASE_FILES
+    from tools.bundle import deployment_contents, BASE_FILES, APP_FILES as SLOT_FILES
 except ImportError:
-    from bundle import deployment_contents, BASE_FILES
-APP_FILES = tuple(deployment_contents())
+    from bundle import deployment_contents, BASE_FILES, APP_FILES as SLOT_FILES
+APP_FILES = ("node_config.py",) + tuple("recovery/" + name for name in SLOT_FILES) + BASE_FILES
 
 # Executed on the device, not imported by host Python. Works with the existing
 # producer app; no deployment is needed to inspect the physical button first.
@@ -145,7 +146,7 @@ class Repl:
             output.extend(self.serial.read(1024))
         text = output.decode("utf-8", "replace")
         print(text)
-        markers = ("Rainbow frames: 256",) if legacy else ("AUDIO rms=", "LIGHTS frame=")
+        markers = ("Rainbow frames: 256",) if legacy else ("AUDIO rms=", "LIGHTS frame=", "SETUP role unconfigured")
         if "Traceback" in text or not any(marker in text for marker in markers):
             raise RuntimeError("App startup check failed. Inspect with make console.")
 
@@ -164,15 +165,15 @@ def find_drive(name, explicit=None):
     return found[0]
 
 
-def deploy_s2(repl, mount, node_config=None, base_only=False):
+def deploy_s2(repl, mount, node_config=None, base_only=False, board_id=S2_BOARD):
     drive = find_drive("CIRCUITPY", mount)
     boot_info = (drive / "boot_out.txt").read_text()
     uid = repl.execute("import microcontroller; print(microcontroller.cpu.uid.hex())")
-    if (f"Board ID:{S2_BOARD}" not in boot_info.splitlines()
+    if (f"Board ID:{board_id}" not in boot_info.splitlines()
             or uid.lower() not in boot_info.lower()):
-        raise RuntimeError("CIRCUITPY drive does not match the connected FeatherS2.")
+        raise RuntimeError("CIRCUITPY drive does not match the connected native USB board.")
     if repl.execute("import storage; print(storage.getmount('/').readonly)") != "True":
-        raise RuntimeError("FeatherS2 is in OTA field mode. Reset, then press BOOT during the blue startup window for USB maintenance.")
+        raise RuntimeError("Board is in OTA field mode. Reset, then press BOOT during the blue startup window for USB maintenance.")
     # Python must not remount a drive that the USB host also writes.
     repl.execute("import supervisor; supervisor.runtime.autoreload = False")
     contents = deployment_contents()
@@ -184,7 +185,9 @@ def deploy_s2(repl, mount, node_config=None, base_only=False):
     elif not base_only and (drive / "node_config.py").is_file():
         contents["node_config.py"] = (drive / "node_config.py").read_bytes()
         print("Preserving this board's saved role and configuration.")
-    backup = ROOT / ".artifacts" / "app-backups" / f"feathers2-{time.time_ns()}"
+    elif not base_only and board_id == S3_BOARD:
+        contents["node_config.py"] = b"OVERRIDES = {}\n"
+    backup = ROOT / ".artifacts" / "app-backups" / f"native-usb-{time.time_ns()}"
     backup.mkdir(parents=True)
     for source in sources:
         data = contents[source]
@@ -225,6 +228,33 @@ def flash_s2(firmware, mount):
     shutil.copyfile(firmware, drive / "firmware.uf2")
     os.sync()
     print("UF2 sent. Wait for CIRCUITPY, then run make deploy.")
+
+
+def flash_native(firmware, mount, board_id):
+    if board_id == S2_BOARD:
+        return flash_s2(firmware,mount)
+    import re
+    firmware=Path(firmware)
+    if board_id != S3_BOARD or board_id not in firmware.name or firmware.suffix!='.uf2':
+        raise RuntimeError('Supply official Reverse TFT .uf2 firmware')
+    drive=find_drive('FTHRS3BOOT',mount)
+    info=(drive/'INFO_UF2.TXT').read_text()
+    if 'Reverse TFT' not in info and 'revTFT' not in info:
+        raise RuntimeError('Bootloader does not identify Reverse TFT')
+    version=re.search(r'(?:TinyUF2|UF2) Bootloader[^0-9]*(\d+)\.(\d+)\.(\d+)',info)
+    if not version or tuple(map(int,version.groups()))<(0,33,0):
+        raise RuntimeError('CircuitPython 10 requires TinyUF2 0.33.0+; back up and update the bootloader first')
+    backup=ROOT/'.artifacts/app-backups'/('s3-uf2-'+str(time.time_ns()))
+    backup.mkdir(parents=True)
+    (backup/'INFO_UF2.TXT').write_text(info)
+    current=drive/'CURRENT.UF2'
+    if not current.exists():
+        raise RuntimeError('Bootloader provides no readable firmware backup. Use make flash-rom in ROM recovery for a full verified backup before installation')
+    shutil.copyfile(current,backup/'CURRENT.UF2')
+    if current.stat().st_size!=(backup/'CURRENT.UF2').stat().st_size:
+        raise RuntimeError('Incomplete firmware backup')
+    shutil.copyfile(firmware,drive/'firmware.uf2');os.sync()
+    print('Firmware backed up and UF2 sent; wait for CIRCUITPY')
 
 
 def deploy_serial(repl, node_config=None, legacy=False, base_only=False):
@@ -284,7 +314,7 @@ def deploy(port, board_id, mount=None, node_config=None, legacy=False, base_only
         print(identity, flush=True)
         detected = identity.splitlines()[0].strip()
         if board_id == "auto":
-            if detected not in (S2_BOARD, ESP32_BOARD):
+            if detected not in (S2_BOARD, ESP32_BOARD, S3_BOARD):
                 raise RuntimeError(f"No verified wiring profile for {detected}; add one before deployment.")
             board_id = detected
         if legacy and board_id != ESP32_BOARD:
@@ -294,12 +324,13 @@ def deploy(port, board_id, mount=None, node_config=None, legacy=False, base_only
             raise RuntimeError(f"Wrong board or firmware; expected {board_id}.")
         if not legacy:
             repl.execute("import espnow; from ulab import numpy, utils")
-        if board_id == S2_BOARD:
+        if board_id in (S2_BOARD, S3_BOARD):
             repl.execute("import audioi2sin")
+            native_options = {"board_id": board_id} if board_id == S3_BOARD else {}
             if base_only:
-                deploy_s2(repl, mount, base_only=True)
+                deploy_s2(repl, mount, base_only=True, **native_options)
             else:
-                deploy_s2(repl, mount, node_config)
+                deploy_s2(repl, mount, node_config, **native_options)
         else:
             if base_only:
                 deploy_serial(repl, base_only=True)
@@ -310,21 +341,93 @@ def deploy(port, board_id, mount=None, node_config=None, legacy=False, base_only
         repl.serial.close()
 
 
+def configuration_bytes(previous, data):
+    """Preserve literal per-node tuning; refuse executable/dynamic profiles."""
+    tree = ast.parse(previous or 'OVERRIDES = {}')
+    values = None
+    for statement in tree.body:
+        if isinstance(statement,ast.Assign) and len(statement.targets)==1 and isinstance(statement.targets[0],ast.Name) and statement.targets[0].id=='OVERRIDES':
+            values = ast.literal_eval(statement.value)
+        elif not isinstance(statement,ast.Expr) or not isinstance(statement.value,ast.Constant) or not isinstance(statement.value.value,str):
+            raise ValueError('Dynamic node_config.py: use an explicit reviewed NODE_CONFIG profile')
+    if type(values) is not dict:
+        raise ValueError('Expected literal OVERRIDES dict')
+    values.update({key:value for key,value in data.items() if key!='schema'})
+    return ('# Per-device tuning and confirmed identity.\nOVERRIDES = '+repr(values)+'\n').encode()
+
+
+def configure_node(port, role, group, leader_mac=None, mount=None):
+    import json
+    from node_state import validate
+    data={'schema':1,'radio_role':role,'radio_group':group}
+    if leader_mac:data['leader_mac']=leader_mac.lower()
+    validate(data)
+    repl=Repl(port)
+    try:
+        repl.enter()
+        identity=ast.literal_eval(repl.execute('import board,microcontroller; print(repr((board.board_id,microcontroller.cpu.uid.hex().lower())))'))
+        board_id,uid=identity
+        if board_id not in (S2_BOARD,S3_BOARD,ESP32_BOARD) or (board_id==ESP32_BOARD and role!='consumer'):
+            raise ValueError('Unsupported board role')
+        enrolled,locked=ast.literal_eval(repl.execute("import os; print(repr((bool(os.getenv('OTA_DEVICE_TOKEN')),os.getenv('OTA_DEVICE_ROLE'))))"))
+        if enrolled and locked is None:
+            locked=ast.literal_eval(repl.execute("from node_state import current; print(repr(current().get('radio_role')))"))
+        if enrolled and locked!=role:
+            raise ValueError('Role locked to enrolled identity; re-enroll and provision a reviewed profile')
+        native=board_id in (S2_BOARD,S3_BOARD)
+        if native:
+            drive=find_drive('CIRCUITPY',mount)
+            info=(drive/'boot_out.txt').read_text()
+            if ('Board ID:'+board_id) not in info.splitlines() or uid not in info.lower():
+                raise ValueError('CIRCUITPY identity mismatch')
+            if repl.execute("import storage; print(storage.getmount('/').readonly)")!='True':
+                raise ValueError('USB host does not own filesystem; enter maintenance')
+            previous=(drive/'node_config.py').read_text() if (drive/'node_config.py').exists() else ''
+        else:
+            previous=ast.literal_eval(repl.execute("try:\n print(repr(open('/node_config.py').read()))\nexcept OSError:\n print(repr(''))"))
+            repl.execute("import storage; storage.remount('/',readonly=False)")
+        files={'node_state.json':json.dumps(data).encode(),'node_config.py':configuration_bytes(previous,data)}
+        backup=ROOT/'.artifacts/app-backups'/('configuration-'+uid+'-'+str(time.time_ns()))
+        backup.mkdir(parents=True)
+        (backup/'node_config.py').write_text(previous)
+        repl.execute('import supervisor; supervisor.runtime.autoreload=False')
+        for name,contents in files.items():
+            if native:
+                target=drive/name
+                if target.exists():(backup/name).write_bytes(target.read_bytes())
+                temporary=drive/(name+'.tmp')
+                with temporary.open('wb') as stream:
+                    stream.write(contents);stream.flush();os.fsync(stream.fileno())
+                if temporary.read_bytes()!=contents:raise ValueError('Configuration readback failed')
+                temporary.replace(target);os.sync()
+                if target.read_bytes()!=contents:raise ValueError('Configuration final readback failed')
+            else:
+                repl.execute("f=open('/%s.tmp','wb'); f.write(%r); f.close(); os.sync()"%(name,contents))
+                actual=ast.literal_eval(repl.execute("print(repr(open('/%s.tmp','rb').read()))"%name))
+                if actual!=contents:raise ValueError('Configuration readback failed')
+                repl.execute("os.rename('/%s.tmp','/%s'); os.sync()"%(name,name))
+        print('Verified node identity: role=%s group=%d source=%s. Reset to apply.'%(role,group,leader_mac or 'local microphone'))
+    finally:
+        repl.serial.close()
+
+
 def flash(port, firmware, board_id=ESP32_BOARD):
     firmware = Path(firmware)
     if board_id not in firmware.name or firmware.suffix != ".bin" or not firmware.is_file():
         raise RuntimeError(f"Supply the downloaded {board_id} .bin firmware.")
     s2 = board_id == S2_BOARD
-    chip, megabytes, baud = ("esp32s2", 16, "115200") if s2 else ("esp32", 8, "115200")
+    native = board_id in (S2_BOARD,S3_BOARD)
+    chip, megabytes, baud = (("esp32s2", 16, "115200") if s2 else
+                             ("esp32s3", 4, "115200") if board_id==S3_BOARD else ("esp32", 8, "115200"))
     command = [sys.executable, "-m", "esptool", "--chip", chip, "--port", port, "--baud", baud]
-    if s2:
+    if native:
         command += ["--before", "no-reset", "--after", "no-reset-stub"]
     result = subprocess.run(command + ["flash-id"], capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     identity = result.stdout
     print(identity, flush=True)
-    expected_chip = "ESP32-S2" if s2 else "ESP32-PICO-V3-02"
+    expected_chip = "ESP32-S2" if s2 else "ESP32-S3" if board_id==S3_BOARD else "ESP32-PICO-V3-02"
     if expected_chip not in identity or f"Detected flash size: {megabytes}MB" not in identity:
         raise RuntimeError(f"Hardware does not match the expected {megabytes} MB {board_id}.")
     backup = ROOT / ".artifacts" / f"flash-backup-{time.time_ns()}.bin"
@@ -335,47 +438,52 @@ def flash(port, firmware, board_id=ESP32_BOARD):
     print(f"Existing flash backed up to {backup}", flush=True)
     subprocess.run(command + ["erase-flash"], check=True)
     subprocess.run(command + ["write-flash", "0x0", str(firmware)], check=True)
-    if s2:
+    if native:
         print("Firmware verified. Press RESET once to leave recovery and start CircuitPython.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("ports", "deploy", "flash", "flash-rom", "console", "test-mic", "test-buttons", "benchmark"))
-    parser.add_argument("--board", choices=("auto", S2_BOARD, ESP32_BOARD), default=S2_BOARD)
+    parser.add_argument("action", choices=("ports", "deploy", "flash", "flash-rom", "console", "test-mic", "test-buttons", "benchmark", "configure-node"))
+    parser.add_argument("--board", choices=("auto", S2_BOARD, ESP32_BOARD, S3_BOARD), default=S2_BOARD)
     parser.add_argument("--port", default="")
     parser.add_argument("--mount")
     parser.add_argument("--node-config", help="Explicitly replace saved node configuration")
     parser.add_argument("--firmware")
+    parser.add_argument("--role", choices=("producer","consumer"),default="consumer")
+    parser.add_argument("--group",type=int,default=1)
+    parser.add_argument("--leader-mac")
     parser.add_argument("--base-only", action="store_true", help="Update USB base while preserving recovery app and OTA slots")
     parser.add_argument("--legacy-rainbow", action="store_true", help="Deploy the original ESP32 V2 rainbow example")
     args = parser.parse_args()
     if args.base_only and (args.action != "deploy" or args.node_config or args.legacy_rainbow):
         parser.error("--base-only requires deploy without node-config or legacy-rainbow")
-    if args.board == "auto" and args.action != "deploy":
+    if args.board == "auto" and args.action not in ("deploy", "configure-node"):
         parser.error("Automatic board selection is supported only for deploy")
     if args.action == "ports":
         for port in list_ports.comports():
             if port.vid:
                 print(port.device, port.description, port.hwid)
         return
-    if args.action == "flash" and args.board == S2_BOARD:
+    if args.action == "flash" and args.board in (S2_BOARD,S3_BOARD):
         if not args.firmware:
             parser.error("flash requires --firmware")
-        flash_s2(args.firmware, args.mount)
+        flash_native(args.firmware, args.mount, args.board)
         return
     port = find_port(args.port)
     print(f"Using {port}", flush=True)
-    if args.action == "deploy":
+    if args.action == "configure-node":
+        configure_node(port,args.role,args.group,args.leader_mac,args.mount)
+    elif args.action == "deploy":
         deploy(port, args.board, args.mount, args.node_config, args.legacy_rainbow, args.base_only)
     elif args.action in ("test-mic", "test-buttons", "benchmark"):
-        if args.board != S2_BOARD:
-            parser.error("Producer diagnostics are configured for the FeatherS2 wiring")
+        if args.board not in (S2_BOARD,S3_BOARD):
+            parser.error("Producer diagnostics require FeatherS2 or Reverse TFT")
         repl = Repl(port)
         try:
             repl.enter()
-            if repl.execute("import board; print(board.board_id)") != S2_BOARD:
-                raise RuntimeError("Expected an Unexpected Maker FeatherS2")
+            if repl.execute("import board; print(board.board_id)") != args.board:
+                raise RuntimeError("Connected board does not match BOARD")
             try:
                 if args.action == "test-buttons":
                     print("Press/release BOOT and configured external buttons over the next 20 seconds. "
@@ -385,7 +493,7 @@ def main():
                     command = "app.test_microphone(10)" if args.action == "test-mic" else "app.benchmark(5)"
                     print(repl.execute("from ota_bootstrap import load_app; app, _ = load_app(); " + command, timeout=25))
             finally:
-                repl.restart(S2_BOARD)
+                repl.restart(args.board)
         finally:
             repl.serial.close()
     elif args.action in ("flash", "flash-rom"):
@@ -393,7 +501,7 @@ def main():
             parser.error("flash requires --firmware")
         flash(port, args.firmware, args.board)
     else:
-        dtr = "1" if args.board == S2_BOARD else "0"
+        dtr = "1" if args.board in (S2_BOARD,S3_BOARD) else "0"
         subprocess.run([sys.executable, "-m", "serial.tools.miniterm", "--dtr", dtr,
                         "--rts", "0", port, "115200"], check=True)
 

@@ -62,7 +62,8 @@ class Receiver:
         self.features.calibrating = False
         self.session = self.sequence = None
         self.attack_id = self.yell_id = None
-        self.last_receive = -100.0
+        self.last_receive = self.last_audio = -100.0
+        self.audio_sequence = None
         self.scene_time = self.phase = 0.0
         self.effect = 0
         self.sleep = SleepTransition()
@@ -110,7 +111,8 @@ class Receiver:
         self.scene_time, self.phase = scene_time, phase
         self.effect = values[24]
         f.spectrum = tuple(value / 255 for value in values[25:33])
-        self.last_receive = now
+        self.last_receive = self.last_audio = now
+        self.audio_sequence = sequence
         self.accepted += 1
         return True
 
@@ -145,4 +147,64 @@ class Receiver:
         # Keep the last hue/centroid while the remaining light decays.
         for name in ("volume", "drone", "harmonics", "growl", "vocal", "roughness", "attack", "decay"):
             setattr(f, name, getattr(f, name) * math.exp(-dt / self.c.decay_s))
+        return True
+
+
+# Separate control extension: group, intended producer MAC/session, consumer
+# boot session/sequence, last accepted AUDIO sequence. Never modifies v3 bytes.
+PRESENCE_FORMAT = '<4sBH6sIIHH'
+PRESENCE_SIZE = struct.calcsize(PRESENCE_FORMAT)
+
+
+def encode_presence(group, producer, session, boot, sequence, audio_sequence):
+    if len(producer) != 6:
+        raise ValueError('Invalid producer MAC')
+    return struct.pack(PRESENCE_FORMAT, b'DGRP', 1, group, producer, session,
+                       boot, sequence, audio_sequence)
+
+
+class PresenceRegistry:
+    """Recent acknowledgments, not inventory or delivery/LED guarantees."""
+    def __init__(self, mac, group, session, capacity=32, expiry=10.0, max_lag=160):
+        self.mac, self.group, self.session = bytes(mac), group, session
+        self.capacity, self.expiry, self.max_lag = capacity, expiry, max_lag
+        self.entries = {}
+        self.accepted = self.rejected = 0
+        self.full = False
+
+    def count(self, now):
+        for mac in tuple(self.entries):
+            if now - self.entries[mac][3] > self.expiry:
+                del self.entries[mac]
+        self.full = len(self.entries) >= self.capacity
+        return len(self.entries)
+
+    def accept(self, sender, message, now, latest_sequence):
+        if len(sender) != 6 or len(message) != PRESENCE_SIZE:
+            self.rejected += 1
+            return False
+        magic, version, group, intended, session, boot, seq, audio = struct.unpack(PRESENCE_FORMAT, message)
+        sender = bytes(sender)
+        if (magic != b'DGRP' or version != 1 or group != self.group
+                or intended != self.mac or session != self.session or sender == self.mac
+                or sender == b'\xff' * 6 or sender == bytes(6)
+                or ((latest_sequence - audio) & 65535) > self.max_lag):
+            self.rejected += 1
+            return False
+        self.count(now)
+        old = self.entries.get(sender)
+        retired = ()
+        if old:
+            old_boot, old_seq, _, _, retired = old
+            if (boot in retired or boot == old_boot and not 0 < ((seq - old_seq) & 65535) < 32768):
+                self.rejected += 1
+                return False
+            if boot != old_boot:
+                retired = (retired + (old_boot,))[-2:]
+        elif len(self.entries) >= self.capacity:
+            oldest = min(self.entries, key=lambda mac: self.entries[mac][3])
+            del self.entries[oldest]
+        self.entries[sender] = (boot, seq, audio, now, retired)
+        self.accepted += 1
+        self.full = len(self.entries) >= self.capacity
         return True

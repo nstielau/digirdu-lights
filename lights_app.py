@@ -15,14 +15,12 @@ from sound_reactive import measure
 from effects import ButtonGesture, SleepTransition, EFFECT_NAMES
 from battery import BatteryMonitor
 
-if board.board_id == "unexpectedmaker_feathers2":
-    PIXEL_PIN = board.IO38  # Factory jumper's physical position, not D6 alias.
-elif board.board_id == "adafruit_feather_esp32_v2":
-    PIXEL_PIN = board.D32
-    if CONFIG.radio_role != "follower":
-        raise RuntimeError("ESP32 V2 wiring is configured for consumer mode only")
-else:
-    raise RuntimeError("Unconfigured board: " + board.board_id)
+from hardware import profile, microphone as profile_microphone
+PROFILE = profile(board.board_id)
+PIXEL_PIN = getattr(board, PROFILE['wing'])
+if PROFILE['mic'] is None and CONFIG.radio_role != 'follower':
+    raise RuntimeError('ESP32 V2 wiring is configured for consumer mode only')
+DISPLAY = None
 SAMPLE_RATE = CONFIG.sample_rate
 SAMPLE_COUNT = CONFIG.hop_size
 
@@ -65,17 +63,80 @@ class EffectButtons:
             pin.deinit()
 
 
+class TFTButtons:
+    def __init__(self):
+        from effects import TFTControls
+        self.inputs = []
+        self.logic = TFTControls(CONFIG.radio_role, CONFIG.button_debounce_s, CONFIG.button_sleep_hold_s)
+        try:
+            for name in ('D0', 'D1', 'D2'):
+                pin = digitalio.DigitalInOut(getattr(board,name))
+                self.inputs.append(pin)
+                pin.switch_to_input()  # Board resistors; D0 LOW, D1/D2 HIGH.
+        except Exception:
+            self.deinit()
+            raise
+
+    def poll(self, animation, now, sleep, allow_sleep=True):
+        action = self.logic.update(tuple(pin.value for pin in self.inputs),now)
+        if sleep.started is not None:
+            return
+        if action == 'page' and DISPLAY:
+            DISPLAY.toggle()
+        elif action == 'next':
+            animation.set_effect((animation.effect+1)%len(EFFECT_NAMES))
+            print('EFFECT %d %s'%(animation.effect,EFFECT_NAMES[animation.effect]))
+        elif action == 'sleep':
+            if allow_sleep:
+                sleep.request(now,CONFIG.sleep_fade_s)
+                print('SLEEP requested from D2; local wake after release')
+            else:
+                print('SLEEP ignored during OTA trial')
+
+    def deinit(self):
+        for pin in self.inputs:pin.deinit()
+
+
+def start_dashboard():
+    global DISPLAY
+    if PROFILE['display'] and CONFIG.display_enabled:
+        from dashboard import create
+        DISPLAY = create(CONFIG)
+    return DISPLAY
+
+
+def update_dashboard(now, features, animation, battery, radio, rate, spare,
+                     overruns=0, sleep=None, buttons=None, fault=False):
+    if not DISPLAY or DISPLAY.failed or now < DISPLAY.next_refresh:
+        return
+    from dashboard import snapshot
+    from app_version import APP_VERSION
+    receiver = radio.receiver if radio else None
+    presence = radio.presence if radio else None
+    seen = presence.count(now) if presence else 0
+    age = now-receiver.last_audio if receiver else 0
+    count = receiver.accepted if receiver else radio.sent if radio else 0
+    message = ''
+    if sleep and sleep.started is not None:message='SLEEP: red fade / wake locally'
+    elif buttons and hasattr(buttons,'logic') and buttons.logic.countdown:
+        message='Hold D2: %.1fs'%buttons.logic.countdown
+    counters = ('TX%d ok%d bad%d skip%d '%(radio.sent,radio.radio.send_success,radio.radio.send_failure,radio.skipped)
+                if radio else 'Radio off ')
+    counters += 'RX%d rej%d'%((receiver.accepted,receiver.rejected) if receiver else
+                              (presence.accepted,presence.rejected) if presence else (0,0))
+    reading = battery.update(now)
+    state = snapshot(CONFIG.radio_role, animation.effect, rms=features.rms, volume=features.volume,
+                     clipped=features.clipped, calibrating=features.calibrating, active=features.active,
+                     fault=fault, age=age,timeout=CONFIG.radio_timeout_s,seen=seen,
+                     full=presence.full if presence else False,rate=rate.update(count,now),
+                     battery=reading,channel=CONFIG.radio_channel,group=CONFIG.radio_group,
+                     version=APP_VERSION,counters=counters,source=CONFIG.leader_mac if receiver else 'local',
+                     overruns=overruns,message=message)
+    DISPLAY.update(now,state,spare)
+
+
 def microphone():
-    if board.board_id != "unexpectedmaker_feathers2":
-        raise RuntimeError("Microphone wiring is configured only for FeatherS2")
-    import audioi2sin
-    # SEL/LR grounded selects the left channel. ICS43434 uses standard I2S
-    # with 24 significant bits inside 32-bit slots, then scaled to signed 16-bit.
-    return audioi2sin.I2SIn(
-        board.IO5, board.IO6, board.IO9, sample_rate=SAMPLE_RATE,
-        bit_depth=32, output_bit_depth=16, mono=True,
-        left_justified=False, samples_signed=True,
-    )
+    return profile_microphone(SAMPLE_RATE)
 
 
 def read_level(mic, samples):
@@ -123,14 +184,19 @@ def run(seconds=None, drive_pixels=True, health=None):
     spectrum = Spectrum(CONFIG)
     analyzer = Analyzer(CONFIG)
     animation = CulvertAnimation(CONFIG)
-    battery = BatteryMonitor(CONFIG.battery_sample_s)
+    battery = BatteryMonitor(CONFIG.battery_sample_s, PROFILE['battery'] == 'max17048')
+    start_dashboard()
+    rate = None
+    if DISPLAY:
+        from dashboard import Rate
+        rate = Rate()
     radio = None
     if CONFIG.radio_role == "leader":
         from wireless import Wireless
         radio = Wireless(CONFIG)
     samples = array.array("h", [0] * CONFIG.hop_size)
     period = CONFIG.hop_size / CONFIG.sample_rate
-    buttons = EffectButtons()
+    buttons = TFTButtons() if PROFILE["display"] else EffectButtons()
     sleep = SleepTransition()
     gc.collect()
     with digitalio.DigitalInOut(PIXEL_PIN) as pin:
@@ -138,7 +204,7 @@ def run(seconds=None, drive_pixels=True, health=None):
         try:
             with microphone() as mic:
                 print("AUDIO calibration: keep quiet for %.1f seconds" % CONFIG.calibration_s)
-                print("Didgeridoo: %d Hz, FFT=%d hop=%d, IO38, %d pixels, brightness=%.2f" %
+                print("Didgeridoo: %d Hz, FFT=%d hop=%d, %d pixels, brightness=%.2f" %
                       (CONFIG.sample_rate, CONFIG.fft_size, CONFIG.hop_size,
                        CONFIG.pixel_count, CONFIG.brightness))
                 print("EFFECT %d %s; BOOT advances while running" % (animation.effect, EFFECT_NAMES[animation.effect]))
@@ -179,6 +245,7 @@ def run(seconds=None, drive_pixels=True, health=None):
                     if drive_pixels:
                         neopixel_write(pin, pixels)
                     if radio is not None:
+                        radio.receive_presence(now)
                         radio.publish(features, animation, now, sleep)
                     if health is not None:
                         health(features, radio)
@@ -198,6 +265,8 @@ def run(seconds=None, drive_pixels=True, health=None):
                         # Explicit collections bound fragmentation; include them
                         # and LED output in the processing-time measurement.
                         gc.collect()
+                    update_dashboard(now,features,animation,battery,radio,rate,
+                                     period-(time.monotonic()-now),overruns,sleep,buttons)
                     work = time.monotonic() - now
                     frames += 1
                     total_work += work
@@ -224,8 +293,14 @@ def run(seconds=None, drive_pixels=True, health=None):
 def run_follower(health=None):
     from wireless import Wireless
     animation = CulvertAnimation(CONFIG)
-    battery = BatteryMonitor(CONFIG.battery_sample_s)
+    battery = BatteryMonitor(CONFIG.battery_sample_s, PROFILE['battery'] == 'max17048')
+    start_dashboard()
+    rate = None
+    if DISPLAY:
+        from dashboard import Rate
+        rate = Rate()
     radio = Wireless(CONFIG)
+    buttons = TFTButtons() if PROFILE["display"] else None
     with digitalio.DigitalInOut(PIXEL_PIN) as pin:
         pin.switch_to_output(value=False)
         try:
@@ -247,6 +322,9 @@ def run_follower(health=None):
                     if sleep.started is not None:
                         print("SLEEP ignored during OTA trial; retry after confirmation")
                         sleep.started = None
+                if buttons:
+                    buttons.poll(animation,now,sleep,allow_sleep=not (health and health.trial))
+                radio.heartbeat(now)
                 if sleep.started is not None and not sleep_announced:
                     print("SLEEP received: red fade remaining=%.2f s" %
                           max(0.0, sleep.duration - sleep.elapsed(now)))
@@ -275,14 +353,30 @@ def run_follower(health=None):
                     print("SPECTRUM levels=" + str(tuple(round(v, 2) for v in features.spectrum)))
                     next_log = now + CONFIG.log_interval_s
                     gc.collect()
+                update_dashboard(now,features,animation,battery,radio,rate,
+                                 CONFIG.receiver_frame_s-(time.monotonic()-now),sleep=sleep,buttons=buttons)
                 time.sleep(max(0, CONFIG.receiver_frame_s - (time.monotonic() - now)))
         finally:
             neopixel_write(pin, bytes(CONFIG.pixel_count * 3))
             radio.deinit()
+            if buttons:buttons.deinit()
 
 
 class SleepRequested(BaseException):
     """Unwind hardware contexts without triggering the OTA failure handler."""
+
+
+def wait_for_wake_release():
+    from effects import ReleaseGate
+    from hardware import BootScreen
+    screen = BootScreen()
+    screen.phase('Release D2 to sleep')
+    gate = ReleaseGate(CONFIG.button_debounce_s)
+    with digitalio.DigitalInOut(board.D2) as button:
+        button.switch_to_input()
+        while not gate.update(button.value,time.monotonic()):
+            time.sleep(.01)
+    screen.close()
 
 
 def enter_deep_sleep():
@@ -295,6 +389,14 @@ def enter_deep_sleep():
     microcontroller.watchdog.mode = None
     supervisor.runtime.autoreload = False
     wifi.radio.enabled = False
+    alarms = ()
+    held = ()
+    if PROFILE['display']:
+        wait_for_wake_release()
+        if DISPLAY:DISPLAY.close()
+        from hardware import sleep_power
+        held = sleep_power()
+        alarms = (alarm.pin.PinAlarm(pin=board.D2,value=True,pull=False),)
     # Keep the powered wing's data input LOW through VM teardown and sleep.
     # Releasing it to high impedance can latch stray bits after the black frame.
     # Do not use a with/finally here: DeepSleepRequest unwinds Python contexts.
@@ -303,9 +405,10 @@ def enter_deep_sleep():
     neopixel_write(sleep_pin, bytes(CONFIG.pixel_count * 3))
     sleep_pin.value = False
     time.sleep(0.001)  # Allow the all-black frame to latch before holding the pin.
-    print("SLEEP entering deep sleep; wing data held LOW; reset each board to wake")
+    print("SLEEP entering deep sleep; wing data held LOW; " +
+          ("D2 or reset wakes this board" if PROFILE["display"] else "reset each board to wake"))
     # Pin preservation is an output hold, NOT a PinAlarm or other wake source.
-    alarm.exit_and_deep_sleep_until_alarms(preserve_dios=(sleep_pin,))
+    alarm.exit_and_deep_sleep_until_alarms(*alarms, preserve_dios=(sleep_pin,) + held)
 
 
 def main(health=None):

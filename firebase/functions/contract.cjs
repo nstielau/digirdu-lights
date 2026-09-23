@@ -1,7 +1,9 @@
 const crypto = require('node:crypto');
-const BOARDS = ['unexpectedmaker_feathers2', 'adafruit_feather_esp32_v2'];
-const FILES = ['animation.py','app_version.py','audio_features.py','audio_spectrum.py','config.py',
+const LEGACY_BOARDS = ['unexpectedmaker_feathers2', 'adafruit_feather_esp32_v2'];
+const LEGACY_FILES = ['animation.py','app_version.py','audio_features.py','audio_spectrum.py','config.py',
   'effects.py','lights_app.py','radio_protocol.py','sound_reactive.py','wireless.py'];
+const BOARDS = [...LEGACY_BOARDS, 'adafruit_feather_esp32s3_reverse_tft'];
+const FILES = [...LEGACY_FILES, 'dashboard.py', 'device_setup.py'].sort();
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const version = value => typeof value === 'string' && /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/.test(value);
@@ -15,17 +17,18 @@ function exact(value, keys) {
     Object.keys(value).sort().join(',') === [...keys].sort().join(',');
 }
 function validateManifest(m) {
+  const files=m?.schema===1?LEGACY_FILES:FILES, boards=m?.schema===1?LEGACY_BOARDS:BOARDS;
   if (!exact(m, ['schema','version','git_commit','app_api','minimum_base','circuitpython','boards','roles',
-    'protocol_send','protocol_receive','files','sha256']) || m.schema!==1 || !version(m.version) ||
-    !/^[a-f0-9]{40}$/.test(m.git_commit) || m.app_api!==1 || !version(m.minimum_base) ||
-    m.circuitpython!=='10.3.1' || JSON.stringify(m.boards)!==JSON.stringify(BOARDS) ||
+    'protocol_send','protocol_receive','files','sha256']) || ![1,2].includes(m.schema) || !version(m.version) ||
+    !/^[a-f0-9]{40}$/.test(m.git_commit) || m.app_api!==1 || !version(m.minimum_base) || (m.schema===2 && compare(m.minimum_base,'1.1.0')<0) ||
+    m.circuitpython!=='10.3.1' || JSON.stringify(m.boards)!==JSON.stringify(boards) ||
     JSON.stringify(m.roles)!==JSON.stringify(['producer','consumer']) || m.protocol_send!==3 ||
-    JSON.stringify(m.protocol_receive)!=='[3]' || !Array.isArray(m.files) || m.files.length!==FILES.length) {
+    JSON.stringify(m.protocol_receive)!=='[3]' || !Array.isArray(m.files) || m.files.length!==files.length) {
     throw new Error('invalid_manifest');
   }
   const seen=new Set(); let size=0;
   for (const f of m.files) {
-    if (!exact(f,['name','size','sha256']) || !FILES.includes(f.name) || seen.has(f.name) ||
+    if (!exact(f,['name','size','sha256']) || !files.includes(f.name) || seen.has(f.name) ||
       !Number.isInteger(f.size) || f.size<1 || f.size>65536 || !digest(f.sha256)) throw new Error('invalid_file');
     seen.add(f.name); size+=f.size;
   }
@@ -64,4 +67,4 @@ function validateReport(b,id) {
   }
   return b;
 }
-module.exports={BOARDS,FILES,hash,digest,version,compare,validateManifest,validateReport,compatible};
+module.exports={BOARDS,FILES,LEGACY_BOARDS,LEGACY_FILES,hash,digest,version,compare,validateManifest,validateReport,compatible};

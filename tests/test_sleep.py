@@ -191,3 +191,23 @@ class ShutdownTests(unittest.TestCase):
         for overrides in ({'sleep_fade_s':0},{'sleep_fade_s':11},
                           {'button_sleep_hold_s':.001},{'sleep_fade_s':float('nan')}):
             with self.assertRaises(ValueError):Config(**overrides)
+
+    def test_s3_release_precedes_alarm_and_preserves_power_outputs(self):
+        app=load_app()
+        self.assertTrue(hasattr(app,'wait_for_wake_release'),'S3 release-before-wake missing')
+        calls=[]
+        class DeepSleep(BaseException):pass
+        alarm=Mock();alarm.exit_and_deep_sleep_until_alarms.side_effect=DeepSleep
+        held=(object(),object(),object())
+        mcu=SimpleNamespace(watchdog=SimpleNamespace(mode='reset'))
+        with patch.object(app,'PROFILE',{'display':True}), \
+             patch.object(app,'board',SimpleNamespace(D2=2)), \
+             patch.object(app,'wait_for_wake_release',side_effect=lambda:calls.append('release')), \
+             patch('hardware.sleep_power',side_effect=lambda:calls.append('power') or held,create=True), \
+             patch.dict(sys.modules,{'alarm':alarm,'microcontroller':mcu,'supervisor':SimpleNamespace(runtime=Mock()),
+                                    'wifi':SimpleNamespace(radio=Mock())}):
+            with self.assertRaises(DeepSleep):app.enter_deep_sleep()
+        self.assertEqual(calls,['release','power'])
+        alarm.pin.PinAlarm.assert_called_once_with(pin=2,value=True,pull=False)
+        preserved=alarm.exit_and_deep_sleep_until_alarms.call_args.kwargs['preserve_dios']
+        self.assertEqual(preserved[1:],held)

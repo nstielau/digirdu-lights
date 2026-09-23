@@ -33,14 +33,15 @@ def read_battery():
 
 class BatteryMonitor:
     """Read at bounded intervals; replace a failed reading rather than retaining it."""
-    def __init__(self, interval_s=2.0):
+    def __init__(self, interval_s=2.0, local_gauge=False):
         self.interval_s = interval_s
+        self.local_gauge = local_gauge
         self.next_read = 0.0
         self.reading = {"voltage": None, "status": "unsupported"}
 
     def update(self, now):
         if now >= self.next_read:
-            self.reading = read_battery()
+            self.reading = read_gauge() if self.local_gauge else read_battery()
             self.next_read = now + self.interval_s
         return self.reading
 

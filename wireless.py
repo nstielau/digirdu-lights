@@ -1,11 +1,12 @@
 """CircuitPython ESP-NOW transport for one mic leader and wireless LED nodes."""
 
 import os
+import time
 
 import espnow
 import wifi
 
-from radio_protocol import Transmitter, Receiver
+from radio_protocol import Transmitter, Receiver, PresenceRegistry, encode_presence
 
 
 class Wireless:
@@ -19,7 +20,12 @@ class Wireless:
         monitor = wifi.Monitor(channel=config.radio_channel)
         monitor.deinit()
         self.radio = espnow.ESPNow(buffer_size=2048)
-        self.peer = None
+        self.peer = espnow.Peer(mac=b"\xff" * 6, channel=config.radio_channel)
+        self.radio.peers.append(self.peer)
+        self.boot_session = int.from_bytes(os.urandom(4), "little")
+        self.presence_sequence = 0
+        self.next_presence = time.monotonic() + self._jitter() * config.presence_interval_s
+        self.presence = None
         self.transmitter = None
         self.receiver = None
         self.next_send = 0.0
@@ -29,9 +35,11 @@ class Wireless:
         self.completed = 0
         self.read_count = 0
         if config.radio_role == "leader":
-            self.peer = espnow.Peer(mac=b"\xff" * 6, channel=config.radio_channel)
-            self.radio.peers.append(self.peer)
-            self.transmitter = Transmitter(config, int.from_bytes(os.urandom(4), "little"))
+            self.transmitter = Transmitter(config, self.boot_session)
+            self.presence = PresenceRegistry(wifi.radio.mac_address, config.radio_group,
+                                             self.boot_session, config.presence_capacity,
+                                             config.presence_expiry_s,
+                                             int(config.presence_expiry_s / config.radio_interval_s) + 4)
         else:
             self.receiver = Receiver(config)
         print("RADIO role=%s mac=%s channel=%d group=%d" %
@@ -86,6 +94,42 @@ class Wireless:
             animation.phase = self.receiver.phase
             animation.set_effect(self.receiver.effect)
         return self.receiver.features
+
+    def _jitter(self):
+        return int.from_bytes(os.urandom(2), 'little') / 65535.0
+
+    def heartbeat(self, now):
+        rx = self.receiver
+        if (rx.session is None or rx.audio_sequence is None
+                or now - rx.last_audio > self.c.radio_timeout_s
+                or rx.sleep.started is not None or now < self.next_presence):
+            return
+        self.next_presence = now + self.c.presence_interval_s + (self._jitter() * 2 - 1) * self.c.presence_jitter_s
+        completed = self.radio.send_success + self.radio.send_failure
+        if self.pending and completed == self.completed:
+            self.skipped += 1
+            return
+        self.completed = completed
+        self.pending = False
+        self.presence_sequence = (self.presence_sequence + 1) & 65535
+        packet = encode_presence(self.c.radio_group, rx.leader, rx.session,
+                                 self.boot_session, self.presence_sequence, rx.audio_sequence)
+        try:
+            self.radio.send(packet, self.peer)
+            self.pending = True
+            self.sent += 1
+        except (OSError, RuntimeError):
+            self.errors += 1
+
+    def receive_presence(self, now):
+        for _ in range(8):
+            if self.read_count == self.radio.read_success:
+                break
+            packet = self.radio.read()
+            if packet is None:
+                break
+            self.read_count = (self.read_count + 1) & 0xffffffff
+            self.presence.accept(packet.mac, packet.msg, now, self.transmitter.sequence)
 
     def deinit(self):
         self.radio.deinit()

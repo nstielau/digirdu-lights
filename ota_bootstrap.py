@@ -9,6 +9,8 @@ from ota_manifest import APP_API, BASE_VERSION, BOARDS, MAX_MANIFEST, validate
 from ota_store import UpdateStore
 from ota_http import DeviceHTTP
 from battery import read_battery
+import hardware
+import node_state
 
 TRIAL_SECONDS = 30
 NVM_MARKER = b"DGO1"  # Reserved bytes 0..4; never store device secrets in NVM.
@@ -27,9 +29,9 @@ class OTAIndicator:
         import board
         import digitalio
         from neopixel_write import neopixel_write
-        pins = {"unexpectedmaker_feathers2": "IO38",
-                "adafruit_feather_esp32_v2": "D32"}
-        self.pin = digitalio.DigitalInOut(getattr(board, pins[board.board_id]))
+        self.pin = digitalio.DigitalInOut(getattr(board, hardware.profile(board.board_id)["wing"]))
+        self.screen = hardware.BootScreen()
+        self.screen.phase("Checking for updates")
         self.write = neopixel_write
         self.pixels = bytearray(OTA_PIXEL_COUNT * 3)
         self.index = -1
@@ -55,6 +57,7 @@ class OTAIndicator:
         self.next_step = now + OTA_PIXEL_STEP_S
 
     def close(self):
+        self.screen.close()
         try:
             self.write(self.pin, bytes(len(self.pixels)))
         finally:
@@ -66,6 +69,10 @@ def load_app(directory="/recovery"):
     # trusted code isolation against accidental mixed versions, not a sandbox.
     import node_config
     sys.path[:] = [directory, "/lib"]
+    import board
+    if board.board_id == hardware.S3:
+        import device_setup
+        device_setup.ensure_configured()
     import app_version
     import lights_app
     if app_version.APP_API_VERSION != APP_API:
@@ -77,8 +84,13 @@ def settings():
     import board
     import microcontroller
     import node_config
-    role = node_config.OVERRIDES.get("radio_role", "consumer")
+    role = node_state.current().get("radio_role")
     role = {"leader": "producer", "follower": "consumer", "off": "producer"}.get(role, role)
+    enrolled_role = os.getenv('OTA_DEVICE_ROLE')
+    if enrolled_role and enrolled_role != role:
+        raise ValueError('enrolled_role_mismatch')
+    if role not in ('producer', 'consumer'):
+        raise ValueError('role_not_configured')
     uid = microcontroller.cpu.uid.hex().lower()
     result = {"id": uid, "board": board.board_id, "role": role,
               "api": os.getenv("OTA_API_BASE") or "", "token": os.getenv("OTA_DEVICE_TOKEN") or "",
@@ -127,7 +139,9 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
         time.sleep(int.from_bytes(os.urandom(2), "little") / 65535 * 2)
         service()
         wifi.radio.enabled = True
+        if indicator:indicator.screen.phase("Joining Wi-Fi")
         wifi.radio.connect(cfg["ssid"], timeout=8)
+        if indicator:indicator.screen.phase("Checking release")
         client = DeviceHTTP(socketpool.SocketPool(wifi.radio), cfg["id"], cfg["token"], cfg["api"])
         body = report_body(store, cfg, version, session, sequence, health)
         result = client.request("report" if report_only else "check-in", service,
@@ -140,6 +154,7 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
             if manifest["version"] == version:
                 return False
             def download(m, f, consume):
+                if indicator:indicator.screen.phase("Download " + f["name"])
                 client.request("artifacts/" + m["sha256"] + "/" + f["name"], service,
                                lambda response: consume(response.chunks()), limit=f["size"])
             staged = store.stage(manifest, download, service)
