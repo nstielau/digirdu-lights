@@ -675,12 +675,49 @@ new dynamic constants; dependency links and explicit legacy fixtures fixed this.
 
 Connected bare board advertises VID239A/PID8123, serial64:e8:33:73:f3:84,
 `/dev/cu.usbmodem1101`. No CIRCUITPY drive or CircuitPython REPL response.
-Requested double RESET for FTHRS3BOOT inspection; awaiting physical action.
-No new board files flashed, no credentials provisioned, no cloud deployment or
+Initial double RESET did not expose a UF2 drive. Holding D0 while connecting
+USB exposed ROM recovery (303A:1001). esptool confirmed ESP32-S3 revision v0.1,
+4 MB XMC flash, 2 MB PSRAM, MAC `64:e8:33:73:f3:84`.
+
+Before erasing, the entire 4,194,304-byte factory flash was backed up and a
+second hash-matched copy saved outside the worktree under the main checkout:
+`.artifacts/board-backups/reverse-tft-64e83373f384/`. Backup SHA256:
+`54e405f011094cef073f8ca2ccf58e5852bfa2be48b7226c7c66b67d3281c1da`.
+Official TinyUF2 0.33.0 combined.bin was installed with hash verification.
+Official CircuitPython 10.3.1 .bin was then written at offset zero without a
+full erase, also hash verified. Both images have matching partition tables;
+the CircuitPython write ends below the preserved UF2 partition at 0x2d0000.
+RTS reset left ROM USB visible. On September 24, the user’s physical RESET
+exposed FTHRS3BOOT with TinyUF2 0.33.0. The direct .bin write had not completed
+a bootable CircuitPython installation: the precise boot-selection cause was
+not established. `make flash BOARD=adafruit_feather_esp32s3_reverse_tft` then
+backed up CURRENT.UF2 and transferred the official 10.3.1 UF2. macOS reported
+EIO during the reboot/disconnect; CIRCUITPY subsequently appeared and both
+boot_out.txt and the serial REPL confirmed CircuitPython 10.3.1, board ID and
+UID `468e33373f48`. Do not treat a copy error alone as installation success.
+
+Configured consumer group1/source `7c:df:a1:03:4c:2c` with verified readback.
+The first deployment stopped because macOS cached the newly created recovery
+directory as a zero-byte regular file, although device os.stat reported a
+directory. Unmounting/remounting temporarily corrected the host view without
+erasing/reformatting. A second `make deploy` copied the files but failed host
+readback for ota_store.py (host saw 4096 bytes; device saw the expected 6669).
+After unmounting the Mac volume, serial readback verified every deployed file
+byte-for-byte against source, plus the saved consumer profile. No app rewrite
+was needed. The cause of the recurring host/device filesystem disagreement is
+not established; keep the Mac volume unmounted during these native checks.
+
+Serial soft restart then passed startup: app/base1.1.0, follower
+`64e83373f384`, channel1/group1. Normal LIGHTS frames advanced with no traceback
+or TFT warning; received/rejected remained 0/0 during the initial nine-second
+check. Thus lost-link startup works, but live radio/presence and TFT physical
+appearance remain unconfirmed. All139 host tests passed before deployment.
+
+No credentials provisioned on the new board, no cloud deployment or
 stable release publication yet. Old producer/consumer remain untouched.
 
-Outstanding hardware gates: compatible TinyUF2/CP installation with backup,
-TFT/button orientation, MAX17048 reading, explicit-source receive and heartbeat,
+Outstanding hardware gates:
+physical button/sleep checks, battery-backed MAX17048 reading, explicit-source receive and heartbeat,
 USB versus battery sleep/wake, later wired mic/wing and TFT-on/off benchmark.
 Keep 1.0.8 stable until qualification. The intermittent powered-Wing sleep-light
 issue remains deferred; no electrical fix or low-current measurement claimed.
@@ -693,3 +730,170 @@ polarities, and missing enrolled identity cannot enter interactive first-run
 setup. Deployment rejects versions other than pinned CircuitPython10.3.1 before
 writing. Final software gate: **139 firmware tests pass**. Hardware gates above
 remain pending; implementation commits are on `feature/reverse-tft`.
+
+
+September 24 native observations: user confirmed the CONSUMER/Spectrum TFT is
+readable and correctly oriented, with labels on the left. Live RF testing is
+deferred at the user's request. The display reports 240x135, rotation0 and
+brightness0.12. A REPL-time free-heap snapshot was 1,945,360 bytes; this is not a
+running-producer memory or performance benchmark. MAX17048 returned
+`out_of_range` on the bare USB-powered board; no battery was fitted/qualified.
+
+Button probing found unpulled inputs at inconsistent idle levels. Enabling
+D0 Pull.UP and D1/D2 Pull.DOWN changed all three to the expected released
+states (True/False/False), matching the official Adafruit multiple-buttons
+example. Corrected runtime controls, first-run setup, host button diagnostics,
+release-before-sleep and D2 PinAlarm (`pull=True`). Regression tests reproduced
+missing input bias and pass after the fix; full suite now141 tests. Physical
+press/sleep/wake tests still remain pending.
+
+
+The two corrected app files were backed up and updated through the serial
+REPL with staged/final byte readback. Native CP10.3.1 rejects remount while the
+USB LUN is exposed even after Mac eject. After successful host unmount/eject,
+`storage.unsafe_disable_usb_drive()` allowed controlled serial writes, following
+CircuitPython's documented prerequisite that the host finish all writes.
+`storage.enable_usb_drive()` restored USB ownership; the device reported its
+filesystem read-only before app restart. This was a one-off bring-up procedure,
+not an automatic fallback in make deploy. Native make deploy's Mac FAT12
+readback problem remains a tooling limitation to investigate.
+
+
+### September 24: three focused TFT pages
+
+Approved Audio → Performance → Status, starting on Audio and cycling via D0.
+Implemented spectrum/level/four-row status, page numbers, missing-data markers,
+fault/sleep priority, and bounded DEVICE serial details every10s. Updated
+README/AGENTS. Host gate:149 tests pass, including native math API compatibility,
+page cycle, bounds, strip continuation and pending-page replacement.
+
+`make deploy` verified identity but macOS mounted CIRCUITPY read-only and refused
+its first staging write. Used the documented host unmount/eject plus exclusive
+serial procedure to back up, stage, read back and replace the changed recovery
+files. No flash erase, credential change or source/role change.
+
+The native simulation caught missing `math.log10` in CP10.3.1; switched dBFS to
+`20 * log(x) / log(10)` with a host regression. Font reports6x12; fields reserve
+up to6x14. Initial multi-TileGrid full refreshes measured45–100ms, which could
+permanently starve the existing spare-time guard. Text caching/visibility
+changes alone did not fix that. Replaced composition with front/back indexed
+bitmaps and cached colored/scaled glyph atlases. Startup clears the screen
+before audio/radio, then each running-loop transfer covers at most24 rows.
+
+Isolated native strip transfers measured14.2–22.0ms. With a29ms spare budget and
+32ms loop, each of the three pages completed6 full frames over1.5seconds, zero
+skips, maximum update23.2ms. This is an isolated display/consumer-budget check,
+not a microphone-on or live-radio benchmark. Prototype free heap was1,880,160
+bytes including duplicate diagnostic module objects; not production peak usage.
+Logs: `.artifacts/bringup/tft-strips-prototype.log` and
+`.artifacts/bringup/tft-budget-prototype.log`. The user confirmed physical readability, comfortable spacing and D0 cycling
+of all three pages on September 24; live radio remains deferred.
+
+Final installed-renderer simulation passed all42 producer/consumer page, effect,
+fault and countdown cases. Maximum native step21.97ms, additional allocated
+heap81,040 bytes, free heap1,894,960 bytes in the diagnostic session. These
+are rendering measurements with simulated input, not audio/radio qualification.
+Log: `.artifacts/bringup/tft-three-pages-native.log`. Fresh `make check` passes
+149 tests and `git diff --check`.
+
+After the simulation, passive serial monitoring confirmed the real consumer
+app resumed: advancing LIGHTS frames, expected Spectrum/LOST state, no received
+packets or rejected packets, and no traceback. The user subsequently confirmed
+all three pages look good when cycling with D0.
+
+### September 24: responsive two-page debugging UI
+
+After the earlier visual confirmation, the user reported LIVE with no spectrum
+and D0 apparently unresponsive. Passive logs showed real changing spectrum and
+accepted radio packets. A 40-second instrumented run logged physical D0 changes
+and page transitions, but 801 display skips. At one point row48 stalled for
+several seconds with cost24.08ms and spare26.96ms: snapshot preparation was
+subtracted before comparing against a cost that already included preparation.
+Also, a slow cost estimate could prevent all future draws from remeasuring it.
+This establishes timing starvation; the precise initial long stall was not
+captured before interruption. D0 worked after restarting during diagnostics.
+
+Count preparation once, transfer at most12 rows, and allow a bounded retry after
+half a second with >=12ms spare. D0 resets refresh/retry deadlines and logs the
+selected page. No work is forced with zero spare time. Per user request, simplify
+to Audio/Status: Status has current effect and four existing diagnostic rows,
+updates once per second; Audio keeps its configured cadence. A retry can exceed
+its estimate, so this is not a hard real-time guarantee for the microphone.
+
+Three regression tests failed before the fix and passed afterward; make check
+passes152 tests. Native make deploy again hit the known Mac FAT12 directory-view
+problem before writing. After host unmount/eject, serial backup, staged/final
+byte readback of dashboard.py/lights_app.py and normal startup passed. No base,
+identity, firmware, or radio protocol change. Live validation log:
+`.artifacts/bringup/tft-responsive-live.log`.
+
+The installed-code60-second live test passed:1,674 render steps,128 completed
+frames,38 skipped updates, both pages visited by physical D0, received spectrum
+peak0.996. An injected80ms cost estimate recovered automatically. Typical sampled
+step estimates were11.8–13ms. The reported maximum1.58s step gap includes initial
+display setup, so it is not a measured button latency. Both pages were observed
+in runtime state; final physical readability confirmation remains separate.
+The previous40-second run had801 skips. The app restarted normally afterward,
+with live accepted packets and no traceback. Producer/mic timing and sleep/wake
+qualification remain pending; this test exercised consumer reception only.
+
+The user confirmed that D0 reliably switches between Audio bars and Status
+after the two-page update. This closes the physical page-switch check.
+
+### September24: group controls, sleep takeover and Brightness page
+
+Implemented consumer-to-producer DGRC requests and DGRA acknowledgments for
+next effect, group sleep, brightness up/down. Producer retains authority and
+repeats v3 effects/DGRS sleep; DGRB adds current/max brightness every0.5s without
+changing51-byte audio. One pending request, bounded retry/deadline, sender boot
+and sequence dedup, intended MAC/group/session/recent-audio validation, bounded
+registry, and preserved OTA sleep inhibition. Legacy listeners follow effect
+and sleep; brightness and initiating controls require updated participants.
+
+Full-screen TFT overlays replace the selected page during hold/cancel/fade and
+control feedback. A native display-only preview passed hold3s, cancel2s, hold3s,
+fade3s and release-to-sleep message:393 steps,max12.33ms,free1,099,200 bytes.
+Log `.artifacts/bringup/tft-sleep-preview.log`. It did not sleep devices or send
+group commands. No new electrical sleep/wake qualification is claimed.
+
+Independent review found countdown changes restarting unfinished frames. Added
+a failing regression, then preserved strip progress across digit changes and
+allowed overlay steps with>=12ms spare. New stages still preempt, zero spare
+still skips. Reviewer confirmed fix; no remaining important findings.
+
+User then requested Brightness, authorizing50% maximum. D0 cycles Audio/Status/
+Brightness; D1/D2 short changes shared brightness by5 percentage points on that
+page, D2 long still sleeps. Default15%,zero allowed, TFT brightness unchanged.
+Updated cached Spectrum colors and effect indicators. Battery retains3% cap.
+Brightness is volatile and resets with producer config after reboot. Added
+loss/replay/new-session/cache/control/cap tests and a regression proving busy
+ACK traffic cannot starve DGRB or audio. Brightness state alone does not rewind
+animation time or keep stale audio alive.
+
+Both USB deployments hit the known host FAT12/read-only view before writing;
+used successful host unmount/eject followed by exclusive serial backups and
+staged/final readback. The connected S3 has the combined seven-file app update.
+Producer and other consumers still need matching app installation for actual
+cross-node control/brightness qualification. No release/OTA publication or
+saved identity changes were made.
+
+Final combined firmware:168 host tests pass. S3 serial verified all seven changed
+app files and restarted normally with live producer audio reception. Native
+Brightness preview at0%,15%,50%,15% passed with no display fault; native DGRB
+encode/accept returned0.15/current,0.5/maximum. Preview log:
+`.artifacts/bringup/tft-brightness-preview.log`. Normal consumer app restored.
+User has been asked to connect the microphone FeatherS2 for matching producer
+installation; cross-node control/brightness is not yet physically verified.
+Do not publish the unqualified1.1.0 release or claim old nodes adopted brightness.
+
+### September24: local producer trial deployment
+
+Connected FeatherS2 confirmed CP10.3.1, saved producer identity, OTA field mode,
+active1.0.8 slot1, sequence/floor13, no pending trial. The matching1.1.0 source
+will be checkpointed locally and installed via USB into inactive slot0 as a
+sequence14 trial, preserving slot1 and credentials, with the existing30-second
+health gate and rollback. This is a local hardware preview, not a published
+GitHub/Firebase release. Reserve sequence14 for this device trial; a subsequent
+fleet release must use sequence15 or higher to exceed its anti-rollback floor.
+Keep USB-base backups and old journal for explicit recovery. Do not replace
+active slot files or bypass trial health confirmation.

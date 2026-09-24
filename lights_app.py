@@ -42,7 +42,7 @@ class EffectButtons:
             self.deinit()
             raise
 
-    def poll(self, animation, now, sleep, allow_sleep=True):
+    def poll(self, animation, now, sleep, allow_sleep=True, radio=None):
         for pin, button, step in self.inputs:
             gesture = button.update(not pin.value, now)
             if sleep.started is not None:
@@ -72,26 +72,42 @@ class TFTButtons:
             for name in ('D0', 'D1', 'D2'):
                 pin = digitalio.DigitalInOut(getattr(board,name))
                 self.inputs.append(pin)
-                pin.switch_to_input()  # Board resistors; D0 LOW, D1/D2 HIGH.
+                pin.switch_to_input(pull=digitalio.Pull.UP if name == 'D0' else digitalio.Pull.DOWN)
         except Exception:
             self.deinit()
             raise
 
-    def poll(self, animation, now, sleep, allow_sleep=True):
+    def poll(self, animation, now, sleep, allow_sleep=True, radio=None):
         action = self.logic.update(tuple(pin.value for pin in self.inputs),now)
         if sleep.started is not None:
             return
         if action == 'page' and DISPLAY:
             DISPLAY.toggle()
-        elif action == 'next':
-            animation.set_effect((animation.effect+1)%len(EFFECT_NAMES))
-            print('EFFECT %d %s'%(animation.effect,EFFECT_NAMES[animation.effect]))
-        elif action == 'sleep':
-            if allow_sleep:
-                sleep.request(now,CONFIG.sleep_fade_s)
-                print('SLEEP requested from D2; local wake after release')
-            else:
+            print('TFT page=%d' % (DISPLAY.page + 1))
+        else:
+            brightness_page=DISPLAY and DISPLAY.page==2
+            if action=='next' and brightness_page:action='brighter'
+            elif action=='decrease':
+                if not brightness_page:return
+                action='dimmer'
+            if action not in ('next','sleep','brighter','dimmer'):return
+            if action=='sleep' and not allow_sleep:
+                if radio and radio.control:radio.control.feedback('SLEEP BLOCKED',now)
                 print('SLEEP ignored during OTA trial')
+                return
+            if CONFIG.radio_role=='follower':
+                from radio_protocol import NEXT_EFFECT,GROUP_SLEEP,BRIGHTER,DIMMER
+                command={'next':NEXT_EFFECT,'sleep':GROUP_SLEEP,'brighter':BRIGHTER,'dimmer':DIMMER}[action]
+                if radio:radio.request_control(command,now)
+            elif action=='next':
+                animation.set_effect((animation.effect+1)%len(EFFECT_NAMES))
+                print('EFFECT %d %s'%(animation.effect,EFFECT_NAMES[animation.effect]))
+            elif action in ('brighter','dimmer'):
+                animation.adjust_brightness(CONFIG.brightness_step*(1 if action=='brighter' else -1))
+                if radio:radio.next_brightness=now
+            else:
+                sleep.request(now,CONFIG.sleep_fade_s)
+                print('SLEEP requested from D2; broadcasting group sleep')
 
     def deinit(self):
         for pin in self.inputs:pin.deinit()
@@ -115,39 +131,58 @@ def start_dashboard():
 
 def update_dashboard(now, features, animation, battery, radio, rate, spare,
                      overruns=0, sleep=None, buttons=None, fault=False):
-    if not DISPLAY or DISPLAY.failed or now < DISPLAY.next_refresh:
+    if not DISPLAY or DISPLAY.failed:
         return
-    if spare < DISPLAY.cost + .002:
+    from dashboard import sleep_overlay
+    remaining=max(0,sleep.duration-sleep.elapsed(now)) if sleep and sleep.started is not None else None
+    holding=buttons.logic.countdown if buttons and hasattr(buttons,'logic') else 0
+    if DISPLAY.page==2 and holding>CONFIG.button_sleep_hold_s-.5:holding=0
+    control=getattr(radio,'control',None) if radio else None
+    overlay=sleep_overlay(holding=holding,remaining=remaining,
+                          status=control.status(now) if control else '')
+    DISPLAY.set_overlay(overlay)
+    if now < DISPLAY.next_refresh:return
+    if not DISPLAY.ready(now, spare):
         DISPLAY.skipped += 1
         return
     preparation_started = time.monotonic()
     from dashboard import snapshot
-    from app_version import APP_VERSION
     receiver = radio.receiver if radio else None
     presence = radio.presence if radio else None
     seen = presence.count(now) if presence else 0
-    age = now-receiver.last_audio if receiver else 0
+    age = now-receiver.last_audio if receiver and receiver.audio_sequence is not None else None
     count = receiver.accepted if receiver else radio.sent if radio else 0
     message = ''
-    if sleep and sleep.started is not None:message='SLEEP: red fade / wake locally'
+    if sleep and sleep.started is not None:message='SLEEP / fading'
     elif buttons and hasattr(buttons,'logic') and buttons.logic.countdown:
         message='Hold D2: %.1fs'%buttons.logic.countdown
-    counters = ('TX%d ok%d bad%d skip%d '%(radio.sent,radio.radio.send_success,radio.radio.send_failure,radio.skipped)
-                if radio else 'Radio off ')
-    counters += 'RX%d rej%d'%((receiver.accepted,receiver.rejected) if receiver else
-                              (presence.accepted,presence.rejected) if presence else (0,0))
     reading = battery.update(now)
     state = snapshot(CONFIG.radio_role, animation.effect, rms=features.rms, volume=features.volume,
                      clipped=features.clipped, calibrating=features.calibrating, active=features.active,
                      fault=fault, age=age,timeout=CONFIG.radio_timeout_s,seen=seen,
                      full=presence.full if presence else False,rate=rate.update(count,now),
-                     battery=reading,channel=CONFIG.radio_channel,group=CONFIG.radio_group,
-                     version=APP_VERSION,counters=counters,source=CONFIG.leader_mac if receiver else 'local',
-                     overruns=overruns,message=message)
+                     battery=reading,spectrum=features.spectrum,
+                     tx_failed=radio.radio.send_failure if radio else 0,message=message,overlay=overlay,
+                     brightness=CONFIG.brightness,brightness_max=CONFIG.brightness_max)
     preparation = time.monotonic() - preparation_started
-    DISPLAY.update(now,state,spare-preparation)
-    # Include sensor/format work in the next early gate, not just SPI refresh.
-    DISPLAY.cost = max(DISPLAY.cost, time.monotonic()-preparation_started)
+    DISPLAY.update(now,state,spare,preparation=preparation)
+
+
+DIAGNOSTIC_NEXT = 0
+
+
+def log_device_diagnostics(now, radio, overruns=0):
+    global DIAGNOSTIC_NEXT
+    if not PROFILE['display'] or radio is None or now < DIAGNOSTIC_NEXT:
+        return
+    DIAGNOSTIC_NEXT = now + 10
+    from app_version import APP_VERSION
+    rx = radio.receiver or radio.presence
+    print('DEVICE v%s role=%s CH%d G%d source=%s TX=%d ok=%d failed=%d errors=%d skipped=%d RX=%d rejected=%d overruns=%d' %
+          (APP_VERSION,CONFIG.radio_role,CONFIG.radio_channel,CONFIG.radio_group,
+           CONFIG.leader_mac if radio.receiver else 'local',radio.sent,
+           radio.radio.send_success,radio.radio.send_failure,radio.errors,radio.skipped,
+           rx.accepted if rx else 0,rx.rejected if rx else 0,overruns))
 
 
 def show_mic_fault():
@@ -260,7 +295,9 @@ def run(seconds=None, drive_pixels=True, health=None):
                         flat_since = None
                     if flat_since is not None and now - flat_since > CONFIG.flat_timeout_s:
                         raise RuntimeError("Microphone data is flat; check GPIO 5/6/9, power and SEL=GND")
-                    buttons.poll(animation, now, sleep, allow_sleep=not (health and health.trial))
+                    if radio is not None:
+                        radio.receive_presence(now,animation,sleep,allow_sleep=not (health and health.trial))
+                    buttons.poll(animation, now, sleep, allow_sleep=not (health and health.trial),radio=radio)
                     if animation.effect == 5:
                         animation.battery_voltage = battery.update(now)["voltage"]
                     pixels = (sleep.pixels(now, CONFIG) if sleep.started is not None else
@@ -268,7 +305,6 @@ def run(seconds=None, drive_pixels=True, health=None):
                     if drive_pixels:
                         neopixel_write(pin, pixels)
                     if radio is not None:
-                        radio.receive_presence(now)
                         radio.publish(features, animation, now, sleep)
                     if health is not None:
                         health(features, radio)
@@ -284,6 +320,7 @@ def run(seconds=None, drive_pixels=True, health=None):
                                features.harmonics, features.timbrePosition, features.growl,
                                features.vocal, features.roughness, features.active, features.clipped))
                         print("SPECTRUM levels=" + str(tuple(round(v, 2) for v in features.spectrum)))
+                        log_device_diagnostics(now,radio,overruns)
                         next_log = now + CONFIG.log_interval_s
                         # Explicit collections bound fragmentation; include them
                         # and LED output in the processing-time measurement.
@@ -349,7 +386,7 @@ def run_follower(health=None):
                         print("SLEEP ignored during OTA trial; retry after confirmation")
                         sleep.started = None
                 if buttons:
-                    buttons.poll(animation,now,sleep,allow_sleep=not (health and health.trial))
+                    buttons.poll(animation,now,sleep,allow_sleep=not (health and health.trial),radio=radio)
                 radio.heartbeat(now)
                 if sleep.started is not None and not sleep_announced:
                     print("SLEEP received: red fade remaining=%.2f s" %
@@ -377,6 +414,7 @@ def run_follower(health=None):
                            features.volume, features.drone, features.growl, features.vocal,
                            lit, CONFIG.pixel_count, max(pixels)))
                     print("SPECTRUM levels=" + str(tuple(round(v, 2) for v in features.spectrum)))
+                    log_device_diagnostics(now,radio)
                     next_log = now + CONFIG.log_interval_s
                     gc.collect()
                 update_dashboard(now,features,animation,battery,radio,rate,
@@ -394,12 +432,16 @@ class SleepRequested(BaseException):
 
 def wait_for_wake_release():
     from effects import ReleaseGate
-    from hardware import BootScreen
-    screen = BootScreen()
-    screen.phase('Release D2 to sleep')
+    from hardware import TextScreen
+    screen = TextScreen((('title',12,22,18,2,0xff4596),
+                         ('note',12,72,18,2,0xffffff)),
+                        brightness=CONFIG.display_brightness,rotation=CONFIG.display_rotation)
+    screen.text('title','SLEEP READY')
+    screen.text('note','Release D2')
+    screen.refresh()
     gate = ReleaseGate(CONFIG.button_debounce_s)
     with digitalio.DigitalInOut(board.D2) as button:
-        button.switch_to_input()
+        button.switch_to_input(pull=digitalio.Pull.DOWN)
         while not gate.update(button.value,time.monotonic()):
             time.sleep(.01)
     screen.close()
@@ -422,7 +464,7 @@ def enter_deep_sleep():
         if DISPLAY:DISPLAY.close()
         from hardware import sleep_power
         held = sleep_power()
-        alarms = (alarm.pin.PinAlarm(pin=board.D2,value=True,pull=False),)
+        alarms = (alarm.pin.PinAlarm(pin=board.D2,value=True,pull=True),)
     # Keep the powered wing's data input LOW through VM teardown and sleep.
     # Releasing it to high impedance can latch stray bits after the black frame.
     # Do not use a with/finally here: DeepSleepRequest unwinds Python contexts.

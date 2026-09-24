@@ -113,11 +113,13 @@ class ConfigurationTests(unittest.TestCase):
         def claim(number):
             pin=Mock(value=number!=0);pins.append((number,pin));return pin
         modules={'board':SimpleNamespace(board_id=board.S3_BOARD,D0=0,D1=1,D2=2),
-                 'digitalio':SimpleNamespace(DigitalInOut=claim,Pull=SimpleNamespace(UP=1)),
+                 'digitalio':SimpleNamespace(DigitalInOut=claim,Pull=SimpleNamespace(UP=1,DOWN=2)),
                  'ota_bootstrap':SimpleNamespace(load_app=lambda:None),
                  'time':SimpleNamespace(monotonic=now,sleep=lambda _:None)}
         with patch.dict(sys.modules,modules),patch('builtins.print') as output:
             exec(board.BUTTON_TEST_SOURCE,{})
         self.assertEqual([number for number,pin in pins],[0,1,2])
         self.assertEqual(sum('accepted press=' in str(call.args) for call in output.call_args_list),3)
-        for _,pin in pins:pin.deinit.assert_called_once()
+        for number,pin in pins:
+            pin.switch_to_input.assert_called_once_with(pull=1 if number==0 else 2)
+            pin.deinit.assert_called_once()

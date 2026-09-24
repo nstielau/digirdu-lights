@@ -88,6 +88,9 @@ class Config:
     # The 32-pixel wing previews a line spanning the culvert length.
     pixel_count = 32
     brightness = 0.15
+    brightness_max = 0.50
+    brightness_step = 0.05
+    brightness_interval_s = 0.5
     pixel_positions = None  # Optional per-physical-pixel (axial -1..1, turns 0..1).
     origin = 0.0
     base_hue = 0.52
@@ -147,6 +150,8 @@ class Config:
     radio_timeout_s = 0.5
     radio_event_max_age_s = 0.5
     receiver_frame_s = 0.032
+    control_retry_s = 0.15
+    control_timeout_s = 2.0
     presence_capacity = 32
     presence_expiry_s = 10.0
     presence_interval_s = 3.0
@@ -188,7 +193,10 @@ class Config:
         for name in dir(self):
             if name.endswith("_s") and getattr(self, name) <= 0:
                 raise ValueError(name + " must be positive")
-        if not 0 < self.brightness <= 1 or self.pixel_count < 2 or self.gain <= 0:
+        if (not 0 <= self.brightness <= self.brightness_max <= 0.5
+                or not 0 < self.brightness_step <= self.brightness_max
+                or not 0.2 <= self.brightness_interval_s <= 5
+                or self.pixel_count < 2 or self.gain <= 0):
             raise ValueError("Invalid brightness, pixel_count, or gain")
         if (len(self.spectrum_edges) != 9
                 or not 0 < self.spectrum_edges[0] < self.spectrum_edges[-1] <= self.sample_rate / 2
@@ -239,6 +247,8 @@ class Config:
         if (type(self.presence_capacity) is not int or not 1 <= self.presence_capacity <= 32
                 or self.presence_jitter_s >= self.presence_interval_s):
             raise ValueError("Invalid presence limits")
+        if not 0.05 <= self.control_retry_s < self.control_timeout_s <= 3:
+            raise ValueError("Invalid control timing")
         if self.radio_role not in ("off", "leader", "follower"):
             raise ValueError("Invalid radio_role")
         if not 1 <= self.radio_channel <= 11 or not 0 <= self.radio_group <= 65535:

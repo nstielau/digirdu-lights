@@ -14,6 +14,8 @@ SIZE = struct.calcsize(FORMAT)
 # magic, version, group, producer session, shared sequence, elapsed ms, fade ms.
 SLEEP_FORMAT = "<4sBHIHHH"
 SLEEP_SIZE = struct.calcsize(SLEEP_FORMAT)
+BRIGHTNESS_FORMAT = "<4sBHIHBB"
+BRIGHTNESS_SIZE = struct.calcsize(BRIGHTNESS_FORMAT)
 
 
 class Transmitter:
@@ -46,6 +48,12 @@ class Transmitter:
                            int(features.active), *(int(clamp(getattr(features, name)) * 255) for name in FIELDS),
                            animation.effect, *(int(clamp(v) * 255) for v in features.spectrum))
 
+    def encode_brightness(self, animation):
+        self.sequence=(self.sequence+1)&65535
+        return struct.pack(BRIGHTNESS_FORMAT,b'DGRB',1,self.c.radio_group,
+                           self.session,self.sequence,int(round(animation.c.brightness*100)),
+                           int(round(animation.c.brightness_max*100)))
+
     def encode_sleep(self, transition, now):
         self.sequence = (self.sequence + 1) & 65535
         duration = int(transition.duration * 1000)
@@ -66,11 +74,14 @@ class Receiver:
         self.audio_sequence = None
         self.scene_time = self.phase = 0.0
         self.effect = 0
+        self.brightness = self.brightness_max = None
         self.sleep = SleepTransition()
         self.sleep_commands = 0
         self.accepted = self.rejected = 0
 
     def accept(self, mac, message, now):
+        if bytes(mac)==self.leader and len(message)==BRIGHTNESS_SIZE:
+            return self._accept_brightness(message,now)
         if bytes(mac) == self.leader and len(message) == SLEEP_SIZE:
             return self._accept_sleep(message, now)
         if bytes(mac) != self.leader or len(message) != SIZE:
@@ -85,6 +96,7 @@ class Receiver:
             self.rejected += 1
             return False
         new_session = session != self.session
+        if new_session:self.brightness=self.brightness_max=None
         if not new_session and not 0 < ((sequence - self.sequence) & 65535) < 32768:
             self.rejected += 1
             return False
@@ -114,6 +126,20 @@ class Receiver:
         self.last_receive = self.last_audio = now
         self.audio_sequence = sequence
         self.accepted += 1
+        return True
+
+    def _accept_brightness(self, message, now):
+        magic,version,group,session,seq,level,maximum=struct.unpack(BRIGHTNESS_FORMAT,message)
+        if (magic!=b'DGRB' or version!=1 or group!=self.c.radio_group
+                or self.session is None or session!=self.session
+                or not 0<((seq-self.sequence)&65535)<32768
+                or not 0<=level<=maximum<=100 or maximum==0
+                or now-self.last_audio>self.c.radio_timeout_s):
+            self.rejected+=1
+            return False
+        self.sequence=seq
+        self.brightness,self.brightness_max=level/100,maximum/100
+        self.accepted+=1
         return True
 
     def _accept_sleep(self, message, now):
@@ -208,3 +234,120 @@ class PresenceRegistry:
         self.accepted += 1
         self.full = len(self.entries) >= self.capacity
         return True
+
+# Consumer requests; producer remains the authority for v3 effects and DGRS.
+CONTROL_FORMAT = PRESENCE_FORMAT + 'B'
+CONTROL_SIZE = struct.calcsize(CONTROL_FORMAT)
+ACK_FORMAT = '<4sBHI6sIHB'
+ACK_SIZE = struct.calcsize(ACK_FORMAT)
+NEXT_EFFECT, GROUP_SLEEP, BRIGHTER, DIMMER = 1, 2, 3, 4
+
+
+def encode_control(group, producer, session, boot, sequence, audio, command):
+    return struct.pack(CONTROL_FORMAT, b'DGRC', 1, group, producer, session,
+                       boot, sequence, audio, command)
+
+
+def encode_control_ack(group, session, consumer, boot, sequence, result):
+    return struct.pack(ACK_FORMAT,b'DGRA',1,group,session,consumer,boot,sequence,result)
+
+
+class ControlRegistry:
+    """Bounded deduplication; never evict a live request to admit another sender."""
+    def __init__(self, mac, group, session, capacity=32, expiry=10, max_lag=64):
+        self.mac,self.group,self.session=bytes(mac),group,session
+        self.capacity,self.expiry,self.max_lag=capacity,expiry,max_lag
+        self.entries={}
+        self.results={}
+
+    def accept(self, sender, message, now, latest_sequence):
+        sender=bytes(sender)
+        if len(sender)!=6 or len(message)!=CONTROL_SIZE:return None
+        magic,version,group,intended,session,boot,seq,audio,command=struct.unpack(CONTROL_FORMAT,message)
+        if (magic!=b'DGRC' or version!=1 or group!=self.group or intended!=self.mac
+                or session!=self.session or command not in (NEXT_EFFECT,GROUP_SLEEP,BRIGHTER,DIMMER)
+                or sender in (self.mac,bytes(6),b'\xff'*6)
+                or ((latest_sequence-audio)&65535)>self.max_lag):return None
+        for mac in tuple(self.entries):
+            if now-self.entries[mac][4]>self.expiry:
+                del self.entries[mac]
+                self.results.pop(mac,None)
+        old=self.entries.get(sender)
+        retired=()
+        if old:
+            old_boot,old_seq,old_audio,old_command,stamp,retired=old
+            if boot in retired:return None
+            if boot==old_boot:
+                if seq==old_seq:
+                    return (command,boot,seq,False) if (audio,command)==(old_audio,old_command) else None
+                if not 0<((seq-old_seq)&65535)<32768:return None
+            else:retired=(retired+(old_boot,))[-2:]
+        elif len(self.entries)>=self.capacity:return None
+        self.entries[sender]=(boot,seq,audio,command,now,retired)
+        self.results[sender]=0
+        return command,boot,seq,True
+
+
+class ControlClient:
+    """One outstanding request, stable ID on retry, explicit failure feedback."""
+    def __init__(self, config, mac, boot):
+        self.c,self.mac,self.boot=config,bytes(mac),boot
+        self.sequence=0
+        self.pending=None
+        self.message=''
+        self.message_until=0
+        self.next_send=0
+        self.deadline=0
+        self.session=None
+
+    def feedback(self, text, now):
+        self.message=text
+        self.message_until=now+2
+
+    def request(self, command, rx, now):
+        if self.pending is not None:return False
+        if (rx.session is None or rx.audio_sequence is None
+                or now-rx.last_audio>self.c.radio_timeout_s):
+            self.feedback('NO PRODUCER',now)
+            return False
+        if command not in (NEXT_EFFECT,GROUP_SLEEP,BRIGHTER,DIMMER) or rx.sleep.started is not None:return False
+        self.sequence=(self.sequence+1)&65535
+        self.session=rx.session
+        self.pending=encode_control(self.c.radio_group,rx.leader,rx.session,
+                                    self.boot,self.sequence,rx.audio_sequence,command)
+        self.next_send=now
+        self.deadline=now+self.c.control_timeout_s
+        self.message=('SENDING SLEEP' if command==GROUP_SLEEP else
+                      'CHANGING EFFECT' if command==NEXT_EFFECT else 'SETTING BRIGHTNESS')
+        self.message_until=self.deadline
+        return True
+
+    def packet(self, now, rx):
+        if self.pending is None:return None
+        if rx.sleep.started is not None:
+            self.pending=None
+            self.message=''
+        elif rx.session!=self.session:
+            self.pending=None
+            self.feedback('PRODUCER RESET',now)
+        elif now>=self.deadline:
+            self.pending=None
+            self.feedback('NO RESPONSE',now)
+        elif now>=self.next_send:
+            self.next_send=now+self.c.control_retry_s
+            return self.pending
+        return None
+
+    def accept(self, sender, message, rx, now):
+        if bytes(sender)!=rx.leader or len(message)!=ACK_SIZE or self.pending is None:return False
+        magic,version,group,session,consumer,boot,seq,result=struct.unpack(ACK_FORMAT,message)
+        if (magic!=b'DGRA' or version!=1 or group!=self.c.radio_group
+                or session!=self.session or session!=rx.session or consumer!=self.mac
+                or boot!=self.boot or seq!=self.sequence or result not in (0,1)
+                or now>=self.deadline):return False
+        self.pending=None
+        self.feedback('SLEEP BLOCKED' if result else '',now)
+        return True
+
+    def status(self, now):
+        return self.message if now<self.message_until else ''

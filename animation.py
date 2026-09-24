@@ -22,6 +22,7 @@ def hsv(hue, saturation, value):
 class CulvertAnimation:
     def __init__(self, config):
         self.c = config
+        self.brightness_limit = config.brightness_max
         self.positions = config.pixel_positions or tuple(
             (-1 + 2 * i / (config.pixel_count - 1), 0.0) for i in range(config.pixel_count))
         self.x = np.array([p[0] for p in self.positions])
@@ -47,6 +48,19 @@ class CulvertAnimation:
         self.spectrum_colors = tuple(hsv(x / 10.0, 1.0, config.brightness * 255)
                                      for x in range(8))
         self.pixels = np.zeros(config.pixel_count * 3, dtype=np.uint8)
+
+    def set_brightness(self, value, maximum=None):
+        if maximum is not None:
+            self.c.brightness_max=min(self.brightness_limit,max(.01,maximum))
+        value=max(0,min(self.c.brightness_max,value))
+        if value==self.c.brightness:return
+        self.c.brightness=value
+        self.spectrum_colors=tuple(hsv(x/10.0,1.0,value*255) for x in range(8))
+        if self.indicator_pixels is not None:
+            self.indicator_pixels=effect_indicator_pixels(self.effect,self.c)
+
+    def adjust_brightness(self, step):
+        self.set_brightness(round(self.c.brightness+step,2))
 
     def set_effect(self, effect):
         if not 0 <= effect < len(PALETTES):

@@ -1,3 +1,6 @@
+> Superseded later September 24 by the user-requested Audio/Status simplification.
+> See `../plans/2026-09-24-tft-responsive-debug-pages.md` and operations notes.
+
 # Reverse TFT: Audio, Performance and Status
 
 Date: September 24, 2026
@@ -12,7 +15,7 @@ user found it readable but crowded. They requested a combination of mockup A
 This revises the dashboard layout in the September 23 Reverse TFT spec.
 Hardware, role setup, audio analysis, ESP-NOW protocol, OTA and sleep behavior
 remain governed by that spec and subsequent documented button pull fixes.
-This document is for review before firmware implementation.
+The user approved this design on September 24; implementation is underway.
 
 ## Navigation and shared behavior
 
@@ -79,7 +82,11 @@ their persistent on-screen footer. The current explicit source is unchanged.
 Keep view formatting and page cycling testable in `dashboard.py`; retain
 hardware resources in the existing display backend. Supply spectrum, local
 battery and radio statistics from the existing runtime without new packets.
-Reuse display objects and avoid allocating a new scene on each frame.
+Reuse front/back indexed bitmaps and cached colored/scaled built-in glyph
+atlases. Native qualification found composed full-scene refreshes too slow;
+prepare off-screen, then copy at most24 rows to a single display TileGrid per
+loop turn. Continue partial transfers across turns before starting the next
+frame. Initial full-screen clearing happens before the audio/radio loop.
 
 Use the 240×135 canvas with a roughly 36-pixel control rail. All text must fit
 with the actual built-in font: large effect text at scale 2, other text at

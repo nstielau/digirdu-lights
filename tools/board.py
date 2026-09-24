@@ -44,7 +44,7 @@ def inspect_buttons():
                 continue
             pin = digitalio.DigitalInOut(getattr(board, ('D%d' if reverse else 'IO%d') % gpio))
             inputs.append([gpio, pin, DebouncedButton(CONFIG.button_debounce_s), None, 0, 0, reverse and gpio != 0])
-            pin.switch_to_input(pull=None if reverse else digitalio.Pull.UP)
+            pin.switch_to_input(pull=digitalio.Pull.DOWN if reverse and gpio != 0 else digitalio.Pull.UP)
         started = time.monotonic()
         while time.monotonic() - started < 20:
             now = time.monotonic()

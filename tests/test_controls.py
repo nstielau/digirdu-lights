@@ -22,11 +22,11 @@ class ControlsTests(unittest.TestCase):
         self.assertEqual(c.update((True,False,True),6),'sleep')
         self.assertIsNone(c.update((True,False,True),7))
 
-    def test_consumer_cannot_change_group_and_wake_press_ignored(self):
+    def test_consumer_requests_group_change_and_wake_press_ignored(self):
         c=self.controls('follower')
         c.update((True,True,False),1);c.update((True,True,False),1.05)
         c.update((True,False,False),1.1)
-        self.assertIsNone(c.update((True,False,False),1.2))
+        self.assertEqual(c.update((True,False,False),1.2),'next')
         c=effects.TFTControls('leader',.04,3)
         for t in (0,.05,3,6):self.assertIsNone(c.update((True,False,True),t))
         c.update((True,False,False),7);c.update((True,False,False),7.1)

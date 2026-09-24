@@ -59,7 +59,7 @@ def ensure_configured():
     pins=[]
     try:
         for name, high in (('D0',False),('D1',True),('D2',True)):
-            pin=digitalio.DigitalInOut(getattr(board,name));pin.switch_to_input()
+            pin=digitalio.DigitalInOut(getattr(board,name));pin.switch_to_input(pull=digitalio.Pull.DOWN if high else digitalio.Pull.UP)
             pins.append((pin,high,DebouncedButton(.04)))
         while True:
             now=time.monotonic()

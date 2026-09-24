@@ -200,7 +200,8 @@ class TFTControls:
             if index == 2:
                 self.countdown = max(0,button.hold_s-(now-button.pressed_at)) if pressed and button.pressed_at is not None else 0
                 if gesture == ButtonGesture.HOLD:action='sleep'
+                elif gesture == ButtonGesture.SHORT:action='decrease'
             elif gesture == ButtonGesture.SHORT:
                 if index == 0:action='page'
-                elif self.role in ('leader','producer'):action='next'
+                else:action='next'
         return action

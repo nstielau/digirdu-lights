@@ -208,6 +208,26 @@ class ShutdownTests(unittest.TestCase):
                                     'wifi':SimpleNamespace(radio=Mock())}):
             with self.assertRaises(DeepSleep):app.enter_deep_sleep()
         self.assertEqual(calls,['release','power'])
-        alarm.pin.PinAlarm.assert_called_once_with(pin=2,value=True,pull=False)
+        alarm.pin.PinAlarm.assert_called_once_with(pin=2,value=True,pull=True)
         preserved=alarm.exit_and_deep_sleep_until_alarms.call_args.kwargs['preserve_dios']
         self.assertEqual(preserved[1:],held)
+
+
+class TFTInputBiasTests(unittest.TestCase):
+    def test_buttons_bias_idle_levels_opposite_pressed_polarity(self):
+        app=load_app()
+        pins=[Mock(),Mock(),Mock()]
+        app.board=SimpleNamespace(D0=0,D1=1,D2=2)
+        app.digitalio.DigitalInOut.side_effect=pins
+        buttons=app.TFTButtons()
+        for pin,pull in zip(pins,(app.digitalio.Pull.UP,app.digitalio.Pull.DOWN,app.digitalio.Pull.DOWN)):
+            pin.switch_to_input.assert_called_once_with(pull=pull)
+        buttons.deinit()
+
+    def test_release_wait_keeps_sleep_button_pulled_down(self):
+        app=load_app();app.board=SimpleNamespace(D2=2)
+        button=app.digitalio.DigitalInOut.return_value.__enter__.return_value
+        button.value=False
+        with patch('hardware.TextScreen'),patch.object(app.time,'monotonic',side_effect=[0,.01,.1]),patch.object(app.time,'sleep'):
+            app.wait_for_wake_release()
+        button.switch_to_input.assert_called_once_with(pull=app.digitalio.Pull.DOWN)

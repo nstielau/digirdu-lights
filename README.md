@@ -1424,22 +1424,47 @@ change an enrolled role. Credentials are never part of an app release.
 
 ### TFT dashboard and controls
 
-The landscape 240×135 screen reserves the left side for physical button labels.
-Its main page shows role, local battery, effect number/name and a level meter.
-Producer levels are DC-removed RMS in dBFS; consumer levels are received,
-normalized percentages. QUIET, CALIBRATING, CLIPPING and LIVE/LOST are text
-states. D0 selects diagnostics with submitted/native TX counters, skips,
-accepted/rejected RX, source and audio overruns. A successful native send is
-not a delivery receipt.
+The landscape 240×135 screen uses three focused pages, with button labels and
+page number down the left edge. Boot starts on **Audio**; D0 cycles through
+**Audio → Status → Brightness → Audio**. Selection is local and is not saved
+across reboot or transmitted to other devices. Effect changes keep the page.
+
+| Page | Producer | Consumer |
+| --- | --- | --- |
+| Audio | Eight rainbow bars from microphone spectrum | Eight received spectrum bars |
+| Status | Effect name, battery %, consumers seen/10s, TX rate, failed sends | Effect name, battery %, link, RX rate, last valid audio age |
+| Brightness | Shared FeatherWing percentage and level bar; D1 + / D2 − | Same shared level and controls |
+
+Audio always shows the frequency spectrum regardless of the selected Wing
+effect. Existing normalization and link-loss decay are shared with the Wing;
+no second FFT is used. Missing battery and never-received packet age show `--`.
+QUIET, CALIBRATING, CLIPPING, MIC FAULT and LIVE/LOST use text; critical states
+and sleep prompts stay visible on any page. Seen consumers and successful
+native sends are not proof of LED rendering or delivery receipts.
+
+Full source/config/version, native TX counters, skips, rejected RX and audio
+overruns appear in a `DEVICE` serial diagnostic line every ten seconds on TFT
+boards. The display has no persistent firmware/config footer. Rendering uses reusable
+front/back bitmaps and at most 12 rows per transfer, allowing audio/radio work
+between strips. Audio targets five Hz; Status refreshes once per second. Actual
+refresh depends on loop time. D0 requests a new page immediately. Timing includes
+snapshot preparation once; after a slow step, a bounded retry is allowed every
+half-second when at least 12 ms remains. Empty budgets still skip the display.
+Microphone-on performance remains unmeasured.
 
 | Button | Producer | Consumer |
 | --- | --- | --- |
-| D0 release | Main/diagnostics page | Main/diagnostics page |
-| D1 short release | Next shared effect | FOLLOW: no group control |
-| D2 hold three seconds | Broadcast group sleep | Local sleep only |
+| D0 release | Next local page | Next local page |
+| D1 short release | Next effect; on Brightness, +5 percentage points | Request the same shared change |
+| D2 short release on Brightness | −5 percentage points | Request shared decrease |
+| D2 hold three seconds, any page | Broadcast group sleep | Request group sleep from producer |
 | Fresh D2 press after sleep | Wake this board | Wake this board |
 
-D2 sleep uses the existing three-second red fade. The TFT then asks for D2 to
+D2 takes over the entire TFT with **HOLD TO SLEEP**, a large 3–2–1 countdown,
+and **Release to cancel**. Early release restores the selected page. At the
+three-second threshold, the producer starts the shared red fade; a consumer
+requests it over ESP-NOW and waits for the producer's broadcast. All receiving
+TFT nodes show **SLEEPING** with the fade countdown. The TFT then asks for D2 to
 be released before arming wake; a held button cannot immediately wake it.
 The initial held input on restart is ignored until released. RESET always
 reboots. Sleeping radios cannot receive group wake: each node wakes locally.
@@ -1449,13 +1474,16 @@ previous effect/sleep controls and reset-only wake.
 Display updates are limited to 5 Hz, with a default 12% backlight and refresh
 skipped when the audio frame has insufficient spare time. Tune
 `display_enabled`, `display_interval_s`, `display_brightness` (maximum .5), and
-`display_rotation` (0/180) in the node profile. Wing brightness remains .15.
+`display_rotation` (0/180) in the node profile. Wing brightness starts at .15
+and is adjustable from0 to .50 (user-approved maximum); TFT backlight is separate.
+Sleep/control overlays preempt the selected page and continue bounded strips
+with at least12ms spare; digit changes cannot restart an unfinished frame.
 Boards without TFTs do not initialize the display backend. A failed backend is
 disabled with one warning. Boot-time OTA shows phase text and retains the dim
 cyan wing activity indicator; blocked Wi-Fi/TLS calls can pause it.
 
 Reverse TFT reads its MAX17048 at I2C address 0x36 without an external library.
-The local TFT displays its estimated state of charge and voltage. Device
+The Status page displays its estimated state of charge. Device
 reports retain `{voltage, status}`; the Wing Battery effect remains a voltage
 gauge, not state of charge. Missing/unknown sensors and failed reads show
 unavailable. Battery sensing never probes the original FeatherS2's mic pins.
@@ -1467,6 +1495,41 @@ GPIO7 default-HIGH reset hook. This is source-level verification; USB simulated
 sleep and battery-powered sleep still need physical testing. **No current
 consumption claim is made.** The powered FeatherWing's separate BAT/USB rail
 and the deferred intermittent sleep-light issue remain unchanged.
+
+### Commands from any TFT node
+
+D1 and D2 on a consumer address its configured producer MAC, radio group and
+current producer boot session. The producer applies the command once, then
+broadcasts the authoritative effect in ordinary v3 frames or the existing
+repeated DGRS sleep command. Thus older consumers can follow group changes;
+the initiating TFT **and producer must have this updated app**. An old producer
+ignores requests: the TFT displays **NO RESPONSE**, not a false local effect or
+sleep. Disconnected consumers show **NO PRODUCER**. OTA trials reject sleep.
+
+DGRC requests carry consumer boot ID, sequence, recent audio sequence and action.
+DGRA replies acknowledge that same request. One pending request per consumer is
+retried every0.15s for up to2s (`control_retry_s`, `control_timeout_s`). Producer
+history is bounded by `presence_capacity`; duplicates are acknowledged without
+repeating the action. Fresh audio/session validation rejects stale requests.
+ACK traffic shares the single outstanding native send and alternates with audio;
+sleep broadcasts retain priority. No change to v3 audio or DGRS packet layouts.
+
+The Brightness page adjusts **0–50% of full LED output**, starting at15%, in
+5-percentage-point steps. D0 cycles away; D2 short release dims, while holding
+D2 for3s still requests sleep. The producer repeats a separate DGRB state packet
+(current level and maximum) every0.5s. Each updated consumer adopts it after
+validating producer/session/sequence and recent audio; missed state self-corrects.
+Both sender and all receiving consumers need this app for brightness replication.
+Old consumers continue effects/sleep but ignore DGRB. Spectrum colors and effect
+number overlays update immediately when the level changes. Battery keeps its
+separate3% cap, and TFT backlight/OTA indicators are unaffected. Brightness is
+volatile: producer reboot restores its configured default. Tune `brightness`,
+`brightness_max`, `brightness_step`, and `brightness_interval_s` in configuration.
+
+Group sleep reaches awake, in-range nodes following that producer. Packet loss
+or powered-off nodes can prevent delivery; an ACK confirms producer acceptance,
+not delivery to every consumer. Sleeping nodes still wake locally using D2 on
+TFT boards or RESET, rather than by radio. Page selection remains local.
 
 ### ESP-NOW presence
 
@@ -1509,3 +1572,13 @@ sensor readings, radio operation and sleep/wake remain to be verified; mic/LED
 checks require wiring. Compare `make benchmark` with `display_enabled=False`
 and True after attaching the mic, recording FPS, mean/max work, 64ms misses
 and discontinuities. The previous FeatherS2 timing limitations still apply.
+
+September 23 bring-up: the bare Reverse TFT factory flash is backed up; official
+TinyUF2 0.33.0 and CircuitPython 10.3.1 writes passed hash verification. The
+September 24 UF2 transfer completed installation; CIRCUITPY and the serial
+console confirm the correct board and CircuitPython version. Native app
+consumer deployment passed serial readback and startup. Initial logs show
+lost link with no received packets; the user confirmed a readable, correctly oriented TFT. Live radio testing
+is deferred. D0 uses Pull.UP; D1/D2 use Pull.DOWN, including the D2 sleep
+release and wake input. Physical button/sleep and battery tests remain pending.
+Recovery and backup details are in [OTA operations](docs/ota-operations.md).

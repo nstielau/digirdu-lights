@@ -400,3 +400,65 @@ rollback. Schema2 EXACT12files/3boards requires base1.1.0; APP_API1/protocol3
 unchanged. New app modules dashboard.py/device_setup.py, new base hardware.py/
 node_state.py. Update cloud before any 1.1.0 publication. Release is not yet
 published/qualified. Record hardware bring-up in docs/ota-operations.md.
+
+September24 bare Reverse TFT bring-up: UID468e33373f48/MAC64:e8:33:73:f3:84,
+TinyUF2 0.33.0 and CircuitPython10.3.1 confirmed. App/base1.1.0 consumer
+source7c:df:a1:03:4c:2c/group1 installed; serial byte readback and startup passed.
+Mac FAT12 mount gave inconsistent directory/file views and failed host
+readback; keep it unmounted for native serial checks. No reformat/erase was
+needed for the app. Initial radio logs were lost-link/received0; user confirmed the TFT is readable and correctly oriented. Live radio testing
+is deferred. Explicit D0 Pull.UP and D1/D2 Pull.DOWN are required (unpulled
+inputs floated in native testing); include D2 pull-down in release wait and
+PinAlarm pull=True. Button/sleep and battery-backed gauge tests remain pending. See docs/ota-operations.md.
+
+
+## TFT diagnostic pages (September 24)
+
+Current plan: docs/superpowers/plans/2026-09-24-tft-responsive-debug-pages.md,
+superseding the approved three-page design. D0 cycles Audio/Status/Brightness, defaults
+to Audio after reboot, with local unsaved selection. Audio uses existing eight
+spectrum bands. Status shows current effect and four battery/radio rows at1Hz. Brightness
+shows percentage/bar, with D1 plus and D2 short minus.
+Fault/sleep prompts take priority over the effect heading. Missing battery and
+never-received packet age are --; never-received audio is LOST. D1 requests a shared next effect from consumers too. Full config/version/counter details remain in serial DEVICE lines.
+
+Use front/back240x135 bitmaps and cached font atlases. Transfer at most12 rows
+per loop. Audio retains configured5Hz target (actual cadence depends on budget)
+and .12 backlight. Count snapshot preparation once in the budget. Allow bounded
+half-second retry with >=12ms spare so a timing outlier cannot leave the screen
+stale. D0 resets refresh/retry deadlines and logs TFT page. Empty budgets still
+skip display work. Do not infer microphone timing guarantees from the consumer.
+
+Native full-scene redraws took45–100ms; original24-row steps took14–23ms.
+After initial visual approval, the user observed reception with a stale screen;
+live diagnostic reproduced repeated budget starvation while D0/page state
+advanced. See operations notes for latest validation. No base/protocol change.
+
+## Group controls and full-screen sleep (September24)
+
+Plan: docs/superpowers/plans/2026-09-24-group-controls.md. D1 next and D2 hold
+from either TFT role affect the group through the configured producer. Consumers
+send DGRC requests and await authoritative v3/DGRS broadcasts; never change the
+local effect or sleep merely because a request was sent. Producer validates
+group/MAC/session/recent audio and deduplicates bounded sender boot/sequence
+history; duplicates keep the original decision, including OTA sleep denial.
+DGRA acknowledgments share the native outstanding-send guard and cannot starve
+audio. Existing audio/sleep wire layouts stay unchanged. Both the initiating
+consumer and producer need the new app; older listeners can follow broadcasts.
+
+Sleep overlays own the full240x135 screen: hold3–2–1/release-to-cancel, then
+SLEEPING/fade countdown, then release-to-sleep before the existing wake alarm.
+Preempt pages on stage changes, retain strip progress across digit changes.
+Overlay strips can proceed with >=12ms spare even after a slow estimate; never
+force work with zero spare. Keep font positions bounded and TFT brightness.12.
+Hardware group qualification requires upgrading the microphone producer.
+
+Brightness follow-up: user explicitly authorized up to50% Wing output, with15%
+startup default and5-percentage-point steps. D1/D2 short release on Brightness
+request BRIGHTER/DIMMER through the same deduplicated DGRC mechanism. Long D2
+always retains group sleep. Producer repeats DGRB current/max at0.5s; preserve
+audio slots even with pending ACKs. Consumers validate session/recent audio/seq
+and refresh animation caches; no scene-time rewind on brightness-only packets.
+The old v3 audio packet remains51 bytes. All brightness participants require
+updated app; legacy consumers ignore DGRB. Brightness is volatile and Battery
+retains3% cap. TFT/OTA indicator brightness stays independent.
