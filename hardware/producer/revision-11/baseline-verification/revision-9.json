@@ -1,0 +1,162 @@
+{
+  "microphone_recess": {
+    "backup": "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/work/before-mic-recess-v9.f3d",
+    "outer_diameter_mm": 5,
+    "throat_diameter_mm": 4,
+    "recess_depth_mm": 0.5,
+    "chamfer_angle_deg": 45,
+    "center_mm": [
+      59.422,
+      11.43
+    ],
+    "material_removed_mm3": 1.701696020692907,
+    "expected_removed_mm3": 1.701696020694471,
+    "no_added_material": true,
+    "sections": [
+      {
+        "z_mm": -3.39,
+        "actual_material_mm3": 0.04417615959691942,
+        "expected_material_mm3": 0.04417615959692235
+      },
+      {
+        "z_mm": -3.15,
+        "actual_material_mm3": 0.06202668905461531,
+        "expected_material_mm3": 0.06202668905461959
+      },
+      {
+        "z_mm": -2.91,
+        "actual_material_mm3": 0.07806766114384357,
+        "expected_material_mm3": 0.07806766114384907
+      },
+      {
+        "z_mm": -2.8,
+        "actual_material_mm3": 0.0785398163397395,
+        "expected_material_mm3": 0.07853981633974483
+      }
+    ],
+    "health": []
+  },
+  "meshes_identical_to_revision_8": [
+    "rear-cover.stl",
+    "button-plunger-flat.stl",
+    "button-plunger-domed.stl",
+    "reset-plunger-flush.stl"
+  ],
+  "fusion": {
+    "document": "DidgeLights enclosure v3",
+    "exports": [
+      "housing-v9-raw.stl",
+      "cover-v9-raw.stl",
+      "button-flat-v9-raw.stl",
+      "button-domed-v9-raw.stl",
+      "reset-flush-v9-raw.stl",
+      "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/outputs/revision-9/DidgeLights-enclosure-v9.f3d"
+    ],
+    "parts": [
+      {
+        "name": "Front housing",
+        "volume_mm3": 9449.060095934721,
+        "unconstrained_sketches": []
+      },
+      {
+        "name": "Rear cover",
+        "volume_mm3": 16033.2995310402,
+        "unconstrained_sketches": []
+      },
+      {
+        "name": "Button plunger",
+        "volume_mm3": 48.28627908567721,
+        "unconstrained_sketches": []
+      },
+      {
+        "name": "Button plunger - domed",
+        "volume_mm3": 41.0113976975145,
+        "unconstrained_sketches": []
+      },
+      {
+        "name": "Reset plunger - flush",
+        "volume_mm3": 33.20035116313836,
+        "unconstrained_sketches": []
+      }
+    ],
+    "health": []
+  },
+  "stl": [
+    {
+      "file": "front-housing.stl",
+      "triangles": 8010,
+      "size_mm": [
+        70.9,
+        36.46,
+        17.4
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 9446.726,
+      "bed_z_mm": 0
+    },
+    {
+      "file": "rear-cover.stl",
+      "triangles": 7546,
+      "size_mm": [
+        70.9,
+        36.46,
+        18.13
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 16029.72,
+      "bed_z_mm": 0
+    },
+    {
+      "file": "button-plunger-flat.stl",
+      "triangles": 1388,
+      "size_mm": [
+        6.2,
+        6.2,
+        2.2
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 48.275,
+      "bed_z_mm": 0
+    },
+    {
+      "file": "button-plunger-domed.stl",
+      "triangles": 10336,
+      "size_mm": [
+        6.2,
+        6.2,
+        2.2
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 40.997,
+      "bed_z_mm": 0
+    },
+    {
+      "file": "reset-plunger-flush.stl",
+      "triangles": 1400,
+      "size_mm": [
+        6.2,
+        6.1991,
+        1.4
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 33.193,
+      "bed_z_mm": 0
+    }
+  ],
+  "fusion_archive_integrity": "passed"
+}

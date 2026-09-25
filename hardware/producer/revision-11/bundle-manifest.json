@@ -1,0 +1,157 @@
+{
+  "revision": 11,
+  "button_variants": [
+    "button-plunger-flat.stl",
+    "button-plunger-domed.stl",
+    "reset-plunger-flush.stl",
+    "button-carrier-flat.stl",
+    "button-carrier-domed.stl"
+  ],
+  "files": [
+    {
+      "file": "DidgeLights-enclosure-v11.f3d",
+      "bytes": 14723313,
+      "sha256": "138f2792f4834fb1db4b0943ab589a46b60073fe44fcf5119bebd26b9fc5823a"
+    },
+    {
+      "file": "README.md",
+      "bytes": 5140,
+      "sha256": "4567e7eb9f3a77c255efc8a5b7111a3c043eb72d706d3e217bfb79386a11df79"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 3895,
+      "sha256": "3de1b54b678340570fca0de5d53457ed8c562e12647d5c03610c10fe7265c25a"
+    },
+    {
+      "file": "button-carrier-flat.stl",
+      "bytes": 714884,
+      "sha256": "3cbb08e616167add2e624599b874e758aef0ee27cddbcd4543a2e3aec90fc137"
+    },
+    {
+      "file": "button-carrier-domed.stl",
+      "bytes": 6722684,
+      "sha256": "69f5d05eff7672a928852927d13ca1a39d8b00caa74e393c77cbf38a81694a0a"
+    },
+    {
+      "file": "button-carrier-flat.png",
+      "bytes": 95724,
+      "sha256": "ebbf4ab72f4d9e2d1c60216c3da9dc9959c963257da9f1849b277fe0b66468eb"
+    },
+    {
+      "file": "button-carrier-domed.png",
+      "bytes": 111774,
+      "sha256": "9bcb4f95594a88b6a0d5024db67fec78941e280c4625c276b0b97f4c7d4e4584"
+    },
+    {
+      "file": "front-purple.stl",
+      "bytes": 1207984,
+      "sha256": "bd830dc8fe37fd7393fef62aaa394786b7cf8a342a3c096338f7e8634d9b9fcc"
+    },
+    {
+      "file": "front-pink.stl",
+      "bytes": 2486584,
+      "sha256": "e0c1751474b36c3e33d8431b3ab39bc4152b8895f41fe75891cac52cc1bee79e"
+    },
+    {
+      "file": "rear-purple.stl",
+      "bytes": 935684,
+      "sha256": "8d85ea52666520d8a4a6499ff52cb5471540697ccc6015e115f532dc1aa9bfe5"
+    },
+    {
+      "file": "rear-pink.stl",
+      "bytes": 1508584,
+      "sha256": "c52f8af184cc30d257d89bd35b7e3ea52bf1ab6e7a2fb4be0ed4f49af4648fb6"
+    },
+    {
+      "file": "plain-front-housing.stl",
+      "bytes": 400584,
+      "sha256": "fde53c75663e5181abd0ffaeca17eb401e22684dc631850ec038f02dfd04821c"
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "bytes": 377384,
+      "sha256": "9a1ee41bfda465cc197f4883577d5930e448d0f54950b09cef298f61db095f01"
+    },
+    {
+      "file": "button-plunger-flat.stl",
+      "bytes": 69484,
+      "sha256": "c22b4eec3537f8bc840ccf2f9891ffa947dce3e4114f1f130d077d2e20f159b5"
+    },
+    {
+      "file": "button-plunger-domed.stl",
+      "bytes": 516884,
+      "sha256": "26d0eede79f061fd41b71c14d7e8f1005db613c834f1ee4fc35f41a56636af3b"
+    },
+    {
+      "file": "reset-plunger-flush.stl",
+      "bytes": 70084,
+      "sha256": "acb4aec3b0d587dc42df019e5dc121fad9a36cf089115598c2d9f4be1db1c616"
+    },
+    {
+      "file": "front-patterned.3mf",
+      "bytes": 958995,
+      "sha256": "875b310574bbf4dbc15a0c0fd61e5de404e84787fd05ac6171b87937aa51a08d"
+    },
+    {
+      "file": "rear-patterned.3mf",
+      "bytes": 620319,
+      "sha256": "b8824d7d9ece1f73d8bda889445e48b6f614e019846b169ab6c7cd09c083cdd1"
+    },
+    {
+      "file": "patterned-front.png",
+      "bytes": 167108,
+      "sha256": "0d2e647f4b1062f46b603af3d7be780c43384355ecbf3751fcb05a305110705d"
+    },
+    {
+      "file": "patterned-rear.png",
+      "bytes": 191046,
+      "sha256": "286fc4ae57dd0421b1a9250711d6d331094d7a5d6a8ae7cfc5eb0af90113f2eb"
+    },
+    {
+      "file": "patterned-side-seam.png",
+      "bytes": 150137,
+      "sha256": "828148ebc3dfe0b6c822534c809de1a34db477474949769cd9ed6468f638109f"
+    },
+    {
+      "file": "baseline-verification/revision-10.json",
+      "bytes": 6932,
+      "sha256": "46a74ccf5c59d382428adf3285dba0a0009c96d7afffc28baaa45af415302f3e"
+    },
+    {
+      "file": "baseline-verification/revision-10-3mf.json",
+      "bytes": 3227,
+      "sha256": "17b91f98f116c20ec4b6ff0a44243b07b28840618d8a00e7bc1989edd2e7c225"
+    },
+    {
+      "file": "baseline-verification/revision-10-bambu.json",
+      "bytes": 4537,
+      "sha256": "2e02577047982d66a8d1f2fa90bdffeb799d72b6a90e5268b6a0c90149107403"
+    },
+    {
+      "file": "previous-bambu-project/DidgeLights-v10-H2D.3mf",
+      "bytes": 1960078,
+      "sha256": "345f176b97bcad39a2bdccafc3af8d752da7d99aa23cae450d8cd68774bfaf4b"
+    },
+    {
+      "file": "baseline-verification/button-variants.json",
+      "bytes": 4139,
+      "sha256": "224b1ac9a0a937a9fa41671e1c9a3bb2a1849b3fa5b8f1e407a128e09bcc4fc8"
+    },
+    {
+      "file": "baseline-verification/flush-reset.json",
+      "bytes": 2201,
+      "sha256": "d76fe1780b1d46f7fa95d3895be71d05f1fb1386c03da0b26575dedf787b5b27"
+    },
+    {
+      "file": "baseline-verification/revision-8.json",
+      "bytes": 26917,
+      "sha256": "9fb82d921374dd7f8dbd7de3c31e56b256305f83b6724bfc5599bd1fc4dd6f71"
+    },
+    {
+      "file": "baseline-verification/revision-9.json",
+      "bytes": 4026,
+      "sha256": "cfc12cf7b9535e0ab1197c3d6c54b04b9a11c3d28830818d185c327177956839"
+    }
+  ]
+}

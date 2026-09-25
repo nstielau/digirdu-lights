@@ -1,0 +1,152 @@
+{
+  "revision": 11,
+  "carriers": [
+    {
+      "variant": "flat",
+      "native_bounds_mm": [
+        [
+          4.52,
+          1.3449999999999995,
+          -4.2
+        ],
+        [
+          47.55000000000001,
+          24.1,
+          -2.0
+        ]
+      ],
+      "volume_mm3": 202.1443142745108,
+      "bodies": 1,
+      "lumps": 1,
+      "frame_thickness_mm": 0.2,
+      "rail_width_mm": 1.2,
+      "breakaway_tab_width_mm": 0.6,
+      "insertion_standoff_mm": 0.21,
+      "insertion_cover_overlap_mm3": 0,
+      "original_plungers_exactly_preserved": true,
+      "removing_added_carrier_recovers_originals": true,
+      "first_layer_midsection_connected": true,
+      "fully_constrained_sketches": true
+    },
+    {
+      "variant": "domed",
+      "native_bounds_mm": [
+        [
+          4.52,
+          1.3449999999999995,
+          -4.200000000000001
+        ],
+        [
+          47.55000000000001,
+          24.1,
+          -2.0
+        ]
+      ],
+      "volume_mm3": 180.31967011002249,
+      "bodies": 1,
+      "lumps": 1,
+      "frame_thickness_mm": 0.2,
+      "rail_width_mm": 1.2,
+      "breakaway_tab_width_mm": 0.6,
+      "insertion_standoff_mm": 0.21,
+      "insertion_cover_overlap_mm3": 0,
+      "original_plungers_exactly_preserved": true,
+      "removing_added_carrier_recovers_originals": true,
+      "first_layer_midsection_connected": true,
+      "fully_constrained_sketches": true
+    }
+  ],
+  "stl": [
+    {
+      "file": "button-carrier-flat.stl",
+      "triangles": 14296,
+      "vertices": 7148,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 202.13597012040196,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          43.029998779296875,
+          22.755001068115234,
+          2.1999998092651367
+        ]
+      ],
+      "size_mm": [
+        43.029998779296875,
+        22.755001068115234,
+        2.1999998092651367
+      ],
+      "bed_z_mm": 0
+    },
+    {
+      "file": "button-carrier-domed.stl",
+      "triangles": 134452,
+      "vertices": 67226,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 180.30880082295482,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          43.029998779296875,
+          22.755001068115234,
+          2.1999998092651367
+        ]
+      ],
+      "size_mm": [
+        43.029998779296875,
+        22.755001068115234,
+        2.1999998092651367
+      ],
+      "bed_z_mm": 0
+    }
+  ],
+  "feature_health": [],
+  "source_components_unchanged_volumes_mm3": {
+    "Front housing": 9449.060095934721,
+    "Rear cover": 16033.2995310402,
+    "Button plunger": 48.28627908567721,
+    "Button plunger - domed": 41.0113976975145,
+    "Reset plunger - flush": 33.20035116313836
+  },
+  "carried_forward_byte_identical": [
+    "front-purple.stl",
+    "front-pink.stl",
+    "rear-purple.stl",
+    "rear-pink.stl",
+    "plain-front-housing.stl",
+    "plain-rear-cover.stl",
+    "button-plunger-flat.stl",
+    "button-plunger-domed.stl",
+    "reset-plunger-flush.stl",
+    "front-patterned.3mf",
+    "rear-patterned.3mf",
+    "patterned-front.png",
+    "patterned-rear.png",
+    "patterned-side-seam.png",
+    "baseline-verification/revision-10.json",
+    "baseline-verification/revision-10-3mf.json",
+    "baseline-verification/revision-10-bambu.json",
+    "previous-bambu-project/DidgeLights-v10-H2D.3mf",
+    "baseline-verification/button-variants.json",
+    "baseline-verification/flush-reset.json",
+    "baseline-verification/revision-8.json",
+    "baseline-verification/revision-9.json"
+  ],
+  "fusion_archive_integrity": "passed",
+  "physical_print_tested": false,
+  "Bambu_workflow": "User handles slicer and printing; no Bambu interaction in this revision."
+}

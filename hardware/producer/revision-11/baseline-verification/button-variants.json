@@ -1,0 +1,139 @@
+{
+  "build": {
+    "backup": "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/work/before-domed-buttons.f3d",
+    "dome_height_mm": 0.8000000000000002,
+    "sphere_radius_mm": 4.1515625,
+    "brim_diameter_mm": 6.2,
+    "stem_diameter_mm": 4.9,
+    "overall_height_mm": 2.2,
+    "volume_mm3": 41.0113976975145,
+    "expected_volume_mm3": 41.011397697512365,
+    "fully_constrained": true,
+    "original_envelope_contains_domed_variant": true,
+    "health": [],
+    "instances": [
+      "Domed button option:1+Button plunger - domed:1",
+      "Domed button option:1+Button plunger - domed:2",
+      "Domed button option:1+Button plunger - domed:3",
+      "Domed button option:1+Button plunger - domed:4"
+    ]
+  },
+  "existing_parts_unchanged": true,
+  "flat_button_stl_identical_to_revision_8": true,
+  "fusion": {
+    "exports": [
+      "button-flat-raw.stl",
+      "button-domed-raw.stl",
+      "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/outputs/button-variants/DidgeLights-enclosure-v8-with-domed-buttons.f3d"
+    ],
+    "contacts_by_stroke_mm": {
+      "0": [],
+      "0.5": [
+        {
+          "plunger": "Button plunger - domed:2",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW5/Body7",
+          "volume_mm3": 0.6283185307179854
+        },
+        {
+          "plunger": "Button plunger - domed:3",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW3/Body7",
+          "volume_mm3": 0.6283185307179852
+        },
+        {
+          "plunger": "Button plunger - domed:4",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW4/Body7",
+          "volume_mm3": 0.6283185307179321
+        },
+        {
+          "plunger": "Button plunger - domed:5",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW1/Body7",
+          "volume_mm3": 0.6283185307179854
+        }
+      ],
+      "0.8": [
+        {
+          "plunger": "Button plunger - domed:2",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW5/Body7",
+          "volume_mm3": 0.6283185307179859
+        },
+        {
+          "plunger": "Button plunger - domed:3",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW3/Body7",
+          "volume_mm3": 0.6283185307179857
+        },
+        {
+          "plunger": "Button plunger - domed:4",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW4/Body7",
+          "volume_mm3": 0.6283185307179326
+        },
+        {
+          "plunger": "Button plunger - domed:5",
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW1/Body7",
+          "volume_mm3": 0.6283185307179859
+        }
+      ]
+    },
+    "only_exposed_top_modified": true,
+    "original_parts": [
+      {
+        "name": "Front housing:1",
+        "volume_mm3": 9450.761791955414
+      },
+      {
+        "name": "Rear cover:1",
+        "volume_mm3": 16033.2995310402
+      },
+      {
+        "name": "Button plunger:1",
+        "volume_mm3": 48.28627908567721
+      },
+      {
+        "name": "Button plunger:2",
+        "volume_mm3": 48.28627908567721
+      },
+      {
+        "name": "Button plunger:3",
+        "volume_mm3": 48.28627908567721
+      },
+      {
+        "name": "Button plunger:4",
+        "volume_mm3": 48.28627908567721
+      }
+    ],
+    "domed_volume_mm3": 41.0113976975145,
+    "health": []
+  },
+  "stl": [
+    {
+      "file": "button-plunger-flat.stl",
+      "triangles": 1388,
+      "size_mm": [
+        6.2,
+        6.2,
+        2.2
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 48.275,
+      "bed_z_mm": 0
+    },
+    {
+      "file": "button-plunger-domed.stl",
+      "triangles": 10336,
+      "size_mm": [
+        6.2,
+        6.2,
+        2.2
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 40.997,
+      "bed_z_mm": 0
+    }
+  ],
+  "fusion_archive_integrity": "passed"
+}

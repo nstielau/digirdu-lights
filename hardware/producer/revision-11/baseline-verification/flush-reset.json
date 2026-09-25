@@ -1,0 +1,84 @@
+{
+  "build": {
+    "backup": "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/work/before-flush-reset.f3d",
+    "shortening_mm": 0.8,
+    "protrusion_mm": 0,
+    "height_mm": 1.4,
+    "stem_diameter_mm": 4.9,
+    "brim_diameter_mm": 6.2,
+    "brim_thickness_mm": 0.6,
+    "volume_mm3": 33.20035116313836,
+    "expected_volume_mm3": 33.20035116313694,
+    "original_button_envelope_contains_reset": true,
+    "health": []
+  },
+  "covers_unchanged": true,
+  "flat_and_domed_main_button_meshes_unchanged": true,
+  "fusion": {
+    "reset_center_mm": [
+      44.45,
+      11.43
+    ],
+    "reset_face_z_mm": -3.4,
+    "case_face_z_mm": -3.4,
+    "contact_face_unchanged": true,
+    "contacts_by_stroke_mm": {
+      "0": [],
+      "0.5": [
+        {
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW4/Body7",
+          "volume_mm3": 0.6283185307179321
+        }
+      ],
+      "0.8": [
+        {
+          "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW4/Body7",
+          "volume_mm3": 0.6283185307179326
+        }
+      ]
+    },
+    "archive": "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/outputs/flush-reset-button/DidgeLights-enclosure-v8-with-flush-reset.f3d",
+    "existing_parts": [
+      {
+        "name": "Front housing:1",
+        "volume_mm3": 9450.761791955414
+      },
+      {
+        "name": "Rear cover:1",
+        "volume_mm3": 16033.2995310402
+      },
+      {
+        "name": "Button plunger:1",
+        "volume_mm3": 48.28627908567721
+      },
+      {
+        "name": "Button plunger:2",
+        "volume_mm3": 48.28627908567721
+      },
+      {
+        "name": "Button plunger:3",
+        "volume_mm3": 48.28627908567721
+      }
+    ],
+    "domed_volume_mm3": 41.0113976975145,
+    "health": []
+  },
+  "stl": [
+    {
+      "file": "reset-plunger-flush.stl",
+      "triangles": 1400,
+      "size_mm": [
+        6.2,
+        6.1991,
+        1.4
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 33.193,
+      "bed_z_mm": 0
+    }
+  ],
+  "fusion_archive_integrity": "passed"
+}

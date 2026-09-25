@@ -1,0 +1,1092 @@
+{
+  "fusion": {
+    "battery_checks": [
+      {
+        "check": "battery pocket clear",
+        "actual_mm3": 0,
+        "expected_mm3": 0
+      },
+      {
+        "check": "battery pocket floor",
+        "actual_mm3": 7.379999999999186,
+        "expected_mm3": 7.38
+      }
+    ],
+    "seat_checks": [
+      {
+        "mount": "USB lower",
+        "support_seat_z_mm": 0.2,
+        "support_section_mm3": 0.15205308443375268,
+        "expected_mm3": 0.15205308443374602
+      },
+      {
+        "mount": "USB upper",
+        "support_seat_z_mm": 0.2,
+        "support_section_mm3": 0.12370021073510358,
+        "expected_mm3": 0.12370021073509813
+      },
+      {
+        "mount": "Far lower",
+        "support_seat_z_mm": 0.2,
+        "support_section_mm3": 0.12370021073510333,
+        "expected_mm3": 0.12370021073509813
+      },
+      {
+        "mount": "Far upper",
+        "support_seat_z_mm": 0.2,
+        "support_section_mm3": 0.1520530844337523,
+        "expected_mm3": 0.15205308443374602
+      },
+      {
+        "mount": "Mic lower",
+        "support_seat_z_mm": 0.13,
+        "support_section_mm3": 0.15205308443375232,
+        "expected_mm3": 0.15205308443374602
+      },
+      {
+        "mount": "Mic upper",
+        "support_seat_z_mm": 0.13,
+        "support_section_mm3": 0.15205308443375232,
+        "expected_mm3": 0.15205308443374602
+      }
+    ],
+    "closed_usb_wall_volume_mm3": 163.77174000000005,
+    "peg_press_fit": [
+      {
+        "additional_pcb_lift_mm": 0,
+        "expected_overlap_mm3": 0.09428050453116774,
+        "actual_overlap_mm3": 0.0942805045311562
+      },
+      {
+        "additional_pcb_lift_mm": 0.3,
+        "expected_overlap_mm3": 0.018254047268126045,
+        "actual_overlap_mm3": 0.01825404726812084
+      }
+    ],
+    "port_checks": [
+      {
+        "check": "14.2 x 5.4 through opening",
+        "actual_mm3": 0,
+        "expected_mm3": 0
+      },
+      {
+        "check": "20.2 x 11.4 inside recess",
+        "actual_mm3": 0,
+        "expected_mm3": 0
+      },
+      {
+        "check": "2 mm mounting wall ring",
+        "actual_mm3": 307.1999999999998,
+        "expected_mm3": 307.2
+      },
+      {
+        "check": "microphone port 4 mm",
+        "actual_mm3": 0.012880529879720179,
+        "expected_mm3": 0.012880529879718158
+      },
+      {
+        "check": "15.5 mm expanded clip width fits recessed region",
+        "passed": true
+      }
+    ],
+    "compute": true,
+    "occurrences": [
+      {
+        "name": "Feather ESP32-S3 Reverse TFT:1",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "ICS43434 microphone:1",
+        "matrix": [
+          2.220446049250313e-16,
+          1.0,
+          0.0,
+          5.16,
+          -1.0,
+          2.220446049250313e-16,
+          0.0,
+          1.9685,
+          0.0,
+          0.0,
+          1.0,
+          0.02,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Front housing:1",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Rear cover:1",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Battery 350mAh - measured envelope:1",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "JST plug and wire clearance:1",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Button plunger:1",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.762,
+          0.0,
+          1.0,
+          0.0,
+          0.4445,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Button plunger:2",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.762,
+          0.0,
+          1.0,
+          0.0,
+          1.143,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Button plunger:3",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          0.762,
+          0.0,
+          1.0,
+          0.0,
+          1.8415,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      {
+        "name": "Button plunger:4",
+        "matrix": [
+          1.0,
+          0.0,
+          0.0,
+          4.445,
+          0.0,
+          1.0,
+          0.0,
+          1.143,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    ],
+    "health": [],
+    "parts": [
+      {
+        "name": "Front housing:1",
+        "bodies": [
+          {
+            "name": "Front housing - print bezel down",
+            "solid": true,
+            "volume_mm3": 9450.761791955414,
+            "bounds": [
+              [
+                -3.8,
+                -6.8,
+                -3.4
+              ],
+              [
+                67.1,
+                29.66,
+                14.0
+              ]
+            ]
+          }
+        ],
+        "unconstrained": []
+      },
+      {
+        "name": "Rear cover:1",
+        "bodies": [
+          {
+            "name": "Rear cover - print outside face down",
+            "solid": true,
+            "volume_mm3": 16033.2995310402,
+            "bounds": [
+              [
+                -3.8,
+                -6.8,
+                2.07
+              ],
+              [
+                67.1,
+                29.66,
+                20.2
+              ]
+            ]
+          }
+        ],
+        "unconstrained": []
+      },
+      {
+        "name": "Button plunger:1",
+        "bodies": [
+          {
+            "name": "Button plunger - print brim flat - quantity 4",
+            "solid": true,
+            "volume_mm3": 48.28627908567721,
+            "bounds": [
+              [
+                4.52,
+                1.345,
+                -4.2
+              ],
+              [
+                10.72,
+                7.545,
+                -2.0
+              ]
+            ]
+          }
+        ],
+        "unconstrained": []
+      },
+      {
+        "name": "Button plunger:2",
+        "bodies": [
+          {
+            "name": "Button plunger - print brim flat - quantity 4",
+            "solid": true,
+            "volume_mm3": 48.28627908567721,
+            "bounds": [
+              [
+                4.52,
+                8.33,
+                -4.2
+              ],
+              [
+                10.72,
+                14.53,
+                -2.0
+              ]
+            ]
+          }
+        ],
+        "unconstrained": []
+      },
+      {
+        "name": "Button plunger:3",
+        "bodies": [
+          {
+            "name": "Button plunger - print brim flat - quantity 4",
+            "solid": true,
+            "volume_mm3": 48.28627908567721,
+            "bounds": [
+              [
+                4.52,
+                15.315,
+                -4.2
+              ],
+              [
+                10.72,
+                21.515,
+                -2.0
+              ]
+            ]
+          }
+        ],
+        "unconstrained": []
+      },
+      {
+        "name": "Button plunger:4",
+        "bodies": [
+          {
+            "name": "Button plunger - print brim flat - quantity 4",
+            "solid": true,
+            "volume_mm3": 48.28627908567721,
+            "bounds": [
+              [
+                41.35,
+                8.33,
+                -4.2
+              ],
+              [
+                47.55,
+                14.53,
+                -2.0
+              ]
+            ]
+          }
+        ],
+        "unconstrained": []
+      }
+    ],
+    "reference_model_corrections": [
+      {
+        "bodies": [
+          "MOUNTINGHOLE_2.5_PLATED:U$31",
+          "MOUNTINGHOLE_2.5_PLATED:U$32"
+        ],
+        "reason": "Unperforated footprint marker blocks; actual PCB solid and Eagle package specify 2.5 mm drills. Only temporary validation copies are drilled; imported CAD is unchanged.",
+        "drill_mm": 2.5
+      }
+    ],
+    "socket_cap_checks": [
+      {
+        "mount_xy_mm": [
+          2.54,
+          20.32
+        ],
+        "shank_length_mm": 20,
+        "head_diameter_mm": 4,
+        "head_height_mm": 2,
+        "counterbore_diameter_mm": 4.4,
+        "counterbore_depth_mm": 2.2,
+        "head_bearing_z_mm": 18,
+        "head_top_z_mm": 20,
+        "rear_surface_z_mm": 20.2,
+        "head_setback_mm": 0.2,
+        "screw_tip_z_mm": -2,
+        "pilot_bottom_z_mm": -2.8,
+        "tip_to_pilot_bottom_mm": 0.8,
+        "nominal_engagement_mm": 2.2,
+        "head_bearing_volume_mm3": 0.8411614329987228
+      },
+      {
+        "mount_xy_mm": [
+          48.26,
+          1.842
+        ],
+        "shank_length_mm": 20,
+        "head_diameter_mm": 4,
+        "head_height_mm": 2,
+        "counterbore_diameter_mm": 4.4,
+        "counterbore_depth_mm": 2.2,
+        "head_bearing_z_mm": 18,
+        "head_top_z_mm": 20,
+        "rear_surface_z_mm": 20.2,
+        "head_setback_mm": 0.2,
+        "screw_tip_z_mm": -2,
+        "pilot_bottom_z_mm": -2.8,
+        "tip_to_pilot_bottom_mm": 0.8,
+        "nominal_engagement_mm": 2.2,
+        "head_bearing_volume_mm3": 0.84116143299872
+      }
+    ],
+    "socket_cap_clashes": [],
+    "rear_post_relief": [
+      {
+        "mount": "USB lower",
+        "old_tip_z_mm": 1.67,
+        "new_tip_z_mm": 2.17,
+        "shortened_mm": 0.5,
+        "remaining_material_in_relief_mm3": 0,
+        "material_above_new_tip_mm3": 0.43476665411723453
+      },
+      {
+        "mount": "USB upper",
+        "old_tip_z_mm": 1.67,
+        "new_tip_z_mm": 2.17,
+        "shortened_mm": 0.5,
+        "remaining_material_in_relief_mm3": 0,
+        "material_above_new_tip_mm3": 0.4392295227134452
+      },
+      {
+        "mount": "Feather far lower",
+        "old_tip_z_mm": 1.57,
+        "new_tip_z_mm": 2.0700000000000003,
+        "shortened_mm": 0.5,
+        "remaining_material_in_relief_mm3": 0,
+        "material_above_new_tip_mm3": 0.3072003158742828
+      },
+      {
+        "mount": "Feather far upper",
+        "old_tip_z_mm": 1.57,
+        "new_tip_z_mm": 2.0700000000000003,
+        "shortened_mm": 0.5,
+        "remaining_material_in_relief_mm3": 0,
+        "material_above_new_tip_mm3": 0.3446861550966206
+      },
+      {
+        "mount": "Mic lower",
+        "old_tip_z_mm": 1.57,
+        "new_tip_z_mm": 2.0700000000000003,
+        "shortened_mm": 0.5,
+        "remaining_material_in_relief_mm3": 0,
+        "material_above_new_tip_mm3": 0.19792033717616533
+      },
+      {
+        "mount": "Mic upper",
+        "old_tip_z_mm": 1.57,
+        "new_tip_z_mm": 2.0700000000000003,
+        "shortened_mm": 0.5,
+        "remaining_material_in_relief_mm3": 0,
+        "material_above_new_tip_mm3": 0.19792033717616533
+      }
+    ],
+    "maximum_pcb_float_mm": 0.3,
+    "floated_board_clashes": [
+      {
+        "part": "Feather ESP32-S3 Reverse TFT:1+Board:1/Board",
+        "other": "Front housing",
+        "volume_mm3": 0.01825404726812084
+      }
+    ],
+    "floated_board_button_stroke_mm": 0.8,
+    "floated_board_button_contacts": [
+      {
+        "part": "Button plunger:1",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW1/Body7",
+        "volume_mm3": 0.6283185307179859
+      },
+      {
+        "part": "Button plunger:2",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW5/Body7",
+        "volume_mm3": 0.6283185307179859
+      },
+      {
+        "part": "Button plunger:3",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW3/Body7",
+        "volume_mm3": 0.6283185307179857
+      },
+      {
+        "part": "Button plunger:4",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW4/Body7",
+        "volume_mm3": 0.6283185307179326
+      }
+    ],
+    "peg_socket_fit": [
+      {
+        "mount": "USB lower",
+        "minimum_nominal_radial_clearance_mm": 0.33325581395348847,
+        "tip_radial_clearance_mm": 0.55,
+        "axial_clearance_mm": 0.5
+      },
+      {
+        "mount": "Feather far upper",
+        "minimum_nominal_radial_clearance_mm": 0.32395348837209315,
+        "tip_radial_clearance_mm": 0.55,
+        "axial_clearance_mm": 0.5
+      },
+      {
+        "mount": "Microphone lower",
+        "minimum_nominal_radial_clearance_mm": 0.32757437070938233,
+        "tip_radial_clearance_mm": 0.55,
+        "axial_clearance_mm": 0.5
+      },
+      {
+        "mount": "Microphone upper",
+        "minimum_nominal_radial_clearance_mm": 0.32757437070938233,
+        "tip_radial_clearance_mm": 0.55,
+        "axial_clearance_mm": 0.5
+      }
+    ],
+    "peg_and_socket_sections": [
+      {
+        "mount": "USB lower",
+        "check": "peg section",
+        "z_mm": 0.22,
+        "expected_mm3": 0.041379696340001666,
+        "actual_mm3": 0.04137969634000345
+      },
+      {
+        "mount": "USB lower",
+        "check": "peg section",
+        "z_mm": 4.48,
+        "expected_mm3": 0.01773727637347863,
+        "actual_mm3": 0.017737276373477447
+      },
+      {
+        "mount": "USB lower",
+        "check": "socket section",
+        "z_mm": 2.1799999999999997,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.01295906969605845
+      },
+      {
+        "mount": "USB lower",
+        "check": "socket section",
+        "z_mm": 4.98,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.012959069696057026
+      },
+      {
+        "mount": "USB lower",
+        "check": "closed socket end or outer cover",
+        "z_mm": 5.01,
+        "solid_mm3": 0.07853981633974653
+      },
+      {
+        "mount": "USB lower",
+        "check": "closed socket end or outer cover",
+        "z_mm": 20.05,
+        "solid_mm3": 0.07853981633974653
+      },
+      {
+        "mount": "Feather far upper",
+        "check": "peg section",
+        "z_mm": 0.22,
+        "expected_mm3": 0.041379696340001666,
+        "actual_mm3": 0.0413796963400035
+      },
+      {
+        "mount": "Feather far upper",
+        "check": "peg section",
+        "z_mm": 4.48,
+        "expected_mm3": 0.01773727637347863,
+        "actual_mm3": 0.017737276373477537
+      },
+      {
+        "mount": "Feather far upper",
+        "check": "socket section",
+        "z_mm": 2.0799999999999996,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.012959069696058551
+      },
+      {
+        "mount": "Feather far upper",
+        "check": "socket section",
+        "z_mm": 4.98,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.012959069696057129
+      },
+      {
+        "mount": "Feather far upper",
+        "check": "closed socket end or outer cover",
+        "z_mm": 5.01,
+        "solid_mm3": 0.07853981633974627
+      },
+      {
+        "mount": "Feather far upper",
+        "check": "closed socket end or outer cover",
+        "z_mm": 20.05,
+        "solid_mm3": 0.07853981633974627
+      },
+      {
+        "mount": "Microphone lower",
+        "check": "peg section",
+        "z_mm": 0.15,
+        "expected_mm3": 0.04138238256338802,
+        "actual_mm3": 0.041382382563390045
+      },
+      {
+        "mount": "Microphone lower",
+        "check": "peg section",
+        "z_mm": 4.48,
+        "expected_mm3": 0.017736221085624917,
+        "actual_mm3": 0.017736221085623782
+      },
+      {
+        "mount": "Microphone lower",
+        "check": "socket section",
+        "z_mm": 2.0799999999999996,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.012959069696058551
+      },
+      {
+        "mount": "Microphone lower",
+        "check": "socket section",
+        "z_mm": 4.98,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.012959069696057129
+      },
+      {
+        "mount": "Microphone lower",
+        "check": "closed socket end or outer cover",
+        "z_mm": 5.01,
+        "solid_mm3": 0.07853981633974627
+      },
+      {
+        "mount": "Microphone lower",
+        "check": "closed socket end or outer cover",
+        "z_mm": 20.05,
+        "solid_mm3": 0.07853981633974627
+      },
+      {
+        "mount": "Microphone upper",
+        "check": "peg section",
+        "z_mm": 0.15,
+        "expected_mm3": 0.04138238256338802,
+        "actual_mm3": 0.041382382563390045
+      },
+      {
+        "mount": "Microphone upper",
+        "check": "peg section",
+        "z_mm": 4.48,
+        "expected_mm3": 0.017736221085624917,
+        "actual_mm3": 0.017736221085623782
+      },
+      {
+        "mount": "Microphone upper",
+        "check": "socket section",
+        "z_mm": 2.0799999999999996,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.012959069696058551
+      },
+      {
+        "mount": "Microphone upper",
+        "check": "socket section",
+        "z_mm": 4.98,
+        "expected_mm3": 0.012959069696057902,
+        "actual_mm3": 0.012959069696057129
+      },
+      {
+        "mount": "Microphone upper",
+        "check": "closed socket end or outer cover",
+        "z_mm": 5.01,
+        "solid_mm3": 0.07853981633974627
+      },
+      {
+        "mount": "Microphone upper",
+        "check": "closed socket end or outer cover",
+        "z_mm": 20.05,
+        "solid_mm3": 0.07853981633974627
+      }
+    ],
+    "retained_screw_path_clashes": [],
+    "cover_insertion_clashes": [],
+    "microphone_air_path_clashes": [],
+    "tests": 413,
+    "rest_interference": [
+      {
+        "part": "Front housing:1",
+        "other": "Feather ESP32-S3 Reverse TFT:1+Board:1/Board",
+        "overlap_mm3": 0.0942805045311562,
+        "other_bounds": [
+          [
+            0.0,
+            0.0,
+            0.2
+          ],
+          [
+            50.8,
+            22.86,
+            1.77
+          ]
+        ],
+        "shift_mm": 0
+      }
+    ],
+    "pressed_0p5_interference": [
+      {
+        "part": "Button plunger:1",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW1/Body7",
+        "overlap_mm3": 0.6283185307179854,
+        "other_bounds": [
+          [
+            6.62,
+            3.445,
+            -1.7
+          ],
+          [
+            8.62,
+            5.445,
+            -1.2
+          ]
+        ],
+        "shift_mm": 0.5
+      },
+      {
+        "part": "Button plunger:2",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW5/Body7",
+        "overlap_mm3": 0.6283185307179854,
+        "other_bounds": [
+          [
+            6.62,
+            10.43,
+            -1.7
+          ],
+          [
+            8.62,
+            12.43,
+            -1.2
+          ]
+        ],
+        "shift_mm": 0.5
+      },
+      {
+        "part": "Button plunger:3",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW3/Body7",
+        "overlap_mm3": 0.6283185307179852,
+        "other_bounds": [
+          [
+            6.62,
+            17.415,
+            -1.7
+          ],
+          [
+            8.62,
+            19.415,
+            -1.2
+          ]
+        ],
+        "shift_mm": 0.5
+      },
+      {
+        "part": "Button plunger:4",
+        "other": "Feather ESP32-S3 Reverse TFT:1+BTN_RKB2_4.6X2.8:SW4/Body7",
+        "overlap_mm3": 0.6283185307179321,
+        "other_bounds": [
+          [
+            43.45,
+            10.43,
+            -1.7
+          ],
+          [
+            45.45,
+            12.43,
+            -1.2
+          ]
+        ],
+        "shift_mm": 0.5
+      }
+    ]
+  },
+  "stl": [
+    {
+      "file": "front-housing.stl",
+      "triangles": 7900,
+      "size_mm": [
+        70.9,
+        36.46,
+        17.4
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 9448.428,
+      "bed_z_mm": 0
+    },
+    {
+      "file": "rear-cover.stl",
+      "triangles": 7546,
+      "size_mm": [
+        70.9,
+        36.46,
+        18.13
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 16029.72,
+      "bed_z_mm": 0
+    },
+    {
+      "file": "button-plunger.stl",
+      "triangles": 1388,
+      "size_mm": [
+        6.2,
+        6.2,
+        2.2
+      ],
+      "closed_manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 48.275,
+      "bed_z_mm": 0
+    }
+  ],
+  "fusion_archive_integrity": "passed",
+  "unchanged_parts": [
+    {
+      "file": "button-plunger.stl",
+      "geometry_identical_to_revision_7": true,
+      "binary_identical": true,
+      "sha256": "c22b4eec3537f8bc840ccf2f9891ffa947dce3e4114f1f130d077d2e20f159b5"
+    }
+  ],
+  "shell_changes": {
+    "backup": "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/work/before-v8.f3d",
+    "usb_end_extension_mm": 1,
+    "connector_end_clearance_mm": 0.587,
+    "panel_port_mm": [
+      14.2,
+      5.4
+    ],
+    "recess_mm": [
+      20.2,
+      11.4
+    ],
+    "changes": [
+      {
+        "sketch": "Outer footprint",
+        "parameter": "d208",
+        "before": "pcb_length + mic_gap + mic_length + 2 * ( board_gap + wall )",
+        "after": "( pcb_length + mic_gap + mic_length + 2 * ( board_gap + wall ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Outer footprint",
+        "parameter": "d210",
+        "before": "-( -board_gap - wall )",
+        "after": "( -( -board_gap - wall ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Board cavity",
+        "parameter": "d218",
+        "before": "pcb_length + mic_gap + mic_length + 2 * board_gap",
+        "after": "( pcb_length + mic_gap + mic_length + 2 * board_gap ) + usb_end_extension"
+      },
+      {
+        "sketch": "Board cavity",
+        "parameter": "d220",
+        "before": "-( -board_gap )",
+        "after": "( -( -board_gap ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Cover outline",
+        "parameter": "d294",
+        "before": "pcb_length + mic_gap + mic_length + 2 * ( board_gap + wall )",
+        "after": "( pcb_length + mic_gap + mic_length + 2 * ( board_gap + wall ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Cover outline",
+        "parameter": "d296",
+        "before": "-( -board_gap - wall )",
+        "after": "( -( -board_gap - wall ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Locating lip outside",
+        "parameter": "d304",
+        "before": "pcb_length + mic_gap + mic_length + 2 * ( board_gap - lip_gap )",
+        "after": "( pcb_length + mic_gap + mic_length + 2 * ( board_gap - lip_gap ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Locating lip outside",
+        "parameter": "d306",
+        "before": "-( -board_gap + lip_gap )",
+        "after": "( -( -board_gap + lip_gap ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Locating lip hollow",
+        "parameter": "d314",
+        "before": "pcb_length + mic_gap + mic_length + 2 * ( board_gap - lip_gap - lip_wall )",
+        "after": "( pcb_length + mic_gap + mic_length + 2 * ( board_gap - lip_gap - lip_wall ) ) + usb_end_extension"
+      },
+      {
+        "sketch": "Locating lip hollow",
+        "parameter": "d316",
+        "before": "-board_gap + lip_gap + lip_wall",
+        "after": "( -board_gap + lip_gap + lip_wall ) + usb_end_extension"
+      }
+    ],
+    "health": [],
+    "parts": [
+      {
+        "name": "Front housing:1",
+        "bodies": 1,
+        "bounds": [
+          [
+            -3.8,
+            -6.800000000000001,
+            -3.3999999999999995
+          ],
+          [
+            67.1,
+            29.659999999999997,
+            14.0
+          ]
+        ]
+      },
+      {
+        "name": "Rear cover:1",
+        "bodies": 1,
+        "bounds": [
+          [
+            -3.8,
+            -6.800000000000001,
+            2.0700000000000003
+          ],
+          [
+            67.1,
+            29.659999999999997,
+            20.2
+          ]
+        ]
+      }
+    ]
+  },
+  "support_changes": {
+    "seat_lift_mm": 0.2,
+    "feather_seat_z_mm": 0.2,
+    "microphone_seat_z_mm": 0.13,
+    "rear_board_clearance_mm": 0.3,
+    "peg_top_z_mm": 4.5,
+    "peg_socket_blind_clearance_mm": 0.5,
+    "nominal_button_gap_mm": 0.3,
+    "changes": [
+      {
+        "feature": "Raise PCB supports",
+        "before": "-front_inner_z",
+        "after": "( -front_inner_z ) + board_seat_lift"
+      },
+      {
+        "feature": "Support microphone at Feather plane",
+        "before": "-front_inner_z - mic_bottom_copper",
+        "after": "( -front_inner_z - mic_bottom_copper ) + board_seat_lift"
+      },
+      {
+        "feature": "Fill obsolete Feather screw pilots",
+        "before": "pilot_depth + peg_anchor_depth",
+        "after": "( pilot_depth + peg_anchor_depth ) + board_seat_lift"
+      },
+      {
+        "feature": "Fill obsolete Microphone screw pilots",
+        "before": "pilot_depth + peg_anchor_depth",
+        "after": "( pilot_depth + peg_anchor_depth ) + board_seat_lift"
+      },
+      {
+        "feature": "Raise acoustic collar",
+        "before": "-front_inner_z - mic_bottom_copper - mic_collar_clearance",
+        "after": "( -front_inner_z - mic_bottom_copper - mic_collar_clearance ) + board_seat_lift"
+      }
+    ],
+    "health": []
+  },
+  "battery_recess": {
+    "recess_mm": [
+      39,
+      21,
+      1
+    ],
+    "remaining_rear_thickness_mm": 5.2,
+    "battery_bounds_z_mm": [
+      8.5,
+      14.5
+    ],
+    "tape_gap_mm": 0.5,
+    "health": []
+  },
+  "reference_assembly_placement": {
+    "children_moved": 52,
+    "marker_z_mm": [
+      1.7700000000000002,
+      1.7700000000000002
+    ],
+    "new_rigid_group": "Feather assembly on raised support seats"
+  }
+}

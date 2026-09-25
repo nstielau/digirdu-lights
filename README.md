@@ -7,6 +7,15 @@ ESP32/wing nodes receive musical features wirelessly over **ESP-NOW**.
 Brightness is capped at **15%**, including overlapping visual layers. Audio
 stays in RAM; only normalized features and animation state are transmitted.
 
+## Hardware designs
+
+The [producer enclosure](hardware/producer/README.md) contains the editable
+Fusion model, pink/purple print files, all button variants, and assembly notes
+for the **Adafruit ESP32-S3 Reverse TFT Feather** with an ICS43434 microphone
+and 350 mAh LiPo. Revision 11 includes removable four-button assembly carriers.
+This mechanical design targets a different board from the FeatherS2 software
+setup described below; importing the CAD does not change deployed firmware.
+
 ## OTA application upgrades
 
 [OTA operations and recovery](docs/ota-operations.md) describe the implemented

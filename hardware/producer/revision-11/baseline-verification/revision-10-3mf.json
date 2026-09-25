@@ -1,0 +1,174 @@
+[
+  {
+    "file": "DidgeLights-v10-H2D.3mf",
+    "objects": [
+      {
+        "name": "Front housing",
+        "parts": [
+          {
+            "file": "front-purple.stl",
+            "filament": 1
+          },
+          {
+            "file": "front-pink.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          90,
+          100,
+          0
+        ],
+        "triangles": 73888
+      },
+      {
+        "name": "Rear cover",
+        "parts": [
+          {
+            "file": "rear-purple.stl",
+            "filament": 1
+          },
+          {
+            "file": "rear-pink.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          90,
+          145,
+          0
+        ],
+        "triangles": 48882
+      },
+      {
+        "name": "Domed main button 1",
+        "parts": [
+          {
+            "file": "button-plunger-domed.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          170,
+          110,
+          0
+        ],
+        "triangles": 10336
+      },
+      {
+        "name": "Domed main button 2",
+        "parts": [
+          {
+            "file": "button-plunger-domed.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          170,
+          120,
+          0
+        ],
+        "triangles": 10336
+      },
+      {
+        "name": "Domed main button 3",
+        "parts": [
+          {
+            "file": "button-plunger-domed.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          170,
+          130,
+          0
+        ],
+        "triangles": 10336
+      },
+      {
+        "name": "Flush reset button",
+        "parts": [
+          {
+            "file": "reset-plunger-flush.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          170,
+          140,
+          0
+        ],
+        "triangles": 1400
+      }
+    ],
+    "materials": [
+      "Purple",
+      "Pink"
+    ],
+    "units": "millimeter",
+    "integrity": "passed",
+    "printer": "Bambu Lab H2D 0.4 nozzle"
+  },
+  {
+    "file": "front-patterned.3mf",
+    "objects": [
+      {
+        "name": "Front housing",
+        "parts": [
+          {
+            "file": "front-purple.stl",
+            "filament": 1
+          },
+          {
+            "file": "front-pink.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          0,
+          0,
+          0
+        ],
+        "triangles": 73888
+      }
+    ],
+    "materials": [
+      "Purple",
+      "Pink"
+    ],
+    "units": "millimeter",
+    "integrity": "passed",
+    "printer": "geometry only"
+  },
+  {
+    "file": "rear-patterned.3mf",
+    "objects": [
+      {
+        "name": "Rear cover",
+        "parts": [
+          {
+            "file": "rear-purple.stl",
+            "filament": 1
+          },
+          {
+            "file": "rear-pink.stl",
+            "filament": 2
+          }
+        ],
+        "position_mm": [
+          0,
+          0,
+          0
+        ],
+        "triangles": 48882
+      }
+    ],
+    "materials": [
+      "Purple",
+      "Pink"
+    ],
+    "units": "millimeter",
+    "integrity": "passed",
+    "printer": "geometry only"
+  }
+]

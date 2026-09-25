@@ -14,3 +14,16 @@ playwright-report/
 test-results/
 
 .worktrees/
+
+# Hardware scratch, generated bundles, and machine-specific print output.
+# Keep released F3D, STL, 3MF, preview, and verification files tracked.
+/hardware/**/work/
+/hardware/**/dist/
+/hardware/**/backups/
+/hardware/**/.remember/
+/hardware/**/*.zip
+/hardware/**/*.gcode
+/hardware/**/*.gcode.3mf
+/hardware/**/*.log
+/hardware/**/*.tmp
+/hardware/**/*.bak

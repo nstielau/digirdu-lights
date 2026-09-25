@@ -1,0 +1,202 @@
+{
+  "application": "Bambu Studio 02.01.00.59",
+  "opened_and_resaved_in_gui": true,
+  "slice_observed": "Slice ok; no remaining range error",
+  "estimated_time": "4h 6m",
+  "estimated_filament_g": 67.08,
+  "filament_grouping": "Purple and pink on right nozzle, retained from current UI configuration",
+  "purge_tower_position_mm": {
+    "x": [
+      "61.696"
+    ],
+    "y": [
+      "213.222"
+    ]
+  },
+  "objects": [
+    {
+      "object": "Front housing",
+      "parts": [
+        {
+          "source_mesh": "front-purple.stl",
+          "filament": "1",
+          "triangles": 24158,
+          "volume_mm3": 7715.223580975216,
+          "bounds_mm": [
+            [
+              90.0,
+              100.0,
+              0.0
+            ],
+            [
+              160.9000016,
+              136.459999,
+              17.39999962
+            ]
+          ]
+        },
+        {
+          "source_mesh": "front-pink.stl",
+          "filament": "2",
+          "triangles": 49730,
+          "volume_mm3": 1732.0875688049305,
+          "bounds_mm": [
+            [
+              89.99904889999999,
+              100.0,
+              0.0
+            ],
+            [
+              160.9000003,
+              136.4604606,
+              17.39999962
+            ]
+          ]
+        }
+      ],
+      "registration": "passed"
+    },
+    {
+      "object": "Rear cover",
+      "parts": [
+        {
+          "source_mesh": "rear-purple.stl",
+          "filament": "1",
+          "triangles": 18712,
+          "volume_mm3": 14919.097718833797,
+          "bounds_mm": [
+            [
+              90.0,
+              145.0,
+              0.0
+            ],
+            [
+              160.9000016,
+              181.459999,
+              18.12999916
+            ]
+          ]
+        },
+        {
+          "source_mesh": "rear-pink.stl",
+          "filament": "2",
+          "triangles": 30170,
+          "volume_mm3": 1111.3062812521212,
+          "bounds_mm": [
+            [
+              90.0,
+              145.0,
+              0.0
+            ],
+            [
+              160.9000016,
+              181.459999,
+              6.1999998
+            ]
+          ]
+        }
+      ],
+      "registration": "passed"
+    },
+    {
+      "object": "Domed main button 1",
+      "parts": [
+        {
+          "source_mesh": "button-plunger-domed.stl",
+          "filament": "2",
+          "triangles": 10336,
+          "volume_mm3": 40.997087322282944,
+          "bounds_mm": [
+            [
+              170.0000001,
+              110.0000001,
+              0.0
+            ],
+            [
+              176.1999999,
+              116.1999999,
+              2.1999998
+            ]
+          ]
+        }
+      ],
+      "registration": "passed"
+    },
+    {
+      "object": "Domed main button 2",
+      "parts": [
+        {
+          "source_mesh": "button-plunger-domed.stl",
+          "filament": "2",
+          "triangles": 10336,
+          "volume_mm3": 40.9970873223204,
+          "bounds_mm": [
+            [
+              170.0000001,
+              120.0000001,
+              0.0
+            ],
+            [
+              176.1999999,
+              126.1999999,
+              2.1999998
+            ]
+          ]
+        }
+      ],
+      "registration": "passed"
+    },
+    {
+      "object": "Domed main button 3",
+      "parts": [
+        {
+          "source_mesh": "button-plunger-domed.stl",
+          "filament": "2",
+          "triangles": 10336,
+          "volume_mm3": 40.99708732240424,
+          "bounds_mm": [
+            [
+              170.0000001,
+              130.0000001,
+              0.0
+            ],
+            [
+              176.1999999,
+              136.1999999,
+              2.1999998
+            ]
+          ]
+        }
+      ],
+      "registration": "passed"
+    },
+    {
+      "object": "Flush reset button",
+      "parts": [
+        {
+          "source_mesh": "reset-plunger-flush.stl",
+          "filament": "2",
+          "triangles": 1400,
+          "volume_mm3": 33.19326111982239,
+          "bounds_mm": [
+            [
+              170.0000001,
+              140.00000012,
+              0.0
+            ],
+            [
+              176.1999999,
+              146.19911588,
+              1.400000096
+            ]
+          ]
+        }
+      ],
+      "registration": "passed"
+    }
+  ],
+  "zip_crc": "passed",
+  "source_mesh_shape_volume_and_relative_color_registration": "passed",
+  "print_sent_by_assistant": false,
+  "print_workflow": "User took over Bambu and printing after validation."
+}

@@ -1,5 +1,13 @@
 # Project guidance
 
+## Mechanical design
+
+`hardware/producer/` contains the Reverse TFT Feather producer enclosure and
+its complete Revision 11 Fusion/print baseline. Read `hardware/AGENTS.md` and
+`hardware/producer/README.md` before CAD work. This enclosure is for the Adafruit
+ESP32-S3 Reverse TFT Feather; the existing FeatherS2 software deployment notes
+below describe a different board and do not establish its mechanical fit.
+
 ## Current hardware: Unexpected Maker FeatherS2
 
 Default make target: `BOARD=unexpectedmaker_feathers2`. Pin CircuitPython to
@@ -163,7 +171,9 @@ app files; it must preserve node_config.py unless explicitly replaced. New
 board models require a verified pin profile, not just an ESP32 chip match.
 
 Update README.md for wiring, firmware, and command changes. Never commit
-`.venv`, `.artifacts`, binaries, board backups, credentials, or recordings.
+`.venv`, `.artifacts`, firmware binaries, board backups, credentials, or recordings.
+User-approved mechanical CAD/print binaries under `hardware/` are tracked assets;
+follow `hardware/AGENTS.md` for their release and verification workflow.
 Backups can contain existing user data or secrets.
 
 The user also visually confirmed rainbow spectrum bars rising and falling with

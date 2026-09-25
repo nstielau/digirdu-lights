@@ -1,0 +1,292 @@
+{
+  "stl": [
+    {
+      "file": "front-purple.stl",
+      "triangles": 24158,
+      "vertices": 12063,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 7715.222682959662,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          70.9000015258789,
+          36.459999084472656,
+          17.399999618530273
+        ]
+      ]
+    },
+    {
+      "file": "front-pink.stl",
+      "triangles": 49730,
+      "vertices": 24897,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 18,
+      "volume_mm3": 1732.0879794759098,
+      "bounds_mm": [
+        [
+          -0.0009486198541708291,
+          0.0,
+          0.0
+        ],
+        [
+          70.9000015258789,
+          36.4604606628418,
+          17.399999618530273
+        ]
+      ]
+    },
+    {
+      "file": "rear-purple.stl",
+      "triangles": 18712,
+      "vertices": 9352,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 2,
+      "volume_mm3": 14919.097371206451,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          70.9000015258789,
+          36.459999084472656,
+          18.1299991607666
+        ]
+      ]
+    },
+    {
+      "file": "rear-pink.stl",
+      "triangles": 30170,
+      "vertices": 15111,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 13,
+      "volume_mm3": 1111.306324647059,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          70.9000015258789,
+          36.459999084472656,
+          6.199999809265137
+        ]
+      ]
+    },
+    {
+      "file": "plain-front-housing.stl",
+      "triangles": 8010,
+      "vertices": 3995,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 9446.726110909578,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          70.9000015258789,
+          36.459999084472656,
+          17.399999618530273
+        ]
+      ]
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "triangles": 7546,
+      "vertices": 3767,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 16029.721138474286,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          70.9000015258789,
+          36.459999084472656,
+          18.130001068115234
+        ]
+      ]
+    },
+    {
+      "file": "button-plunger-flat.stl",
+      "triangles": 1388,
+      "vertices": 696,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 48.275373631310664,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.199999809265137,
+          6.199999809265137,
+          2.1999998092651367
+        ]
+      ]
+    },
+    {
+      "file": "button-plunger-domed.stl",
+      "triangles": 10336,
+      "vertices": 5170,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 40.99708744869286,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.199999809265137,
+          6.199999809265137,
+          2.1999998092651367
+        ]
+      ]
+    },
+    {
+      "file": "reset-plunger-flush.stl",
+      "triangles": 1400,
+      "vertices": 702,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 33.193261106596474,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.199999809265137,
+          6.199115753173828,
+          1.4000000953674316
+        ]
+      ]
+    }
+  ],
+  "fusion_archive_integrity": "passed",
+  "plain_covers_and_all_buttons": "byte-identical to revision 9",
+  "partition": {
+    "partitions": [
+      {
+        "cover": "Front housing",
+        "original_volume_mm3": 9449.060095934712,
+        "reconstructed_volume_mm3": 9449.06009593472,
+        "missing_mm3": 0,
+        "extra_mm3": 0,
+        "color_overlap_mm3": 0,
+        "skin_depth_mm": 0.8,
+        "volume_accuracy": "Persistent solids: VeryHigh (0.01 percent), sum tolerance 0.02 percent. Temporary-body volume uses default approximation. Boolean symmetric difference and overlap must be zero.",
+        "regions": [
+          {
+            "component": "Front pattern - Purple",
+            "bodies": 1,
+            "volume_mm3": 7716.456665096357
+          },
+          {
+            "component": "Front pattern - Pink",
+            "bodies": 12,
+            "volume_mm3": 1732.6270897504226
+          }
+        ]
+      },
+      {
+        "cover": "Rear cover",
+        "original_volume_mm3": 16033.29953104019,
+        "reconstructed_volume_mm3": 16033.29953104025,
+        "missing_mm3": 0,
+        "extra_mm3": 0,
+        "color_overlap_mm3": 0,
+        "skin_depth_mm": 0.8,
+        "volume_accuracy": "Persistent solids: VeryHigh (0.01 percent), sum tolerance 0.02 percent. Temporary-body volume uses default approximation. Boolean symmetric difference and overlap must be zero.",
+        "regions": [
+          {
+            "component": "Rear pattern - Purple",
+            "bodies": 1,
+            "volume_mm3": 14921.485721268205
+          },
+          {
+            "component": "Rear pattern - Pink",
+            "bodies": 11,
+            "volume_mm3": 1111.429996222043
+          }
+        ]
+      }
+    ],
+    "feature_health": [],
+    "colors": {
+      "Pink": "#F45DAD",
+      "Purple": "#682BA8"
+    }
+  },
+  "export": {
+    "exports": [
+      {
+        "file": "front-purple-v10-raw.stl",
+        "component": "Front pattern - Purple",
+        "bodies": 1,
+        "volume_mm3": 7716.8971479712545
+      },
+      {
+        "file": "front-pink-v10-raw.stl",
+        "component": "Front pattern - Pink",
+        "bodies": 12,
+        "volume_mm3": 1733.0207934795767
+      },
+      {
+        "file": "rear-purple-v10-raw.stl",
+        "component": "Rear pattern - Purple",
+        "bodies": 1,
+        "volume_mm3": 14922.38089717941
+      },
+      {
+        "file": "rear-pink-v10-raw.stl",
+        "component": "Rear pattern - Pink",
+        "bodies": 11,
+        "volume_mm3": 1111.7732067811507
+      }
+    ],
+    "images": [
+      "patterned-front.png",
+      "patterned-rear.png",
+      "patterned-side-seam.png"
+    ],
+    "archive": "/Users/nickstielau/Documents/Codex/2026-09-23/let-s-talk-about-3d-printing/outputs/revision-10/DidgeLights-enclosure-v10.f3d",
+    "feature_health": []
+  }
+}
