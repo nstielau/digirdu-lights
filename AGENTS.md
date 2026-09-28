@@ -74,6 +74,11 @@ hide that limitation or infer a proven fault cause from the benchmark sequence.
 
 ## Workflow
 
+At the start of a work session, read [`TODO.md`](TODO.md). If it contains
+unfinished items, ask the user whether they want to work on one of them before
+starting unrelated feature work. Keep the list current as items are completed
+or new follow-up work is identified.
+
 - `code.py`, `boot.py`, `ota_*.py`: USB-managed OTA base and recovery loader.
 - `lights_app.py`: capture, radio/render loops and hardware diagnostics.
 - `config.py`, `node_config.py`: algorithm defaults and per-node overrides.
@@ -395,6 +400,13 @@ provides local SOC; cloud report keeps voltage/status only. No I2C on old S2.
 SEEN/10s counts bounded validated DGRP acknowledgments, not all consumers or
 proof of rendering. Legacy v3 audio/sleep packets are unchanged.
 
+The Device TFT page also shows the saved radio role and producer source MAC:
+the producer displays its own MAC, while a consumer displays the MAC it filters.
+`make configure-node ROLE=... LEADER_MAC=...` changes the saved role/source in
+USB maintenance; `make clear-source` retains consumer mode and writes a null
+source (`Src NONE`) until a real producer MAC is supplied. Enrolled role changes
+must also be reflected in the Firebase/OTA identity.
+
 Schema1 EXACT legacy10files/2boards must stay valid for existing journals and
 rollback. Schema2 EXACT12files/3boards requires base1.1.0; APP_API1/protocol3
 unchanged. New app modules dashboard.py/device_setup.py, new base hardware.py/
@@ -424,7 +436,7 @@ never-received packet age are --; never-received audio is LOST. D1 requests a sh
 
 Use front/back240x135 bitmaps and cached font atlases. Transfer at most12 rows
 per loop. Audio retains configured5Hz target (actual cadence depends on budget)
-and .12 backlight. Count snapshot preparation once in the budget. Allow bounded
+and .50 active backlight. Count snapshot preparation once in the budget. Allow bounded
 half-second retry with >=12ms spare so a timing outlier cannot leave the screen
 stale. D0 resets refresh/retry deadlines and logs TFT page. Empty budgets still
 skip display work. Do not infer microphone timing guarantees from the consumer.
@@ -450,7 +462,7 @@ Sleep overlays own the full240x135 screen: hold3–2–1/release-to-cancel, then
 SLEEPING/fade countdown, then release-to-sleep before the existing wake alarm.
 Preempt pages on stage changes, retain strip progress across digit changes.
 Overlay strips can proceed with >=12ms spare even after a slow estimate; never
-force work with zero spare. Keep font positions bounded and TFT brightness.12.
+force work with zero spare. Keep font positions bounded and TFT brightness.50.
 Hardware group qualification requires upgrading the microphone producer.
 
 Brightness follow-up: user explicitly authorized up to50% Wing output, with15%
@@ -462,3 +474,96 @@ and refresh animation caches; no scene-time rewind on brightness-only packets.
 The old v3 audio packet remains51 bytes. All brightness participants require
 updated app; legacy consumers ignore DGRB. Brightness is volatile and Battery
 retains3% cap. TFT/OTA indicator brightness stays independent.
+
+TFT inactivity follow-up: default display_idle_s=30, display_brightness=.50.
+Blank only the backlight and stop dashboard/snapshot work; do not suspend audio,
+radio, or Wing rendering. First press wakes only: consume the whole gesture
+through stable release, including a long D2 hold. Incoming group sleep wakes
+the screen and prevents idle blanking. Do not confuse this with alarm deep sleep
+or claim electrically measured power savings. Button activity alone extends the
+idle timer; received audio must not keep the display awake.
+Sleep uses a cached pixel-art dog with breathing/Z animation and the existing
+full-screen countdown. Preserve strip progress across animation/digit changes.
+Control feedback is a small top Broadcasting... banner with page data below;
+errors retain their text. A banner transition preempts a partial frame so a fast
+ACK cannot expire before slow Status/Brightness composition. No protocol/base
+change; existing OTA-capable nodes can receive these app changes in a release.
+
+EchoGlow startup: USB base1.1.2 provides a wave/reflection/light-burst animation,
+selected app version, and actual phase text. App minimum base stays1.1.0; new
+dashboard/startup calls use getattr for backward compatibility. Do not import
+app modules before slot isolation just to get the version; read the selected
+directory's app_version.py. Network confirmation reports must also show version.
+Animation targets20Hz and shares startup/OTA service opportunities. The user's
+later preference requires a completed explosion before dashboard handoff:
+finish_boot completes through2.35s of animation with a3second deadline, skips
+closed/replaced displays, and never replays an already-complete intro. This is
+an intentional short wait before audio/radio startup, superseding the earlier
+no-wait preference. Blocking calls can pause it; cap catch-up to75ms/frame.
+Close boot ownership before dashboard handoff. TextScreen.close must not erase
+another screen's root_group (especially setup/fault screens from an older app).
+This branding is display-only: do not rename cloud/protocol/project identifiers.
+
+Startup latency fix: build dashboard font atlases with native bitmaptools.rotozoom
+(ox=oy=px=py=0, integer scale1/2/4) plus replace_color(1,palette_index).
+Do not restore the per-pixel Python generator: it took5.84s without animation.
+The native regression tests/native/tft_startup.py compares every atlas pixel with
+the previous exact nearest-neighbor mapping and requires preparation under1s.
+CP10.3.1/S3 measured0.69s, all177,840pixels identical; software restart to first
+LIGHTS decreased8.85s ->2.90s, without OTA networking, before the completion wait
+was added. Keep this optimization; the native font test measures without a boot
+screen so it excludes the deliberate intro finish. Font optimization needs no
+new base, but the completion/cadence revision requires base1.1.2 and matching app.
+
+## OTA minimum base compatibility
+
+Keep `BASE_VERSION` (the installed USB base) separate from `APP_MINIMUM_BASE`
+(the oldest base the app requires), both in `ota_manifest.py`. Release tooling
+copies `APP_MINIMUM_BASE` into the app manifest's `minimum_base`. This requirement
+is maintained explicitly; tooling cannot infer base dependencies from app code.
+Raise it whenever an app needs new base functionality. Optional base improvements
+must not raise the app requirement when compatibility fallbacks still work.
+Never lower it merely to make an incompatible board eligible for an update.
+
+Preserve both enforcement layers: the server filters release selection and
+artifact downloads against the device's reported base/board/role/CircuitPython
+version; the device independently validates the manifest against its actual
+installed base before downloading app files or staging a trial. An incompatible
+release must leave the running app intact. Default selection may fall back to
+an older compatible approved release; pinning must not bypass compatibility.
+Keep regression coverage for incompatible base rejection and compatible fallback.
+
+Before rollout, compare each device's fleet-page `USB base` with the release's
+`base ...+` requirement and check `Last report` for freshness. Reports update at
+boot; missing/stale reports do not establish eligibility. A device below the
+minimum needs the matching USB base installed in maintenance mode with
+`make deploy-base` (use BOARD/PORT when needed), then a normal reboot and a fresh
+report. Preserve OTA slots, recovery, node configuration and credentials. Base
+updates require USB; app-only OTA does not upgrade the base or CircuitPython.
+New devices also require their own OTA enrollment/credentials. Verify server
+support for any new manifest schema before publishing that release.
+
+
+## Device page and boot-time update status (USB base 1.1.3)
+
+Append Device at page index3; preserve Brightness index2 and all button, idle,
+sleep and banner semantics. Actual app_version comes from the selected slot;
+base version comes from preloaded ota_manifest; device ID is the full CPU UID,
+not a radio MAC. Cache identity once, query optional status only for Device,
+and retain the display budget/idle gates. Bound and wrap supported UID/version
+lengths into seven31-character rows; no scrolling or silently clipped IDs.
+
+ota_status.py is a base-only, preloaded RAM snapshot. Include it in BASE_FILES
+and bump BASE_VERSION to1.1.3; APP_MINIMUM_BASE stays1.1.0. Older bases fall back
+to explicit status-unavailable guidance. Reset metadata every boot; distinguish
+unchecked, maintenance, disabled, failed, paused, no-release and successful
+checks. Report-only check-ins must not overwrite it. No persistent cache or
+networking from the dashboard. Do not label missing metadata as up to date.
+
+Check-in update_status schema1 includes state and optional blocked app version/
+minimum_base. Report only newer approved, non-revoked releases whose sole
+compatibility barrier is base version; respect pins/pause and preserve older
+compatible selection. Validate metadata independently; malformed metadata must
+not prevent a valid app update or authorize an invalid one. Preserve all server
+artifact and device manifest checks. Deploy the server extension before claiming
+live blocked-version reporting; newly provisioned TFTs need individual enrollment.

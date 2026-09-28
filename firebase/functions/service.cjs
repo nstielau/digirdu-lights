@@ -10,22 +10,29 @@ function createService(db,now=()=>Date.now()) {
     return d;
   }
   async function selected(tx,d,report) {
-    if(d.paused)return {manifest:null,reason:'paused'};
+    let blocked=null;
+    const result=(manifest,reason,state='checked')=>({manifest,reason,update_status:{schema:1,state,blocked}});
+    if(d.paused)return result(null,'paused','paused');
     const target=d.pin ? {version:d.pin,sequence:d.sequence} :
       (await tx.get(db.doc('channels/stable'))).data();
-    if(!target?.version)return {manifest:null,reason:'no_release'};
+    if(!target?.version)return result(null,'no_release','no_release');
     const candidates=d.pin ? [(await tx.get(db.doc(`releases/${target.version}`))).data()] :
       (await tx.get(db.collection('releases').limit(200))).docs.map(s=>s.data())
         .filter(r=>r.approved&&!r.revoked).sort((a,b)=>compare(b.manifest.version,a.manifest.version));
     for(const r of candidates){
       if(!r?.approved||r.revoked)continue;
       validateManifest(r.manifest);
+      const m=r.manifest;
+      if(!blocked&&compare(m.version,report.version)>0&&compare(m.minimum_base,report.base_version)>0
+          &&compatible({...m,minimum_base:report.base_version},report)){
+        blocked={version:m.version,minimum_base:m.minimum_base};
+      }
       if(compatible(r.manifest,report)){
-        if(!d.pin&&compare(r.manifest.version,report.version)<0)return {manifest:null,reason:'already_newer'};
-        return {manifest:{...r.manifest,sequence:target.sequence},reason:'selected'};
+        if(!d.pin&&compare(r.manifest.version,report.version)<0)return result(null,'already_newer');
+        return result({...r.manifest,sequence:target.sequence},'selected');
       }
     }
-    return {manifest:null,reason:'incompatible_base_or_board'};
+    return result(null,'incompatible_base_or_board');
   }
   async function checkIn(id,token,body,reportOnly=false) {
     await authenticate(id,token);

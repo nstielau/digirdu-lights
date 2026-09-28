@@ -11,6 +11,7 @@ from ota_http import DeviceHTTP
 from battery import read_battery
 import hardware
 import node_state
+import ota_status
 
 TRIAL_SECONDS = 30
 NVM_MARKER = b"DGO1"  # Reserved bytes 0..4; never store device secrets in NVM.
@@ -30,7 +31,9 @@ class OTAIndicator:
         import digitalio
         from neopixel_write import neopixel_write
         self.pin = digitalio.DigitalInOut(getattr(board, hardware.profile(board.board_id)["wing"]))
-        self.screen = hardware.BootScreen()
+        self.screen = hardware._boot_screen
+        self.owns_screen = self.screen is None
+        if self.owns_screen:self.screen=hardware.BootScreen()
         self.screen.phase("Checking for updates")
         self.write = neopixel_write
         self.pixels = bytearray(OTA_PIXEL_COUNT * 3)
@@ -44,6 +47,7 @@ class OTAIndicator:
             raise
 
     def update(self):
+        self.screen.tick()
         now = time.monotonic()
         if now < self.next_step:
             return
@@ -57,7 +61,7 @@ class OTAIndicator:
         self.next_step = now + OTA_PIXEL_STEP_S
 
     def close(self):
-        self.screen.close()
+        if getattr(self,'owns_screen',True):self.screen.close()
         try:
             self.write(self.pin, bytes(len(self.pixels)))
         finally:
@@ -124,9 +128,11 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
     """Run only outside audio/LED processing. Every exit disconnects the AP."""
     import wifi
     import socketpool
+    if not report_only:ota_status.reset('checking')
     started = time.monotonic()
     deadline = started + 90
     indicator = None
+    phase = 'startup'
     def service():
         if time.monotonic() >= deadline:
             raise OSError("maintenance_deadline")
@@ -135,18 +141,22 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
             indicator.update()
     try:
         indicator = OTAIndicator()
+        indicator.screen.version(version)
         nvm_flag(True)  # Watchdog/reset in network phase skips it once next boot.
         time.sleep(int.from_bytes(os.urandom(2), "little") / 65535 * 2)
         service()
         wifi.radio.enabled = True
         if indicator:indicator.screen.phase("Joining Wi-Fi")
+        phase = 'wifi'
         wifi.radio.connect(cfg["ssid"], timeout=8)
-        if indicator:indicator.screen.phase("Checking release")
+        if indicator:indicator.screen.phase("Checking updates")
+        phase = 'http'
         client = DeviceHTTP(socketpool.SocketPool(wifi.radio), cfg["id"], cfg["token"], cfg["api"])
         body = report_body(store, cfg, version, session, sequence, health)
         result = client.request("report" if report_only else "check-in", service,
                                 lambda response: response.json() if response.status == 200 else None,
                                 limit=MAX_MANIFEST, body=body)
+        if not report_only:ota_status.accept(result, version)
         if store.state["report_pending"]:
             store.save(dict(store.state, report_pending=False))
         if not report_only and result and result.get("manifest"):
@@ -163,7 +173,9 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
         print("OTA check-in complete version=" + version)
     except Exception as error:
         # Never print endpoint response bodies, credentials or raw socket objects.
-        print("OTA unavailable: " + type(error).__name__)
+        reason = ota_status.failure_reason(error, phase)
+        if not report_only:ota_status.reset('unavailable', reason)
+        print("OTA unavailable: %s reason=%s" % (type(error).__name__, reason))
     finally:
         try:
             wifi.radio.stop_station()
@@ -214,13 +226,42 @@ class Health:
 
 
 def main():
+    screen=hardware.start_boot()
+    try:
+        _main(screen)
+    finally:
+        hardware.close_boot()
+
+
+def selected_version(directory):
+    # Read only the selected slot identity, without importing app modules early.
+    with open(directory + '/app_version.py') as f:
+        identity={}
+        exec(f.read(),identity)
+    return identity['APP_VERSION']
+
+
+def start_app(directory,screen):
+    screen.version(selected_version(directory))
+    screen.phase('Loading application')
+    app,version=load_app(directory)
+    screen.phase('Listening for producer' if app.CONFIG.radio_role=='follower' else 'Starting audio')
+    return app,version
+
+
+def _main(screen):
     import board
     import storage
     import microcontroller
     from watchdog import WatchDogMode
-    field = os.getenv("OTA_ENABLED") == "1" and not storage.getmount("/").readonly
+    ota_status.reset()
+    enabled = os.getenv("OTA_ENABLED") == "1"
+    field = enabled and not storage.getmount("/").readonly
     if not field:
-        app, version = load_app()
+        ota_status.reset('maintenance' if enabled else 'disabled')
+        if enabled:
+            screen.maintenance()
+        app, version = start_app('/recovery',screen)
         print("OTA mode=maintenance app=%s base=%s" % (version, BASE_VERSION))
         app.main()
         return
@@ -228,8 +269,9 @@ def main():
     try:
         cfg = settings()
     except ValueError as error:
+        ota_status.reset('disabled')
         print("OTA disabled: " + str(error))
-        app, _ = load_app()
+        app, _ = start_app('/recovery',screen)
         app.main()
         return
     watchdog = microcontroller.watchdog
@@ -243,10 +285,8 @@ def main():
     # Do not immediately exercise Wi-Fi/TLS again following a watchdog reset.
     recovered = store.state["generation"] != generation and not trial
     directory = store.path(selected) if selected else "/recovery"
-    with open(directory + "/app_version.py") as f:
-        identity = {}
-        exec(f.read(), identity)
-    version = identity["APP_VERSION"]
+    version = selected_version(directory)
+    screen.version(version)
     session = os.urandom(8).hex()
     skip = nvm_flag() or recovered
     nvm_flag(False)
@@ -256,7 +296,7 @@ def main():
     # A fresh VM ensures no old slot modules survive selection.
     health = Health(watchdog, trial)
     try:
-        app, imported_version = load_app(directory)
+        app, imported_version = start_app(directory,screen)
         if imported_version != version:
             raise ValueError("app_version_mismatch")
         if selected and version != selected["manifest"]["version"]:

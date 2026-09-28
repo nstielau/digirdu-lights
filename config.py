@@ -5,7 +5,8 @@ class Config:
     # Confirmed hardware pins live only in code.py.
     hardware_id = ""
     display_enabled = True
-    display_brightness = 0.12
+    display_brightness = 0.50
+    display_idle_s = 30.0
     display_rotation = 0
     display_interval_s = 0.2
     sample_rate = 16000
@@ -168,6 +169,8 @@ class Config:
     def validate(self):
         if not 0 < self.display_brightness <= 0.5 or self.display_rotation not in (0, 180):
             raise ValueError("Invalid TFT brightness or rotation")
+        if not 0 < self.display_idle_s <= 3600:
+            raise ValueError("TFT idle timeout must be between 0 and 3600 seconds")
         if self.hardware_id == "adafruit_feather_esp32s3_reverse_tft":
             if (self.button_next_gpio != 1 or self.button_extra_next_gpio is not None
                     or self.button_previous_gpio is not None):

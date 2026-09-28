@@ -49,6 +49,7 @@ class OTAIndicatorTests(unittest.TestCase):
                  patch('ota_bootstrap.report_body',return_value={}), \
                  patch('ota_bootstrap.nvm_flag'), patch('ota_bootstrap.time.sleep'):
                 self.assertFalse(network(store,cfg,'1.0.6','session',1,Mock()))
+                progress.screen.version.assert_called_with('1.0.6')
                 progress.update.assert_called()
                 progress.close.assert_called_once()
                 radio.stop_station.assert_called_once()

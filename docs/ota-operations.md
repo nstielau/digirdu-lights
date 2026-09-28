@@ -83,6 +83,12 @@ application maintenance. BOOT retains effect selection during normal playback.
 Maintenance keeps the device filesystem read-only to CircuitPython and permits
 USB-host writes on FeatherS2. The ESP32 V2 uses the serial REPL. Do not bypass
 concurrent-write protection or try host writes to a field-owned CIRCUITPY drive.
+On Reverse TFT boards, the same state is visible on the display: an amber
+`USB MAINT` badge and border appear on the EchoGlow splash, followed by
+`CIRCUITPY READY`; the running dashboard keeps an amber `USB MAINTENANCE`
+strip on every page. The `FTHRS3BOOT` TinyUF2 drive is earlier than
+CircuitPython, so the TFT cannot display a status while that bootloader is
+active.
 `make deploy` preserves node configuration, settings and OTA slots/journals.
 `make deploy-base` updates only the base and certificates, preserving the USB
 recovery app too. Host tooling disables the watchdog after entering the REPL
@@ -897,3 +903,372 @@ GitHub/Firebase release. Reserve sequence14 for this device trial; a subsequent
 fleet release must use sequence15 or higher to exceed its anti-rollback floor.
 Keep USB-base backups and old journal for explicit recovery. Do not replace
 active slot files or bypass trial health confirmation.
+
+Producer deployment completed from local commit `be5f9f2` (no push/publication).
+Base and recovery files were backed up along with both previous OTA slots,
+settings and saved identity under ignored `.artifacts/app-backups/feathers2-trial-1790273295356996000`.
+The host drive was unmounted/ejected; the device already owned its filesystem
+in OTA field mode, so serial writes required no ownership override. All22 base/
+recovery files passed staged and final byte readback. OTA base1.1.0 first booted
+the preserved1.0.8 active slot successfully. `UpdateStore.stage` then validated
+all12 new files into inactive slot0 as sequence14, with old slot1 retained.
+
+Native trial logged `OTA confirmed version=1.1.0` and successful check-in.
+The intentional confirmation reset disconnected USB; this caused a host serial
+read exception, not a device traceback. Reconnected successfully. Checksummed
+journal generation20 reports active1.1.0 slot0, floor14, no trial/error and no
+pending report. Continued live microphone/spectrum output after reset confirms
+normal field operation. Both GPIO0 and IO43 inputs are retained. Logs include
+occasional processing-over-budget warnings (including109ms against64ms); no
+new real-time performance guarantee is claimed. Logs:
+`.artifacts/bringup/producer-trial-live.log`,
+`.artifacts/bringup/producer-confirmed-startup.log`.
+A live TFT-originated effect/brightness control test is now awaiting user input.
+
+The90-second passive button-test window completed with continued microphone
+output and no GROUP/EFFECT/SLEEP command log entries. No user confirmation
+arrived during the window; cross-node button behavior remains unconfirmed.
+
+The user subsequently confirmed TFT D1 changes the shared effect and the
+Brightness page D1/D2 changes the percentage with the producer Wing following.
+This is physical confirmation; those presses were outside the captured log
+window. Group sleep/countdown verification is the next check.
+
+The user reported the sleep action done. The120-second recording did not
+capture a GROUP/SLEEP transition. A subsequent six-second passive console check
+returned only CircuitPython Done/Wi-Fi off, consistent with sleep; no reset,
+interrupt or wake command was sent. This is not a sleep-current measurement.
+Explicit confirmation of full-screen countdown and both nodes remaining dark
+is still needed to close the visual check.
+
+The user explicitly confirmed the full-screen countdown appeared and both the
+Reverse TFT and microphone producer finished completely dark. Group sleep
+visual validation is complete for these two nodes; both were left asleep.
+Sleep current and post-update wake behavior were not measured in this test.
+
+### September24: brighter TFT, display standby, and sleep animation
+
+The next local app preview raises TFT backlight from12% to50%, blanks it after
+30seconds without buttons, and stops dashboard snapshots/composition/transfers
+while blank. Audio/radio/Wing work continues. A first press wakes only, consuming
+holds until stable release. Incoming group sleep wakes the countdown display.
+Sleep adds a cached pixel-art dog with breathing/Z animation. Group command
+feedback is now a small top Broadcasting... banner with error text preserved.
+No base or wire-format change; these app files can be released over OTA once
+devices have compatible base/credentials. The bare S3 is not enrolled yet.
+
+Host `make check` passed181 tests. Review caught and fixed banner expiry before
+Status-page composition after a fast ACK; a regression covers that case. Tests
+also cover actual button routing through wake holds, display-only failure
+isolation, zero dashboard work while blank, and continued sleep strip progress.
+
+The connected S3 retained UID468e33373f48/MAC64:e8:33:73:f3:84. `make deploy`
+hit the known Mac FAT directory inconsistency (`File exists: recovery`). After
+unmount/eject of verified disk4/CIRCUITPY, the established native serial path
+backed up and verified all seven selected recovery modules byte-for-byte,
+preserving node identity/base/credentials. Consumer startup passed, with zero
+received packets while the microphone producer remained asleep.
+
+An isolated native display preview exercised banner, shortened3-second idle,
+wake, hold countdown, and fading countdown. All stages passed with no dashboard
+fault; native backlight readings were0.5 ->0 ->0.5. Drawing stopped while idle.
+398 bounded update steps had a maximum observed16.11ms, with1,272,704bytes free.
+This synthetic consumer preview is not an audio/radio benchmark or current
+measurement. Log: `.artifacts/bringup/tft-idle-preview.log`.
+
+An optional subsequent full-frame screenshot export exceeded the serial timeout;
+attempts to re-enter/restart the REPL received no response. The native preview
+had already completed successfully. No cause of the unresponsive console is
+established; a physical RESET was requested to restore the normal app. Do not
+claim a clean diagnostic exit or completed visual/real30second-idle confirmation.
+
+After the requested physical RESET, a45-second passive serial capture confirmed
+normal1.1.0 consumer operation with continuing LIGHTS/DEVICE output and no
+traceback or TFT-disabled message. Source/group identity remained unchanged;
+RX stayed zero while the producer was asleep. Normal app restoration is
+verified. Log: `.artifacts/bringup/tft-idle-live.log`. The user was asked to check
+real30second blanking, first-press wake, second-press page change, and the dog
+countdown using a1–2second D2 hold followed by release. Visual confirmation is
+pending. This preview has not been committed/pushed or published to the fleet.
+
+The user then confirmed first-press wake, second-press page switching, and the
+animated sleeping dog with a readable countdown after the idle screen went dark.
+The physical idle/wake/countdown visual check is complete. This does not measure
+power consumption or repeat the already-qualified two-node deep-sleep test.
+
+### September24: EchoGlow startup, USB base1.1.1
+
+User approved EchoGlow branding with selected app version/live status and a
+soundwave that reflects off a wall and bursts into light. BootScreen now shares
+one cached animation bitmap through network startup and dashboard preparation.
+The cyan outbound wave reflects pink from a wall, bursts into cyan/pink/gold,
+then settles into a glow. Callback cadence is bounded10Hz, with capped catch-up
+after blocking operations and no fixed splash delay. App minimum base remains
+1.1.0; callbacks are optional on older bases. The screen displays app1.1.0 while
+the USB base is1.1.1. Wire formats, settings, credentials, project identifiers,
+and the dim cyan Wing OTA indicator are unchanged.
+
+`make check` passed191 tests. Review found an old-app compatibility issue where
+stale startup cleanup could erase a replacement fault screen; TextScreen.close
+now checks root ownership, with a regression test. A fresh network confirmation
+screen receives the actual app version too. Native test logs are under ignored
+`.artifacts/bringup/echoglow-deploy.log` and `echoglow-preview.log`.
+
+Connected S3 UID468e33373f48 retained its consumer role/source/group. Standard
+make deploy again failed at the host FAT directory view (`File exists: recovery`).
+After verified CIRCUITPY/disk4 unmount and eject, the serial fallback backed up
+and byte-verified hardware.py, ota_bootstrap.py, ota_manifest.py, and recovery
+dashboard.py/lights_app.py. Saved identity/credentials/release slots were not
+replaced. Startup confirmed app1.1.0/base1.1.1 and continuing consumer operation.
+
+Native preview completed wave/echo/burst/glow with no fault, maximum observed
+animation tick41.99ms and1,041,168bytes free. Instrumented dashboard preparation
+took6.64seconds and serviced all four animation stages before relinquishing
+boot ownership, preserving a live dashboard at50% backlight. This is startup
+work before audio processing, not an audio-frame benchmark. The preview exited
+cleanly and the normal app restarted successfully. Physical startup appearance
+was requested from the user; no fleet OTA release or push was performed.
+
+The user subsequently confirmed the physical reset sequence shows EchoGlow,
+v1.1.0, wave reflection/light burst, then the normal dashboard. Startup visual
+validation is complete on this Reverse TFT board.
+
+### September24: startup latency investigation and fix
+
+The user reported the startup delay was too long. A native comparison isolated
+dashboard initialization at5.836s without EchoGlow callbacks versus6.418s with
+them (21 callbacks,638ms total callback time). The main cost was rebuilding eight
+colored/scaled font atlases using Python per-pixel reads/division/generation.
+Font source is570x12; atlas sizes/scales1/2/4 total177,840pixels.
+
+A tiny native scaling probe verified bitmaptools.rotozoom at zero source and
+destination origins produces exact integer replication for scale2/4. Both
+rotozoom and replace_color are present in pinned CP10.3.1. A native under1second
+startup regression first failed against the old implementation at6.466s.
+The replacement uses native scaling and palette substitution, preserving all
+atlas dimensions/indices and bounded runtime strip rendering. Review found no
+new correctness issue. This changes only dashboard.py, not the USB base.
+
+After the usual make-deploy host FAT-directory failure, the verified disk4 was
+unmounted/ejected and the serial fallback backed up and byte-verified the one
+changed recovery file on UID468e33373f48. Startup passed. The native regression
+then passed: preparation0.689s, all177,840pixels identical to the old reference,
+1,567,744bytes free. See tests/native/tft_startup.py for the test and ignored
+`.artifacts/bringup/fast-fonts-before.log`, `fast-fonts-after.log`,
+`profile-startup.log`, `scale-probe.log`, and `fast-fonts-deploy.log` for evidence.
+
+Same-board software reboot to first LIGHTS output fell8.852s ->2.903s (~67%
+less time). These are two local USB/non-enrolled soft boots, not physical reset
+timing or an OTA check; Wi-Fi/TLS/update timing remains separate. Logs are
+`.artifacts/bringup/boot-before.log` and `boot-after.log`. The normal consumer
+app is restored. Fast boots may hand off before the animation finishes; no
+artificial delay is added to complete it. Host make check passed191 tests.
+The user was asked to confirm startup feel and dashboard legibility. No push
+or fleet release was performed.
+
+### September24: smoother intro with completed explosion
+
+After the optimization, the user reported choppiness and that startup cut off
+before the explosion. Their updated preference explicitly requires completing
+the intro, superseding the earlier immediate handoff. Native frame profiling
+measured3.29ms average drawing plus37.06ms refreshing; removing the refresh FPS
+limit made no difference. The previous10Hz limit and sparse startup callbacks
+were the cadence constraint, and the0.69s font setup ended the splash early.
+
+Base1.1.2 targets20Hz, caps animation catch-up at75ms, and adds a completion step
+before dashboard handoff through2.35seconds of animation (explosion ends at2.2).
+It skips closed/replaced displays and already-complete intros, and stops waiting
+after3seconds if progress stalls. App callbacks remain optional for older bases;
+app minimum base stays1.1.0. Native font construction is retained. The font test
+now excludes deliberate intro completion from its under1second timing assertion.
+
+Host make check passed195 tests, including completion stages/cadence/deadline,
+no repeat, and failed/replaced display behavior. Review found no substantial
+issue. Standard deployment again encountered the known Mac FAT directory
+inconsistency; the verified disk4 was unmounted/ejected and the serial fallback
+backed up and byte-verified hardware.py, ota_manifest.py, and recovery/dashboard.py
+on S3 UID468e33373f48. Normal app1.1.0/base1.1.2 startup passed.
+
+Native completion test rendered43 frames in2.203s:10 wave,10 echo,19 burst,4 glow;
+average frame gap51.36ms, maximum54.87ms. The completed screen handed ownership
+to a live dashboard at50% backlight without replaying the intro. Software reboot
+to first LIGHTS now measures4.871s (original8.852s, optimized but truncated2.903s).
+This is a deliberate completion wait before audio/radio startup and still keeps
+the faster font preparation; it is not a guaranteed physical reset/OTA duration.
+Native test: tests/native/tft_intro.py. Logs under ignored .artifacts/bringup:
+echo-frame-timing.log, complete-intro-deploy.log, complete-intro.log, and
+boot-complete-intro.log. The normal app is restored. Visual check is pending;
+no push or fleet publication was performed.
+
+Final font regression with the completion wait excluded passed in0.542s, with
+all177,840pixels matching and1,562,048bytes free. Normal app restart passed
+afterward; log `.artifacts/bringup/complete-intro-fonts.log`.
+
+The user accepted the revised startup after a physical RESET: smoother
+wave/reflection and a completed light explosion before the dashboard. Visual
+validation is complete for this Reverse TFT. No further animation tuning was
+requested.
+
+## September 24: second Reverse TFT, later used as producer
+
+New board MAC `64:e8:33:73:d8:3c`, UID `468e33378dc3`, ESP32-S3 rev0.1,
+4 MB flash/2 MB PSRAM. It first ran as a consumer with source
+`7c:df:a1:03:4c:2c`; it was later reconfigured as the Reverse TFT producer
+after the ICS43434 wiring was verified. Its producer role is now the source
+that new consumers should use.
+
+Factory firmware exposed USB239A:8123. Double RESET did not expose UF2;
+D0-held RESET exposed ROM303A:1001. Before erase, esptool read all4,194,304
+bytes and verified the device digest. Two SHA256-matched copies are saved in
+the worktree and main checkout under ignored
+`.artifacts/board-backups/reverse-tft-64e83373d83c/`:
+`factory-1790289180814346000.bin`, SHA256
+`54e405f011094cef073f8ca2ccf58e5852bfa2be48b7226c7c66b67d3281c1da`.
+
+Installed official TinyUF2 0.33.0 combined image with write hash verification.
+RTS reset left recovery visible; esptool's ESP32-S3 watchdog reset exposed
+FTHRS3BOOT without another physical button step. INFO_UF2 confirmed0.33.0.
+`make flash BOARD=adafruit_feather_esp32s3_reverse_tft` backed up CURRENT.UF2
+and sent CircuitPython10.3.1. macOS reported EIO at reboot; CIRCUITPY then
+appeared and boot_out.txt plus serial independently confirmed10.3.1/board/UID.
+No direct CircuitPython .bin write was needed on this board.
+
+`make deploy BOARD=adafruit_feather_esp32s3_reverse_tft
+PORT=/dev/cu.usbmodem468E33378DC31
+NODE_CONFIG=.artifacts/bringup/new-s3-consumer.py` passed195 host tests,
+all23 base/recovery/profile file readbacks, and serial startup. App1.1.0,
+base1.1.2, consumer channel1/group1; frames advanced without a traceback.
+Initial received/rejected counts were0/0: no live producer reception established.
+Normal mounted USB deployment worked; no serial filesystem fallback was needed.
+The user confirmed EchoGlow startup followed by the consumer dashboard, plus
+D0 wake/page switching on this board. D1/D2 and live radio checks remain pending.
+No OTA credentials provisioned, cloud enrollment, release publication or push.
+
+## September 24: third Reverse TFT consumer
+
+User confirmed another Reverse TFT consumer, already in ROM recovery. MAC
+`64:e8:33:73:cc:04`, UID `468e3337cc40`, ESP32-S3 rev0.1, 4 MB flash and
+2 MB PSRAM. A read attempt at460800 failed before any erase; a logged retry
+at115200 completed all4,194,304 bytes in42.4s and passed the device digest.
+The cause of the first read failure is not established. Full backup and a
+second SHA256-matched copy are saved under both checkouts' ignored
+`.artifacts/board-backups/reverse-tft-64e83373cc04/`, file
+`factory-1790294459694478000.bin`, SHA256
+`54e405f011094cef073f8ca2ccf58e5852bfa2be48b7226c7c66b67d3281c1da`.
+
+Official TinyUF2 0.33.0 combined image write passed hash verification;
+esptool watchdog reset exposed FTHRS3BOOT directly. The guarded make flash
+target backed up CURRENT.UF2 and transferred CircuitPython10.3.1. macOS again
+reported EIO during reboot. CIRCUITPY boot_out.txt and the deployment serial
+identity check subsequently confirmed the pinned version and correct board.
+
+`make deploy` with explicit S3 board, serial port and the shared consumer profile
+passed195 tests, all23 file readbacks and normal startup. App1.1.0/base1.1.2,
+channel1/group1/source `7c:df:a1:03:4c:2c`; frames advanced without traceback.
+Initial received/rejected counts were0/0. The user confirmed EchoGlow startup,
+the consumer dashboard, and D0 wake/page switching. D1/D2 and live radio checks
+remain pending. No OTA credentials enrolled or provisioned;
+no release publication or push. Full mounted USB deployment worked normally.
+
+## September 24: fourth Reverse TFT consumer
+
+New ROM-mode board MAC `64:e8:33:73:e7:08`, UID `468e33377e80`, ESP32-S3
+rev0.1, 4 MB flash/2 MB PSRAM. Full4,194,304-byte factory backup passed the
+device digest, with SHA256 matching the previous Reverse TFT factory images:
+`54e405f011094cef073f8ca2ccf58e5852bfa2be48b7226c7c66b67d3281c1da`.
+Two matching copies are saved in the main checkout and worktree under ignored
+`.artifacts/board-backups/reverse-tft-64e83373e708/`, file
+`factory-1790294915103342000.bin`. The115200 read took365.3s without errors.
+
+TinyUF2 0.33.0 installation passed write hash verification; watchdog reset
+exposed FTHRS3BOOT. The guarded make flash target backed up CURRENT.UF2 and
+transferred official CircuitPython10.3.1. macOS reported EIO during reboot;
+CIRCUITPY subsequently appeared and boot_out.txt confirmed version/board/UID.
+
+Explicit-board `make deploy` installed the shared consumer profile and passed
+195 tests, all23 file readbacks, serial CircuitPython identity and app startup.
+App1.1.0/base1.1.2, channel1/group1/source `7c:df:a1:03:4c:2c`. Frames advanced
+without traceback; initial received/rejected counts0/0. The user confirmed
+EchoGlow startup, the consumer dashboard, and D0 wake/page switching. D1/D2
+and live radio checks remain pending. No OTA credentials provisioned
+or cloud enrollment, release publication or push.
+
+
+## September 25: Device page and OTA base-block diagnostics
+
+Approved spec: `docs/superpowers/specs/2026-09-25-device-info-design.md`.
+D0 cycles Audio/Status/Brightness/Device. Device shows selected app version,
+preloaded base version and complete CPU UID, with current-boot OTA status.
+New optional check-in update_status metadata reports the newest otherwise
+compatible approved release blocked solely by minimum base, while retaining
+compatible fallback and respecting pins/pause/revocation. Artifact authorization
+and local pre-download manifest checks remain unchanged.
+
+New base-only ota_status.py stores a bounded validated RAM snapshot; base1.1.3
+includes it in the USB bundle. No flash writes or periodic Wi-Fi checks. Missing,
+invalid or failed checks show unknown/unavailable; disabled, maintenance, paused
+and no-release states are distinct. An unavailable check carries a bounded,
+non-sensitive reason such as `Wi-Fi`, `timeout`, or `HTTP 400` for the Device
+page and serial log. Report-only does not overwrite the check.
+Malformed metadata cannot stop an otherwise valid manifest from being staged.
+The app remains compatible with base1.1.0 and uses explicit unavailable guidance
+on older bases. Application release1.1.1 publishes the current dashboard and
+shared controls; the USB base remains version1.1.3.
+
+Verification: initial new tests failed before implementation, then make check
+passed206 tests; full make web-test passed3 web,5 API,30 browser and15 emulator
+tests. Independent review found no substantive issues and reran21 targeted tests.
+
+Connected fourth Reverse TFT (MAC64:e8:33:73:e7:08, UID468e33377e80) received
+app1.1.0/base1.1.3 via make deploy. All24 base/recovery/profile readbacks and
+serial startup passed, preserving its consumer profile. Normal startup reported
+channel1/group1/source7c:df:a1:03:4c:2c, received0/rejected0.
+
+Native `tests/native/device_info.py` verified actual identity and12 bounded
+render strips. Captured and visually inspected device-framebuffer PNGs for the
+unchecked state, a simulated base block, and maximum permitted UID/version
+lengths: all fit without clipped text. These simulated releases were not real
+server offers. Raw-REPL diagnostic imports begin with a not_checked snapshot;
+normal unenrolled startup uses disabled. The host capture uses bounded960-byte
+chunks and restores the normal app in finally. Artifacts/logs are ignored under
+`.artifacts/bringup/device-info-*`; deployment and web logs are under `.artifacts/`.
+The user visually confirmed the Device page on the connected TFT: App 1.1.0,
+Base 1.1.3, ID `468e33377e80`, and the OTA-not-enabled message are readable.
+
+At this point the server changes had not yet been deployed to production; no
+release, credential provisioning or enrollment was performed during this
+September 25 test window. The later September 28 enrollment note below records
+the production rollout and the first live Reverse TFT check-in.
+
+## September 25: fleet enrollment
+
+Production Firebase enrollment was confirmed for all six known IDs:
+`c7fd1a30c4c2` (FeatherS2 producer), `4133c5792f0a` (ESP32 V2 consumer),
+Reverse TFT consumer `468e33373f48`, Reverse TFT producer `468e33378dc3`, and
+Reverse TFT consumers `468e3337cc40` and `468e33377e80`. The four new Reverse TFT enrollments generated ignored
+owner-only local credential files; the two legacy devices retain their existing
+credential files in the main checkout's ignored OTA artifact directory.
+
+The connected `468e33377e80` board was provisioned over USB with its own
+credential and `OTA_ENABLED=1`; settings readback passed. Its normal reboot
+still needs a physical/clean reset confirmation after provisioning. The other
+five have enrollment records, but were not physically connected, so their USB
+credential writes remain outstanding. The two legacy credential files are in
+the main checkout; the three other Reverse TFT credential files are in this
+worktree's ignored OTA directory.
+
+## September 28: Reverse TFT consumer OTA provisioning
+
+The USB-connected consumer `468e3337cc40` already had a Firebase device record
+and an owner-only local credential file, but it had never received that
+credential in `settings.toml`. It therefore had no `OTA_DEVICE_TOKEN`,
+`OTA_DEVICE_ID`, or `OTA_ENABLED` setting and correctly displayed OTA as
+unenrolled. `make ota-provision DEVICE_ID=468e3337cc40 PORT=... OTA_ENABLE=1`
+verified the board UID, role and maintenance mount, wrote all seven OTA
+settings, and passed readback without printing the token.
+
+The deployed API initially returned `400 invalid_report` because the production
+function was behind the local Reverse TFT report contract. Function tests passed
+and `deviceApi`, `fleetOverview`, and `fleetChange` were redeployed. After a
+clean field-mode reset, the board reported app `1.1.0`, base `1.1.3`, role
+`consumer`, and battery status `out_of_range`; Firebase recorded the check-in.

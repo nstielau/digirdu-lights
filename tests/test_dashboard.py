@@ -20,6 +20,12 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(d.snapshot('leader',0,fault=True)['state'],'MIC FAULT')
         self.assertEqual(d.snapshot('leader',0)['state'],'QUIET')
 
+    def test_maintenance_mode_adds_a_persistent_banner(self):
+        d=self.module()
+        state=d.snapshot('consumer',0,maintenance=True)
+        self.assertTrue(state['maintenance'])
+        self.assertEqual(d.page_content(state,0)['banner'],'USB MAINTENANCE')
+
     def test_rate_wrap_reset_and_bounded_updates(self):
         d=self.module();r=d.Rate()
         self.assertEqual(r.update(4294967294,0),0)
@@ -63,13 +69,13 @@ class DashboardTests(unittest.TestCase):
         self.assertIsNone(native.root_group)
 
 
-class ThreePageTests(unittest.TestCase):
+class FourPageTests(unittest.TestCase):
     def test_cycle_and_effect_updates_do_not_navigate(self):
         import dashboard as d
         ui=d.Dashboard(Mock());self.assertEqual(ui.page,0)
         pages=[]
-        for _ in range(3):ui.toggle();pages.append(ui.page)
-        self.assertEqual(pages,[1,2,0])
+        for _ in range(4):ui.toggle();pages.append(ui.page)
+        self.assertEqual(pages,[1,2,3,0])
         ui.toggle()
         ui.update(1,d.snapshot('leader',4),spare=1)
         self.assertEqual(ui.page,1)
@@ -96,7 +102,7 @@ class ThreePageTests(unittest.TestCase):
                     for message in ('','Hold D2: 2.0s','SLEEP / fading'):
                         state=d.snapshot(role,effect,fault=True,age=None,message=message)
                         content=d.page_content(state,page)
-                        self.assertEqual(content['page'],'%d/3'%(page+1))
+                        self.assertEqual(content['page'],'%d/4'%(page+1))
                         self.assertIn(message or ('MIC FAULT' if role=='producer' else 'LOST'),content.values())
                         for name,_,_,count,_,_ in d.TFT_FIELDS:
                             self.assertLessEqual(len(content.get(name,'')),count,(page,name))
@@ -106,6 +112,15 @@ class ThreePageTests(unittest.TestCase):
 
 
 class RenderTests(unittest.TestCase):
+    def test_maintenance_banner_uses_the_amber_strip(self):
+        import dashboard as d
+        class Bitmap:
+            def fill(self,value):pass
+        ui=d.TFTBackend.__new__(d.TFTBackend)
+        ui.back=Bitmap();ui.fill_region=Mock();ui._text=Mock()
+        ui._prepare(d.snapshot('consumer',0,maintenance=True),0)
+        ui.fill_region.assert_any_call(ui.back,40,0,240,22,15)
+
     def test_frame_transfer_is_bounded_and_switching_replaces_pending_page(self):
         import dashboard as d
         from types import SimpleNamespace
@@ -169,7 +184,7 @@ class RuntimeTelemetryTests(unittest.TestCase):
             app.log_device_diagnostics(11,radio,5)
             self.assertEqual(output.call_count,1)
             line=output.call_args.args[0]
-            for item in ('TX=22','ok=20','failed=1','skipped=3','RX=9','rejected=2','overruns=4','source=','v1.1.0'):
+            for item in ('TX=22','ok=20','failed=1','skipped=3','RX=9','rejected=2','overruns=4','source=','v1.1.1'):
                 self.assertIn(item,line)
             app.log_device_diagnostics(20,radio,6)
             self.assertEqual(output.call_count,2)
@@ -202,7 +217,7 @@ class ResponsiveDashboardTests(unittest.TestCase):
         self.assertTrue(ui.update(1,state))
         self.assertFalse(ui.update(1.3,state))
         self.assertTrue(ui.update(2.1,state))
-        ui.toggle();ui.toggle();self.assertEqual(ui.page,0)
+        ui.toggle();ui.toggle();ui.toggle();self.assertEqual(ui.page,0)
         self.assertTrue(ui.update(2.11,state))
         content=d.page_content(state,1)
         self.assertIn('3 Aurora',content.values())

@@ -83,3 +83,38 @@ test('direct unauthenticated Firestore reads are denied by deployed emulator rul
  const response=await fetch('http://127.0.0.1:8081/v1/projects/demo-digirdu/databases/(default)/documents/devices/'+id);
  assert.equal(response.status,403);
 });
+
+test('base block metadata accompanies compatible fallback without granting artifact access',async()=>{
+ const blocked=manifest('2.0.0','2.0.0');
+ blocked.files=blocked.files.map(f=>({...f,sha256:c.hash('y')}));
+ blocked.sha256=c.hash(blocked.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
+ await db.doc('releases/2.0.0').set({approved:true,manifest:blocked});
+ const result=await svc.checkIn(id,token,report());
+ assert.equal(result.manifest.version,'1.1.0');
+ assert.deepEqual(result.update_status,{schema:1,state:'checked',blocked:{version:'2.0.0',minimum_base:'2.0.0'}});
+ await assert.rejects(svc.artifact(id,token,blocked.sha256,'effects.py'),e=>e.status===404);
+});
+test('base-block status respects pin, pause and absence of release',async()=>{
+ await db.doc('releases/2.0.0').set({approved:true,manifest:manifest('2.0.0','2.0.0')});
+ await db.doc('devices/'+id).update({pin:'1.1.0',sequence:2});
+ assert.equal((await svc.checkIn(id,token,report())).update_status.blocked,null);
+ await db.doc('devices/'+id).update({pin:'2.0.0'});clock+=2000;
+ let result=await svc.checkIn(id,token,report(2));
+ assert.equal(result.manifest,null);assert.equal(result.update_status.blocked.version,'2.0.0');
+ await db.doc('devices/'+id).update({paused:true});clock+=2000;
+ assert.deepEqual((await svc.checkIn(id,token,report(3))).update_status,{schema:1,state:'paused',blocked:null});
+ await db.doc('devices/'+id).update({paused:false,pin:null});
+ await db.doc('channels/stable').delete();clock+=2000;
+ assert.deepEqual((await svc.checkIn(id,token,report(4))).update_status,{schema:1,state:'no_release',blocked:null});
+});
+test('no false base warning for current, revoked, unapproved or other-incompatible releases',async()=>{
+ const candidate=manifest('2.0.0','2.0.0');
+ for(const scenario of ['current','revoked','unapproved','circuitpython']){
+  await db.doc('releases/2.0.0').set({approved:scenario!=='unapproved',revoked:scenario==='revoked',manifest:candidate});
+  const body={...report(),session:c.hash(scenario).slice(0,16)};
+  if(scenario==='current')body.version='2.0.0';
+  if(scenario==='circuitpython')body.circuitpython='9.0.0';
+  clock+=2000;
+  assert.equal((await svc.checkIn(id,token,body)).update_status.blocked,null,scenario);
+ }
+});

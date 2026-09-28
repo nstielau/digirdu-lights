@@ -37,8 +37,8 @@ class BrightnessTests(unittest.TestCase):
     def test_brightness_page_labels_value_and_local_cycle(self):
         import dashboard as d
         ui=d.Dashboard(Mock());pages=[]
-        for _ in range(3):ui.toggle();pages.append(ui.page)
-        self.assertEqual(pages,[1,2,0])
+        for _ in range(4):ui.toggle();pages.append(ui.page)
+        self.assertEqual(pages,[1,2,3,0])
         state=d.snapshot('consumer',0,brightness=.08,brightness_max=.15)
         content=d.page_content(state,2)
         self.assertEqual(content['b1'],'+')

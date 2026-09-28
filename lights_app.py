@@ -17,7 +17,12 @@ from battery import BatteryMonitor
 
 from hardware import profile, microphone as profile_microphone
 PROFILE = profile(board.board_id)
-PIXEL_PIN = getattr(board, PROFILE['wing'])
+# The soldered S3 producer uses D6 for I2S word-select, so its FeatherWing
+# data line cannot share that pin. Keep the common profile for consumers, but
+# drive the Reverse TFT's onboard pixel on D33 while this node is a producer.
+PIXEL_NAME = ('NEOPIXEL' if PROFILE['id'] == 'adafruit_feather_esp32s3_reverse_tft'
+              and CONFIG.radio_role == 'leader' else PROFILE['wing'])
+PIXEL_PIN = getattr(board, PIXEL_NAME)
 if PROFILE['mic'] is None and CONFIG.radio_role != 'follower':
     raise RuntimeError('ESP32 V2 wiring is configured for consumer mode only')
 DISPLAY = None
@@ -78,7 +83,12 @@ class TFTButtons:
             raise
 
     def poll(self, animation, now, sleep, allow_sleep=True, radio=None):
-        action = self.logic.update(tuple(pin.value for pin in self.inputs),now)
+        levels=tuple(pin.value for pin in self.inputs)
+        if DISPLAY and not DISPLAY.failed and DISPLAY.button_activity(now,not levels[0] or levels[1] or levels[2]):
+            # Feed released levels so no wake press becomes NEXT or a long sleep.
+            self.logic.update((True,False,False),now)
+            return
+        action = self.logic.update(levels,now)
         if sleep.started is not None:
             return
         if action == 'page' and DISPLAY:
@@ -93,6 +103,7 @@ class TFTButtons:
             if action not in ('next','sleep','brighter','dimmer'):return
             if action=='sleep' and not allow_sleep:
                 if radio and radio.control:radio.control.feedback('SLEEP BLOCKED',now)
+                if DISPLAY:DISPLAY.set_banner('SLEEP BLOCKED',now)
                 print('SLEEP ignored during OTA trial')
                 return
             if CONFIG.radio_role=='follower':
@@ -101,10 +112,12 @@ class TFTButtons:
                 if radio:radio.request_control(command,now)
             elif action=='next':
                 animation.set_effect((animation.effect+1)%len(EFFECT_NAMES))
+                if DISPLAY:DISPLAY.set_banner('CHANGING EFFECT',now)
                 print('EFFECT %d %s'%(animation.effect,EFFECT_NAMES[animation.effect]))
             elif action in ('brighter','dimmer'):
                 animation.adjust_brightness(CONFIG.brightness_step*(1 if action=='brighter' else -1))
                 if radio:radio.next_brightness=now
+                if DISPLAY:DISPLAY.set_banner('SETTING BRIGHTNESS',now)
             else:
                 sleep.request(now,CONFIG.sleep_fade_s)
                 print('SLEEP requested from D2; broadcasting group sleep')
@@ -126,6 +139,9 @@ def start_dashboard():
             board.DISPLAY.root_group = None
         except Exception as error:
             print('TFT off unavailable:',type(error).__name__)
+    import hardware
+    close_boot=getattr(hardware,'close_boot',None)
+    if close_boot:close_boot()
     return DISPLAY
 
 
@@ -138,15 +154,16 @@ def update_dashboard(now, features, animation, battery, radio, rate, spare,
     holding=buttons.logic.countdown if buttons and hasattr(buttons,'logic') else 0
     if DISPLAY.page==2 and holding>CONFIG.button_sleep_hold_s-.5:holding=0
     control=getattr(radio,'control',None) if radio else None
-    overlay=sleep_overlay(holding=holding,remaining=remaining,
-                          status=control.status(now) if control else '')
+    overlay=sleep_overlay(holding=holding,remaining=remaining)
     DISPLAY.set_overlay(overlay)
+    DISPLAY.set_banner(control.status(now) if control else '',now)
+    if not DISPLAY.visible(now):return
     if now < DISPLAY.next_refresh:return
     if not DISPLAY.ready(now, spare):
         DISPLAY.skipped += 1
         return
     preparation_started = time.monotonic()
-    from dashboard import snapshot
+    from dashboard import snapshot, device_information
     receiver = radio.receiver if radio else None
     presence = radio.presence if radio else None
     seen = presence.count(now) if presence else 0
@@ -157,13 +174,24 @@ def update_dashboard(now, features, animation, battery, radio, rate, spare,
     elif buttons and hasattr(buttons,'logic') and buttons.logic.countdown:
         message='Hold D2: %.1fs'%buttons.logic.countdown
     reading = battery.update(now)
+    try:
+        import ota_status
+        maintenance = ota_status.snapshot().get('state') == 'maintenance'
+    except Exception:
+        maintenance = False
     state = snapshot(CONFIG.radio_role, animation.effect, rms=features.rms, volume=features.volume,
                      clipped=features.clipped, calibrating=features.calibrating, active=features.active,
                      fault=fault, age=age,timeout=CONFIG.radio_timeout_s,seen=seen,
                      full=presence.full if presence else False,rate=rate.update(count,now),
                      battery=reading,spectrum=features.spectrum,
                      tx_failed=radio.radio.send_failure if radio else 0,message=message,overlay=overlay,
-                     brightness=CONFIG.brightness,brightness_max=CONFIG.brightness_max)
+                     brightness=CONFIG.brightness,brightness_max=CONFIG.brightness_max,
+                     banner=DISPLAY.banner,animation_frame=int(now*2)%4,
+                     maintenance=maintenance,
+                     device=(device_information(
+                         CONFIG.radio_role,
+                         (radio.local_mac if radio and radio.receiver is None else CONFIG.leader_mac)
+                     ) if DISPLAY.page==3 and not overlay else None))
     preparation = time.monotonic() - preparation_started
     DISPLAY.update(now,state,spare,preparation=preparation)
 
@@ -228,7 +256,7 @@ def test_microphone(seconds=10):
     print("MIC TEST RESULT min_rms=%.1f max_rms=%.1f max_span=%d" %
           (lowest, highest, max_span))
     if max_span == 0:
-        raise RuntimeError("Microphone data is flat; check power, SEL, and GPIO 5/6/9")
+        raise RuntimeError("Microphone data is flat; check power, SEL, and the configured I2S pins")
 
 
 def benchmark(seconds=5):
@@ -294,7 +322,7 @@ def run(seconds=None, drive_pixels=True, health=None):
                     else:
                         flat_since = None
                     if flat_since is not None and now - flat_since > CONFIG.flat_timeout_s:
-                        raise RuntimeError("Microphone data is flat; check GPIO 5/6/9, power and SEL=GND")
+                        raise RuntimeError("Microphone data is flat; check the configured I2S pins, power, and SEL wiring")
                     if radio is not None:
                         radio.receive_presence(now,animation,sleep,allow_sleep=not (health and health.trial))
                     buttons.poll(animation, now, sleep, allow_sleep=not (health and health.trial),radio=radio)

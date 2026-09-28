@@ -103,6 +103,27 @@ class ConfigurationTests(unittest.TestCase):
                 board.flash_native(firmware,directory,board.S3_BOARD)
             self.assertFalse((drive/'firmware.uf2').exists())
 
+    def test_clear_leader_writes_null_source_for_consumer(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        name='adafruit_feather_esp32s3_reverse_tft';uid='123456789abc'
+        with tempfile.TemporaryDirectory() as directory:
+            drive=Path(directory)
+            (drive/'boot_out.txt').write_text('Board ID:'+name+'\nUID:'+uid)
+            (drive/'node_config.py').write_text("OVERRIDES = {}\n")
+            repl=Mock()
+            def execute(code, **kw):
+                if 'board.board_id' in code:return repr((name,uid))
+                if 'readonly' in code:return 'True'
+                if 'OTA_DEVICE_TOKEN' in code:return repr((False,None))
+                return ''
+            repl.execute.side_effect=execute
+            with patch.object(board,'Repl',return_value=repl):
+                board.configure_node('port','consumer',1,mount=directory,clear_leader=True)
+            data=json.loads((drive/'node_state.json').read_text())
+            self.assertEqual(data['leader_mac'],'00:00:00:00:00:00')
+
     def test_button_diagnostic_uses_s3_aliases_and_polarity(self):
         import sys
         from types import SimpleNamespace

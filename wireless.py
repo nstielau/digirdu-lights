@@ -22,6 +22,7 @@ class Wireless:
         wifi.radio.power_management = wifi.PowerManagement.NONE
         monitor = wifi.Monitor(channel=config.radio_channel)
         monitor.deinit()
+        self.local_mac = bytes(wifi.radio.mac_address)
         self.radio = espnow.ESPNow(buffer_size=2048)
         self.peer = espnow.Peer(mac=b"\xff" * 6, channel=config.radio_channel)
         self.radio.peers.append(self.peer)
@@ -55,7 +56,7 @@ class Wireless:
             self.receiver = Receiver(config)
             self.control = ControlClient(config,wifi.radio.mac_address,self.boot_session)
         print("RADIO role=%s mac=%s channel=%d group=%d" %
-              (config.radio_role, bytes(wifi.radio.mac_address).hex(), config.radio_channel, config.radio_group))
+              (config.radio_role, self.local_mac.hex(), config.radio_channel, config.radio_group))
 
     def publish(self, features, animation, now, sleep=None):
         self.transmitter.observe(features, now)

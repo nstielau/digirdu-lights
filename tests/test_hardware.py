@@ -11,7 +11,7 @@ class HardwareTests(unittest.TestCase):
         from hardware import profile, validate_pins
         s3 = profile('adafruit_feather_esp32s3_reverse_tft')
         self.assertEqual(s3['wing'], 'D6')
-        self.assertEqual(s3['mic'], ('D5', 'D9', 'D10'))
+        self.assertEqual(s3['mic'], ('D5', 'D9', 'D6'))
         self.assertEqual(profile('unexpectedmaker_feathers2')['wing'], 'IO38')
         self.assertEqual(profile('adafruit_feather_esp32_v2')['wing'], 'D32')
         for pins in ((5, 6, 10), (5, 9, 9), (35, 9, 10), (0, 9, 10)):
@@ -59,7 +59,7 @@ class HardwareTests(unittest.TestCase):
             spec.loader.exec_module(app)
             self.assertEqual(app.PIXEL_PIN,6)
             app.microphone()
-        self.assertEqual(factory.call_args.args,(5,9,10))
+        self.assertEqual(factory.call_args.args,(5,9,6))
 
     def test_capture_failure_is_visible_without_role_change(self):
         from test_sleep import load_app

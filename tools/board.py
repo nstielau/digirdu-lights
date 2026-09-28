@@ -363,11 +363,16 @@ def configuration_bytes(previous, data):
     return ('# Per-device tuning and confirmed identity.\nOVERRIDES = '+repr(values)+'\n').encode()
 
 
-def configure_node(port, role, group, leader_mac=None, mount=None):
+def configure_node(port, role, group, leader_mac=None, mount=None, clear_leader=False):
     import json
     from node_state import validate
+    if clear_leader and role != 'consumer':
+        raise ValueError('Only a consumer can clear its producer source')
     data={'schema':1,'radio_role':role,'radio_group':group}
-    if leader_mac:data['leader_mac']=leader_mac.lower()
+    if clear_leader:
+        data['leader_mac']='00:00:00:00:00:00'
+    elif leader_mac:
+        data['leader_mac']=leader_mac.lower()
     validate(data)
     repl=Repl(port)
     try:
@@ -413,7 +418,8 @@ def configure_node(port, role, group, leader_mac=None, mount=None):
                 actual=ast.literal_eval(repl.execute("print(repr(open('/%s.tmp','rb').read()))"%name))
                 if actual!=contents:raise ValueError('Configuration readback failed')
                 repl.execute("os.rename('/%s.tmp','/%s'); os.sync()"%(name,name))
-        print('Verified node identity: role=%s group=%d source=%s. Reset to apply.'%(role,group,leader_mac or 'local microphone'))
+        source = 'NONE' if clear_leader else leader_mac or 'local microphone'
+        print('Verified node identity: role=%s group=%d source=%s. Reset to apply.'%(role,group,source))
     finally:
         repl.serial.close()
 
@@ -460,6 +466,8 @@ def main():
     parser.add_argument("--role", choices=("producer","consumer"),default="consumer")
     parser.add_argument("--group",type=int,default=1)
     parser.add_argument("--leader-mac")
+    parser.add_argument("--clear-leader", action="store_true",
+                        help="Consumer only: save a null producer MAC until a source is assigned")
     parser.add_argument("--base-only", action="store_true", help="Update USB base while preserving recovery app and OTA slots")
     parser.add_argument("--legacy-rainbow", action="store_true", help="Deploy the original ESP32 V2 rainbow example")
     args = parser.parse_args()
@@ -480,7 +488,9 @@ def main():
     port = find_port(args.port)
     print(f"Using {port}", flush=True)
     if args.action == "configure-node":
-        configure_node(port,args.role,args.group,args.leader_mac,args.mount)
+        if args.clear_leader and args.leader_mac:
+            parser.error("--clear-leader and --leader-mac are mutually exclusive")
+        configure_node(port,args.role,args.group,args.leader_mac,args.mount,args.clear_leader)
     elif args.action == "deploy":
         deploy(port, args.board, args.mount, args.node_config, args.legacy_rainbow, args.base_only)
     elif args.action in ("test-mic", "test-buttons", "benchmark"):

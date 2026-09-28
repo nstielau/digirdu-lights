@@ -30,6 +30,18 @@ async function main(){
    await db.doc('devices/'+arg).create({name:role+' '+arg.slice(-6),board,role,enabled:true,paused:false,
       pin:null,tokenHash:hash(secret),enrolledAt:Date.now()});
    console.log('Enrolled '+arg+'; credential saved to ignored '+output);
+  }else if(action==='set-role'){
+   if(!/^[a-f0-9]{12,32}$/.test(arg||'')||!['producer','consumer'].includes(board))throw new Error('Invalid device identity/role');
+   const ref=db.doc('devices/'+arg),snap=await ref.get(),d=snap.data();
+   if(!d||!BOARDS.includes(d.board)||(d.board===BOARDS[1]&&board!=='consumer'))throw new Error('Unknown or unsupported device role');
+   const credential=path.join(ROOT,'.artifacts/ota',arg+'.json');
+   if(!fs.existsSync(credential))throw new Error('Local credential file is required for role change');
+   const local=JSON.parse(fs.readFileSync(credential,'utf8'));
+   if(local.id!==arg||local.board!==d.board)throw new Error('Local credential identity mismatch');
+   local.role=board;
+   fs.writeFileSync(credential,JSON.stringify(local),{mode:0o600});
+   await ref.update({role:board,name:board+' '+arg.slice(-6)});
+   console.log('Updated '+arg+' role to '+board+'; configure the board profile before provisioning.');
   }else if(action==='status'){
    const docs=await db.collection('devices').get();
    for(const doc of docs.docs){const d=doc.data();console.log(JSON.stringify({id:doc.id,board:d.board,role:d.role,
@@ -71,7 +83,7 @@ async function main(){
     });
     console.log('Imported immutable release '+arg+'; newest stable advanced if newer.');
    }finally{fs.rmSync(temp,{recursive:true,force:true});}
-  }else throw new Error('Usage: seed-admin [EMAIL] | enroll ID BOARD ROLE | import-release VERSION | status');
+ }else throw new Error('Usage: seed-admin [EMAIL] | enroll ID BOARD ROLE | set-role ID ROLE | import-release VERSION | status');
  }finally{await db.terminate();}
 }
 main().catch(error=>{console.error('Firmware administration failed: '+(error.code||error.message||'unknown'));process.exitCode=1;});
