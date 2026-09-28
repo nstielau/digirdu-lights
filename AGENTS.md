@@ -489,7 +489,7 @@ errors retain their text. A banner transition preempts a partial frame so a fast
 ACK cannot expire before slow Status/Brightness composition. No protocol/base
 change; existing OTA-capable nodes can receive these app changes in a release.
 
-EchoGlow startup: USB base1.1.2 provides a wave/reflection/light-burst animation,
+EchoGlow startup: USB base1.1.3 provides a wave/reflection/light-burst animation,
 selected app version, and actual phase text. App minimum base stays1.1.0; new
 dashboard/startup calls use getattr for backward compatibility. Do not import
 app modules before slot isolation just to get the version; read the selected
@@ -513,7 +513,7 @@ CP10.3.1/S3 measured0.69s, all177,840pixels identical; software restart to first
 LIGHTS decreased8.85s ->2.90s, without OTA networking, before the completion wait
 was added. Keep this optimization; the native font test measures without a boot
 screen so it excludes the deliberate intro finish. Font optimization needs no
-new base, but the completion/cadence revision requires base1.1.2 and matching app.
+new base, but the completion/cadence revision requires base1.1.3 and matching app.
 
 ## OTA minimum base compatibility
 

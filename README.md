@@ -1449,7 +1449,7 @@ change an enrolled role. Credentials are never part of an app release.
 
 ### TFT dashboard and controls
 
-**EchoGlow startup (USB base1.1.2):** the Reverse TFT shows EchoGlow, the selected
+**EchoGlow startup (USB base1.1.3):** the Reverse TFT shows EchoGlow, the selected
 local **app version**, and a live startup status. A cyan soundwave travels into
 a magenta wall, reflects back, and bursts into cyan/pink/gold light before
 settling into a gentle glow. Animation targets20Hz; blocking imports/Wi-Fi/TLS
@@ -1463,7 +1463,7 @@ after the intro completes, retaining the50% backlight and normal30second idle ti
 
 The displayed version is the selected recovery/active/trial app, not the base
 version or an uninstalled remote release. For example, this development app
-still displays **v1.1.0** on boot base1.1.2. The branded boot screen lives in the
+still displays **v1.1.0** on boot base1.1.3. The branded boot screen lives in the
 USB-managed base and requires a one-time USB update on each TFT board; ordinary
 application/effect updates still use OTA. The app minimum base remains1.1.0:
 optional animation callbacks tolerate older bases. Project, cloud, and device
@@ -1477,7 +1477,7 @@ fell from8.85s to2.90s before the requested intro-completion wait was added.
 All177,840 atlas pixels matched the previous renderer.
 These are local USB/non-enrolled boot measurements, excluding an OTA network
 check and physical reset/USB enumeration time. The user then requested a complete,
-smoother intro: base1.1.2 deliberately finishes the burst before handoff while
+smoother intro: base1.1.3 deliberately finishes the burst before handoff while
 retaining fast font preparation. The measured software restart to first lighting
 output is now4.87s, versus8.85s before optimization. The completion loop measured
 43 frames in2.20s, with51.4ms average and54.9ms maximum inter-frame gaps.
