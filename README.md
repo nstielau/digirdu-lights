@@ -511,6 +511,13 @@ or a running render loop (follower), with no traceback. Existing `node_config.py
 is supplied explicitly. A level log alone cannot establish that the microphone responds
 to sound; compare quiet and clap levels and watch the LEDs.
 
+On Reverse TFT boards, USB maintenance is obvious on the display: the EchoGlow
+splash shows an amber `USB MAINT` badge and rails with `CIRCUITPY READY`, and
+the running dashboard keeps an amber `USB MAINTENANCE` strip on every page.
+This means the host owns the CIRCUITPY filesystem and the network OTA check is
+paused for that boot. The TinyUF2 `FTHRS3BOOT` drive is an earlier bootloader
+state, so CircuitPython and the TFT are not running and cannot show a status.
+
 Keep the room quiet for the **first two seconds** after startup to calibrate
 the noise floor. Then play a steady drone, change mouth/tongue position, add a
 growl, vocalize, and try hard DOOTs. Watch both the feature logs and the lights.
@@ -780,7 +787,7 @@ to many consumers, not a mesh. Every node needs local power.
 | --- | --- |
 | `radio_channel` | Same 2.4 GHz channel on all nodes; default 1 |
 | `radio_group` | Same installation number on all nodes; default 1 |
-| `leader_mac` | Consumers accept the microphone board's MAC, currently `7c:df:a1:03:4c:2c` |
+| `leader_mac` | Consumers accept the configured producer MAC; the current Reverse TFT producer is `64:e8:33:73:d8:3c` (the older FeatherS2 producer was `7c:df:a1:03:4c:2c`) |
 | `radio_role` | One `producer`; all other nodes `consumer` |
 | Firmware/protocol | Deploy this application version to all nodes |
 | `pixel_positions` | May differ per wing to locate it in the shared scene |
@@ -1364,3 +1371,405 @@ battery attached. A numeric reading is not battery-presence detection.
 
 The saved didgeridoo take contains no battery measurements. Replay continues
 to render only the five audio effects; no battery data is invented.
+
+## Reverse TFT Feather (1.1.2 release)
+
+The shared app now supports **Adafruit Feather ESP32-S3 Reverse TFT**,
+`adafruit_feather_esp32s3_reverse_tft`, alongside the original FeatherS2 and
+Feather ESP32 V2. The 1.1.2 app is the current stable OTA release for the
+shared board contract. Reverse TFT producer
+`468e33378dc3` is enrolled in Firebase with its producer role and OTA
+credentials saved on the board.
+
+### Wiring and first setup
+
+| Function | Reverse TFT pin |
+| --- | --- |
+| NeoPixel FeatherWing factory data jumper (consumer profile) | D6 / GPIO6 |
+| ICS43434 BCLK | D5 / GPIO5 |
+| ICS43434 WS/LRCLK | D9 / GPIO9 |
+| ICS43434 DOUT | D6 / GPIO6 |
+| Microphone SEL / power | SEL left open, VDD→3.3V, common GND |
+| Buttons | D0 active LOW; D1 and D2 active HIGH |
+
+This producer wiring uses the D6 data connection shown on the board’s pinout. D6 is also
+the FeatherWing data pin on the standard S3 profile, so do not drive a
+FeatherWing from D6 while this microphone is attached; the shared app uses the
+TFT’s onboard status pixel for this producer. A direct I2S probe currently
+reads a flat `-1` stream, so verify microphone VDD/GND, continuity on D5/D6/D9,
+and SEL/channel wiring before expecting audio packets. The app reports a
+microphone fault and leaves the producer role unchanged when samples stay flat.
+The existing FeatherS2 pins (5/6/9 mic, IO38 wing, IO43 button) and ESP32 V2
+D32 wing remain unchanged. GPIO0/1/2, I2C3/4, power7/21, SPI35/36/37,
+TFT40/41/42/45 and built-in NeoPixel33 are reserved on Reverse TFT.
+
+Use CircuitPython **10.3.1**. Inspect the bootloader with a double RESET tap;
+FTHRS3BOOT/INFO_UF2.TXT must show TinyUF2 **0.33.0 or newer** for this 4MB board.
+The [official upgrade guide](https://learn.adafruit.com/esp32-s3-reverse-tft-feather/update-tinyuf2-bootloader-for-circuitpython-10-4mb-boards-only)
+explains the changed flash layout. Save existing contents before installation.
+`make flash BOARD=adafruit_feather_esp32s3_reverse_tft` checks loader identity
+and version and backs up CURRENT.UF2 when the loader exposes it. If it cannot
+supply a backup, use the explicit ROM installation path (`make flash-rom` with
+that BOARD) which verifies the chip and 4MB flash and backs up the entire flash
+before erasing. Firmware installation is separate from routine `make deploy`.
+
+A new S3 deployment without NODE_CONFIG leaves `OVERRIDES = {}` and displays
+setup. D1 runs a ten-second quiet/sound microphone assessment; D2 confirms
+Producer only after varying, non-flat, unclipped samples. No noise threshold
+silently elects a producer, and later microphone failure never changes the role.
+D0 explains consumer setup through the host, since the consumer needs an
+explicit source MAC. Setup requires device-owned storage to save from the TFT;
+when USB owns the filesystem it displays the host command instead.
+
+```sh
+# Install the USB base/recovery application; identity and saved tuning survive.
+make deploy BOARD=adafruit_feather_esp32s3_reverse_tft
+
+# Explicit consumer source: use the producer's RADIO mac= log.
+make configure-node ROLE=consumer LEADER_MAC=64:e8:33:73:d8:3c GROUP=1
+
+# Clear a consumer's source while diagnosing or replacing the producer.
+# It remains a consumer but listens to no producer until LEADER_MAC is set.
+make clear-source BOARD=adafruit_feather_esp32s3_reverse_tft PORT=/dev/cu.usbmodem...
+
+# After wiring and verifying the proposed microphone pins:
+make configure-node ROLE=producer GROUP=1
+```
+
+The Device page shows `Role` and the relevant MAC so a USB-connected node can be
+checked without opening a console. A producer shows its own radio MAC as `MAC`;
+a consumer shows the producer MAC it is filtering as `Src`. `Src NONE` means the source
+was deliberately cleared. Reconfigure consumers when replacing their producer.
+`make clear-source` writes that null source while retaining the consumer role;
+the node will stay disconnected until a later `make configure-node ...
+LEADER_MAC=...` supplies a real producer MAC. Changing producer/consumer role
+also goes through `make configure-node ROLE=...` and, for enrolled devices,
+the matching Firebase role and OTA credential workflow.
+`PORT=...` and `MOUNT=...` disambiguate USB devices/drives. Reset after
+configuration. The helper verifies UID/mount ownership and readback, backs up
+previous configuration, and preserves literal per-device tuning. It refuses
+dynamic Python profiles; use a reviewed `NODE_CONFIG=...` for those.
+
+Saved choices are bounded, validated `/node_state.json` data. Explicit
+`node_config.py` overrides take precedence. Configure the role before OTA
+enrollment; enrolled identity changes require a coordinated host profile,
+cloud re-enrollment and credential provisioning. Ordinary TFT setup cannot
+change an enrolled role. Credentials are never part of an app release.
+
+### TFT dashboard and controls
+
+**EchoGlow startup (USB base1.1.3):** the Reverse TFT shows EchoGlow, the selected
+local **app version**, and a live startup status. A cyan soundwave travels into
+a magenta wall, reflects back, and bursts into cyan/pink/gold light before
+settling into a gentle glow. Animation targets20Hz; blocking imports/Wi-Fi/TLS
+can pause it. Before dashboard handoff, it finishes the remaining intro through
+the explosion and a brief glow. This completion step has a3second safety limit,
+does not replay an already-complete intro, and skips unavailable displays.
+OTA phases include Joining Wi-Fi, Checking updates, and
+the file being downloaded. USB/non-enrolled boots show application startup
+instead of pretending to check for updates. The dashboard replaces the splash
+after the intro completes, retaining the50% backlight and normal30second idle timeout.
+
+The displayed version is the selected recovery/active/trial app, not the base
+version or an uninstalled remote release. For example, this development app
+still displays **v1.1.2** on boot base1.1.3. The branded boot screen lives in the
+USB-managed base and requires a one-time USB update on each TFT board; ordinary
+application/effect updates still use OTA. The app minimum base remains1.1.0:
+optional animation callbacks tolerate older bases. Project, cloud, and device
+identifiers remain unchanged. The Wing's dim cyan OTA activity pixel is separate.
+
+**Startup timing:** dashboard fonts are now scaled/recolored with native
+[bitmaptools operations](https://docs.circuitpython.org/en/latest/shared-bindings/bitmaptools/index.html),
+replacing per-pixel Python loops. On the connected Reverse TFT, dashboard
+preparation fell from6.47s to0.69s, and software restart to first lighting output
+fell from8.85s to2.90s before the requested intro-completion wait was added.
+All177,840 atlas pixels matched the previous renderer.
+These are local USB/non-enrolled boot measurements, excluding an OTA network
+check and physical reset/USB enumeration time. The user then requested a complete,
+smoother intro: base1.1.3 deliberately finishes the burst before handoff while
+retaining fast font preparation. The measured software restart to first lighting
+output is now4.87s, versus8.85s before optimization. The completion loop measured
+43 frames in2.20s, with51.4ms average and54.9ms maximum inter-frame gaps.
+Native regression: `tests/native/tft_startup.py` (CircuitPython hardware required,
+font-preparation timing excludes the intentional intro-completion step).
+`tests/native/tft_intro.py` checks native animation completion and handoff.
+This optimization is app-only and can be delivered over OTA without another
+base upgrade.
+
+The landscape 240×135 screen uses three focused pages, with button labels and
+page number down the left edge. Boot starts on **Audio**; D0 cycles through
+**Audio → Status → Brightness → Audio**. Selection is local and is not saved
+across reboot or transmitted to other devices. Effect changes keep the page.
+
+| Page | Producer | Consumer |
+| --- | --- | --- |
+| Audio | Eight rainbow bars from microphone spectrum | Eight received spectrum bars |
+| Status | Effect name, battery %, consumers seen/10s, TX rate, failed sends | Effect name, battery %, link, RX rate, last valid audio age |
+| Brightness | Shared FeatherWing percentage and level bar; D1 + / D2 − | Same shared level and controls |
+
+Audio always shows the frequency spectrum regardless of the selected Wing
+effect. Existing normalization and link-loss decay are shared with the Wing;
+no second FFT is used. Missing battery and never-received packet age show `--`.
+QUIET, CALIBRATING, CLIPPING, MIC FAULT and LIVE/LOST use text; critical states
+and sleep prompts stay visible on any page. Seen consumers and successful
+native sends are not proof of LED rendering or delivery receipts.
+
+Full source/config/version, native TX counters, skips, rejected RX and audio
+overruns appear in a `DEVICE` serial diagnostic line every ten seconds on TFT
+boards. The display has no persistent firmware/config footer. Rendering uses reusable
+front/back bitmaps and at most 12 rows per transfer, allowing audio/radio work
+between strips. Audio targets five Hz; Status refreshes once per second. Actual
+refresh depends on loop time. D0 requests a new page immediately. Timing includes
+snapshot preparation once; after a slow step, a bounded retry is allowed every
+half-second when at least 12 ms remains. Empty budgets still skip the display.
+Microphone-on performance remains unmeasured.
+
+| Button | Producer | Consumer |
+| --- | --- | --- |
+| D0 release | Next local page | Next local page |
+| D1 short release | Next effect; on Brightness, +5 percentage points | Request the same shared change |
+| D2 short release on Brightness | −5 percentage points | Request shared decrease |
+| Any button held three seconds, any page | Broadcast group sleep | Request group sleep from producer |
+| Fresh press of any button after sleep | Wake this board | Wake this board |
+
+Any button takes over the entire TFT with **HOLD TO SLEEP**, a large 3–2–1 countdown,
+a breathing pixel-art dog with drifting Zs, and **Release to cancel**.
+Early release restores the selected page. At the
+three-second threshold, the producer starts the shared red fade; a consumer
+requests it over ESP-NOW and waits for the producer's broadcast. All receiving
+TFT nodes show **SLEEPING** with the fade countdown. The TFT then asks for all
+buttons to be released before arming wake; a held button cannot immediately
+wake it.
+The initial held input on restart is ignored until released. RESET always
+reboots. Sleeping radios cannot receive group wake: each node wakes locally
+from a press of any button.
+Sleep is disabled during OTA candidate trials. Existing boards keep their
+previous effect/sleep controls and reset-only wake.
+
+The TFT now uses **50% backlight while in use** and blanks after **30 seconds
+without button input**. Audio analysis, ESP-NOW, and FeatherWing effects keep
+running. While blank, dashboard snapshots, display-only battery/rate work,
+bitmap composition, and screen transfers stop. This turns off the backlight;
+it is separate from device deep sleep, and power savings have not been measured.
+Press any button to wake the current page, then release it before using the
+controls. The entire first press is consumed, including a long hold, so waking
+cannot accidentally change an effect or put the group to sleep. Incoming audio
+does not reset the inactivity timer; incoming group sleep wakes the TFT to show
+the shutdown countdown.
+
+Display updates are limited to 5 Hz, with refresh skipped when the audio frame
+has insufficient spare time. Tune `display_enabled`, `display_interval_s`,
+`display_brightness` (maximum .5), `display_idle_s` (0 < seconds <= 3600), and
+`display_rotation` (0/180) in the node profile. Wing brightness starts at .15
+and is adjustable from0 to .50 (user-approved maximum); TFT backlight is separate.
+Sleep overlays preempt the selected page and continue bounded strips with at
+least12ms spare; digit and dog-animation changes cannot restart an unfinished
+frame. Group requests show **Broadcasting...** in a small top banner, leaving
+the current page visible. Errors such as **NO PRODUCER** and **NO RESPONSE**
+appear in that same banner. Successful feedback lingers briefly after an ACK.
+Boards without TFTs do not initialize the display backend. A failed backend is
+disabled with one warning. Boot-time OTA shows phase text and retains the dim
+cyan wing activity indicator; blocked Wi-Fi/TLS calls can pause it.
+
+Reverse TFT reads its MAX17048 at I2C address 0x36 without an external library.
+The Status page displays its estimated state of charge. Device
+reports retain `{voltage, status}`; the Wing Battery effect remains a voltage
+gauge, not state of charge. Missing/unknown sensors and failed reads show
+unavailable. Battery sensing never probes the original FeatherS2's mic pins.
+
+Before Reverse TFT sleep, firmware releases the native display, disables
+backlight/TFT-I2C/onboard-NeoPixel power, and preserves those outputs plus wing
+data LOW through alarm handoff. CP10.3.1's preserved-pin mask bypasses the
+GPIO7 default-HIGH reset hook. This is source-level verification; USB simulated
+sleep and battery-powered sleep still need physical testing. **No current
+consumption claim is made.** The powered FeatherWing's separate BAT/USB rail
+and the deferred intermittent sleep-light issue remain unchanged.
+
+### Commands from any TFT node
+
+D1 and D2 on a consumer address its configured producer MAC, radio group and
+current producer boot session. The producer applies the command once, then
+broadcasts the authoritative effect in ordinary v3 frames or the existing
+repeated DGRS sleep command. Thus older consumers can follow group changes;
+the initiating TFT **and producer must have this updated app**. An old producer
+ignores requests: the TFT displays **NO RESPONSE**, not a false local effect or
+sleep. Disconnected consumers show **NO PRODUCER**. OTA trials reject sleep.
+
+DGRC requests carry consumer boot ID, sequence, recent audio sequence and action.
+DGRA replies acknowledge that same request. One pending request per consumer is
+retried every0.15s for up to2s (`control_retry_s`, `control_timeout_s`). Producer
+history is bounded by `presence_capacity`; duplicates are acknowledged without
+repeating the action. Fresh audio/session validation rejects stale requests.
+ACK traffic shares the single outstanding native send and alternates with audio;
+sleep broadcasts retain priority. No change to v3 audio or DGRS packet layouts.
+
+The Brightness page adjusts **0–50% of full LED output**, starting at15%, in
+5-percentage-point steps. D0 cycles away; D2 short release dims, while holding
+any button for3s still requests sleep. The producer repeats a separate DGRB state packet
+(current level and maximum) every0.5s. Each updated consumer adopts it after
+validating producer/session/sequence and recent audio; missed state self-corrects.
+Both sender and all receiving consumers need this app for brightness replication.
+Old consumers continue effects/sleep but ignore DGRB. Spectrum colors and effect
+number overlays update immediately when the level changes. Battery keeps its
+separate3% cap, and TFT backlight/OTA indicators are unaffected. Brightness is
+volatile: producer reboot restores its configured default. Tune `brightness`,
+`brightness_max`, `brightness_step`, and `brightness_interval_s` in configuration.
+
+Group sleep reaches awake, in-range nodes following that producer. Packet loss
+or powered-off nodes can prevent delivery; an ACK confirms producer acceptance,
+not delivery to every consumer. Sleeping nodes still wake locally using any
+button on TFT boards or RESET, rather than by radio. Page selection remains local.
+
+### ESP-NOW presence
+
+Audio remains the existing 51-byte DGRD v3 packet; sleep remains 17-byte DGRS.
+Updated consumers broadcast a separate DGRP v1 acknowledgment around every
+three seconds (±.5s jitter), only with recent valid audio from their configured
+producer. Replies name that producer MAC/session plus the consumer boot/session
+sequence and accepted audio sequence. The producer counts actual sender MACs,
+validates group/session/freshness and discards duplicates. There is no pairing,
+router, automatic election or discovery.
+
+**SEEN/10s** means listeners that acknowledged recently, not exact inventory or
+proof of visible LEDs. Entries expire after ten seconds. The table is bounded
+to 32 (`presence_capacity`); `+` indicates capacity reached. Old consumers still
+render but are uncounted. New consumers still follow old producers. Both sides
+retain one outstanding native send and bounded receive draining; sleep stops
+heartbeats. Protocol checks are not authentication against malicious RF senders.
+
+### OTA compatibility and qualification
+
+USB base/app 1.1.0 requires minimum base 1.1.0. The base adds `hardware.py` and
+`node_state.py`; app schema 2 adds `dashboard.py` and `device_setup.py`. Upgrade
+cloud validators before publishing a new release, then install the USB base
+on each board. This is a one-time USB dependency update, not an app-only OTA.
+
+Both base and cloud retain the exact historical schema-1 ten-file/two-board
+contract alongside schema 2's twelve files/three boards. Existing 1.0.x slots
+and rollback remain valid on upgraded old boards; old bases select compatible
+1.0.x releases. Reverse TFT requires a compatible 1.1.0 recovery bundle.
+`make deploy-base` preserves recovery/slots/configuration, while full deployment
+installs the new compatible recovery. Do not replace a new S3 recovery with a
+legacy ten-file bundle.
+
+Host tests cover contracts/rollback, source/role persistence, pure display
+states, microphone assessment, button polarity/wake suppression, presence and
+bounded transport. The September 23 development check passed 139 firmware tests,
+3 web unit tests, 5 API contract tests, 30 browser checks and 12 emulator tests.
+These are not a hardware benchmark. New-board TFT orientation/button order,
+sensor readings, radio operation and sleep/wake remain to be verified; mic/LED
+checks require wiring. Compare `make benchmark` with `display_enabled=False`
+and True after attaching the mic, recording FPS, mean/max work, 64ms misses
+and discontinuities. The previous FeatherS2 timing limitations still apply.
+
+September 23 bring-up: the bare Reverse TFT factory flash is backed up; official
+TinyUF2 0.33.0 and CircuitPython 10.3.1 writes passed hash verification. The
+September 24 UF2 transfer completed installation; CIRCUITPY and the serial
+console confirm the correct board and CircuitPython version. Native app
+consumer deployment passed serial readback and startup. Initial logs show
+lost link with no received packets; the user confirmed a readable, correctly oriented TFT. Live radio testing
+is deferred. D0 uses Pull.UP; D1/D2 use Pull.DOWN, including the D2 sleep
+release and wake input. Physical button/sleep and battery tests remain pending.
+Recovery and backup details are in [OTA operations](docs/ota-operations.md).
+
+September 24 second Reverse TFT: MAC `64:e8:33:73:d8:3c` now runs
+CircuitPython10.3.1 and EchoGlow app1.1.0/base1.1.2. Its saved consumer profile
+follows producer `7c:df:a1:03:4c:2c` on group1/channel1 using the shared app.
+Factory flash was backed up before installation; all23 deployment files passed
+readback and normal startup passed. Initial radio logs had no received packets;
+the user confirmed EchoGlow startup, the consumer dashboard, and D0 wake/page
+switching. Live radio reception remains unverified. It is not yet enrolled for
+cloud OTA.
+
+The third Reverse TFT, MAC `64:e8:33:73:cc:04`, has the same firmware, app/base
+versions and consumer configuration. Its factory backup, all23 deployment
+readbacks and serial startup passed. The user confirmed EchoGlow startup, the
+consumer dashboard, and D0 wake/page switching. Live radio testing and this
+board's cloud OTA enrollment remain pending.
+
+The fourth Reverse TFT, MAC `64:e8:33:73:e7:08`, also runs
+CircuitPython10.3.1 and EchoGlow app1.1.0/base1.1.2 with that consumer profile.
+Factory backup, all23 deployment readbacks and serial startup passed. Its
+EchoGlow startup, consumer dashboard, and D0 wake/page switching are confirmed
+by the user. Live radio testing and cloud OTA enrollment remain pending.
+
+
+### Device information page (USB base 1.1.3)
+
+D0 now cycles **Audio → Status → Brightness → Device**. Device shows the actual
+running app version, installed USB base version, and complete device ID (the
+lowercase CPU UID used for fleet enrollment, not the ESP-NOW MAC). D1 still
+changes the group effect and holding any button still requests group sleep. Display
+idle, wake-only first press, and the sleep overlay apply on all four pages.
+
+The update area reports this boot's check-in result. **USB BASE NEEDED** names
+the newer blocked app and its minimum base. A successful check without such a
+block says **No base block found**; this is not a claim that every kind of update
+or incompatibility has been resolved. Disabled/unenrolled, USB maintenance,
+paused, unavailable and unchecked states have separate labels. An unavailable
+check includes a short safe reason when known, such as `Wi-Fi`, `timeout`, or
+`HTTP 400`; credentials and response bodies are never shown. No background
+Wi-Fi polling or status persistence was added; reboot normally near the configured
+SSID for a fresh check. A failed check does not reuse an old warning as current.
+
+Full status reporting needs the new server check-in response and **USB base
+1.1.3**, installed using `make deploy-base` in maintenance mode. New/older server
+and base combinations fail safely to unavailable status. The app remains
+compatible with base1.1.0+; older bases display versions/ID and **Status needs
+base 1.1.3**. This optional diagnostic does not raise `APP_MINIMUM_BASE`.
+New TFT boards still need their own credentials for OTA. Server metadata is
+advisory only: server artifact authorization, local manifest compatibility,
+checksums, sequence checks and rollback remain in force.
+
+The user visually confirmed the Device page on the connected TFT: App 1.1.0,
+Base 1.1.3, ID `468e33377e80`, and the OTA-not-enabled message are readable.
+
+### Enrolling devices for OTA
+
+Each board gets a unique Firebase device record and a random token. Use the
+full lowercase CPU UID shown on its Device page or `boot_out.txt`; this is not
+the ESP-NOW MAC. Authenticate `gcloud` against the production
+`digirdu-lights` project, with emulator environment variables unset:
+
+```sh
+gcloud auth login
+gcloud config set project digirdu-lights
+make ota-enroll DEVICE_ID=<uid> BOARD=<board-id> ROLE=<producer-or-consumer>
+```
+
+This writes the token to the ignored, owner-only
+`.artifacts/ota/<uid>.json`. It does not write the board. Put that board in USB
+maintenance mode and provision it with its own port:
+
+```sh
+make ports
+make ota-provision DEVICE_ID=<uid> PORT=/dev/cu.usbmodem... OTA_ENABLE=1
+```
+
+The provisioner verifies board ID and CPU UID, preserves unrelated
+`settings.toml` values, backs up the previous settings, and verifies the write.
+Hard-reset afterward. Repeat enrollment and provisioning separately for every
+board; never copy a token or credential file between boards. Cloud enrollment
+can be prepared for devices that are not currently connected, but provisioning
+requires each board's USB maintenance window. The board must already have its
+explicit role/profile configured before credential provisioning.
+
+Known fleet IDs and roles:
+
+| CPU UID | Board | Role |
+| --- | --- | --- |
+| `c7fd1a30c4c2` | `unexpectedmaker_feathers2` | producer |
+| `4133c5792f0a` | `adafruit_feather_esp32_v2` | consumer |
+| `468e33373f48` | `adafruit_feather_esp32s3_reverse_tft` | consumer |
+| `468e33378dc3` | `adafruit_feather_esp32s3_reverse_tft` | producer |
+| `468e3337cc40` | `adafruit_feather_esp32s3_reverse_tft` | consumer |
+| `468e33377e80` | `adafruit_feather_esp32s3_reverse_tft` | consumer |
+
+All six known devices are enrolled in the production Firebase fleet. The
+Reverse TFT consumer `468e3337cc40` is now also provisioned over USB with its
+own credential and `OTA_ENABLED=1`; its first check-in reported app `1.1.0`,
+base `1.1.3`, and role `consumer`. The API deployment was updated to accept the
+Reverse TFT report contract. Other boards may still need their individual USB
+`ota-provision` step; inspect `make ota-status` before assuming a board can
+perform a check-in. Credentials remain owner-only in the ignored OTA artifact
+directory.

@@ -6,7 +6,7 @@ PORT ?=
 CIRCUITPYTHON_VERSION := 10.3.1
 BOARD ?= unexpectedmaker_feathers2
 DEPLOY_BOARD = $(if $(filter file,$(origin BOARD)),auto,$(BOARD))
-FIRMWARE_EXT := $(if $(filter unexpectedmaker_feathers2,$(BOARD)),uf2,bin)
+FIRMWARE_EXT := $(if $(filter unexpectedmaker_feathers2 adafruit_feather_esp32s3_reverse_tft,$(BOARD)),uf2,bin)
 FIRMWARE := .artifacts/firmware/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).$(FIRMWARE_EXT)
 FIRMWARE_URL := https://downloads.circuitpython.org/bin/$(BOARD)/en_US/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).$(FIRMWARE_EXT)
 MOUNT ?=
@@ -30,6 +30,7 @@ help:
 	@echo 'make console  Serial terminal (Ctrl-] exits; Ctrl-C stops; Ctrl-D restarts)'
 	@echo 'make check    Check Python syntax and whitespace without hardware'
 	@echo 'make test-mic Capture 10 seconds of microphone levels, then resume the app'
+	@echo 'make clear-source Clear a consumer producer MAC (USB maintenance required)'
 	@echo 'make test-buttons Inspect producer button GPIO transitions for 20 seconds, then resume'
 	@echo 'make replay   Replay saved feature samples through all effects in a local HTML player'
 	@echo 'make benchmark Measure live FFT/render timing for 5 seconds, then resume the app'
@@ -81,7 +82,7 @@ $(VENV)/.dev-ready: $(VENV)/.ready requirements-dev.txt
 
 check: $(VENV)/.dev-ready
 	$(PY) -m py_compile tools/replay.py tools/cloud.py tools/firmware_release.py tools/ota_provision.py
-	$(PY) -m py_compile battery.py boot.py ota_manifest.py ota_store.py ota_http.py ota_bootstrap.py app_version.py lights_app.py tools/bundle.py code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
+	$(PY) -m py_compile dashboard.py device_setup.py hardware.py node_state.py battery.py boot.py ota_status.py ota_manifest.py ota_store.py ota_http.py ota_bootstrap.py app_version.py lights_app.py tools/bundle.py code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
 	$(PY) -m unittest discover -s tests
 	git diff --check
 
@@ -149,3 +150,13 @@ replay: $(VENV)/.dev-ready
 .PHONY: replay-web
 replay-web: $(VENV)/.dev-ready
 	$(PY) tools/replay.py '$(CAPTURE)' --output '$(REPLAY_OUTPUT)' --web-data web/assets/effects-replay.json
+
+# Explicit source selection for native-USB or serial-only boards.
+GROUP ?= 1
+LEADER_MAC ?=
+.PHONY: configure-node clear-source
+configure-node: setup
+	$(PY) tools/board.py configure-node --board '$(DEPLOY_BOARD)' --port '$(PORT)' --role '$(ROLE)' --group '$(GROUP)' $(if $(LEADER_MAC),--leader-mac '$(LEADER_MAC)') $(if $(MOUNT),--mount '$(MOUNT)')
+
+clear-source: setup
+	$(PY) tools/board.py configure-node --board '$(DEPLOY_BOARD)' --port '$(PORT)' --role consumer --group '$(GROUP)' --clear-leader $(if $(MOUNT),--mount '$(MOUNT)')

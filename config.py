@@ -3,6 +3,12 @@
 
 class Config:
     # Confirmed hardware pins live only in code.py.
+    hardware_id = ""
+    display_enabled = True
+    display_brightness = 0.50
+    display_idle_s = 30.0
+    display_rotation = 0
+    display_interval_s = 0.2
     sample_rate = 16000
     fft_size = 1024
     hop_size = 1024
@@ -83,6 +89,9 @@ class Config:
     # The 32-pixel wing previews a line spanning the culvert length.
     pixel_count = 32
     brightness = 0.15
+    brightness_max = 0.50
+    brightness_step = 0.05
+    brightness_interval_s = 0.5
     pixel_positions = None  # Optional per-physical-pixel (axial -1..1, turns 0..1).
     origin = 0.0
     base_hue = 0.52
@@ -142,6 +151,12 @@ class Config:
     radio_timeout_s = 0.5
     radio_event_max_age_s = 0.5
     receiver_frame_s = 0.032
+    control_retry_s = 0.15
+    control_timeout_s = 2.0
+    presence_capacity = 32
+    presence_expiry_s = 10.0
+    presence_interval_s = 3.0
+    presence_jitter_s = 0.5
 
     def __init__(self, **overrides):
         for name, value in overrides.items():
@@ -152,6 +167,14 @@ class Config:
         self.validate()
 
     def validate(self):
+        if not 0 < self.display_brightness <= 0.5 or self.display_rotation not in (0, 180):
+            raise ValueError("Invalid TFT brightness or rotation")
+        if not 0 < self.display_idle_s <= 3600:
+            raise ValueError("TFT idle timeout must be between 0 and 3600 seconds")
+        if self.hardware_id == "adafruit_feather_esp32s3_reverse_tft":
+            if (self.button_next_gpio != 1 or self.button_extra_next_gpio is not None
+                    or self.button_previous_gpio is not None):
+                raise ValueError("Reverse TFT uses reserved D0/D1/D2 controls")
         if self.sample_rate not in (16000, 22050):
             raise ValueError("sample_rate must be 16000 or 22050")
         if self.roughness_metric not in ("participation", "flatness"):
@@ -173,7 +196,10 @@ class Config:
         for name in dir(self):
             if name.endswith("_s") and getattr(self, name) <= 0:
                 raise ValueError(name + " must be positive")
-        if not 0 < self.brightness <= 1 or self.pixel_count < 2 or self.gain <= 0:
+        if (not 0 <= self.brightness <= self.brightness_max <= 0.5
+                or not 0 < self.brightness_step <= self.brightness_max
+                or not 0.2 <= self.brightness_interval_s <= 5
+                or self.pixel_count < 2 or self.gain <= 0):
             raise ValueError("Invalid brightness, pixel_count, or gain")
         if (len(self.spectrum_edges) != 9
                 or not 0 < self.spectrum_edges[0] < self.spectrum_edges[-1] <= self.sample_rate / 2
@@ -221,6 +247,11 @@ class Config:
             for x, angle in self.pixel_positions:
                 if not -1 <= x <= 1 or not 0 <= angle <= 1:
                     raise ValueError("Invalid pixel position")
+        if (type(self.presence_capacity) is not int or not 1 <= self.presence_capacity <= 32
+                or self.presence_jitter_s >= self.presence_interval_s):
+            raise ValueError("Invalid presence limits")
+        if not 0.05 <= self.control_retry_s < self.control_timeout_s <= 3:
+            raise ValueError("Invalid control timing")
         if self.radio_role not in ("off", "leader", "follower"):
             raise ValueError("Invalid radio_role")
         if not 1 <= self.radio_channel <= 11 or not 0 <= self.radio_group <= 65535:
@@ -246,6 +277,14 @@ class Config:
             raise ValueError("Buttons must use different GPIOs")
 
 
-from node_config import OVERRIDES
-
+import sys
+if sys.implementation.name == 'circuitpython':
+    import board
+    from node_state import current
+    OVERRIDES = current()
+    if board.board_id == 'adafruit_feather_esp32s3_reverse_tft' and 'radio_role' not in OVERRIDES:
+        raise ValueError('Complete node setup before starting audio')
+    OVERRIDES['hardware_id'] = board.board_id
+else:
+    from node_config import OVERRIDES
 CONFIG = Config(**OVERRIDES)

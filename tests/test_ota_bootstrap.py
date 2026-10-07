@@ -49,20 +49,21 @@ class OTAIndicatorTests(unittest.TestCase):
                  patch('ota_bootstrap.report_body',return_value={}), \
                  patch('ota_bootstrap.nvm_flag'), patch('ota_bootstrap.time.sleep'):
                 self.assertFalse(network(store,cfg,'1.0.6','session',1,Mock()))
+                progress.screen.version.assert_called_with('1.0.6')
                 progress.update.assert_called()
                 progress.close.assert_called_once()
                 radio.stop_station.assert_called_once()
 
     def test_pin_released_even_if_blackout_write_fails(self):
         indicator=object.__new__(OTAIndicator)
-        indicator.pin=Mock();indicator.pixels=bytearray(96)
+        indicator.pin=Mock();indicator.pixels=bytearray(96);indicator.screen=Mock()
         indicator.write=Mock(side_effect=OSError('write failure'))
         with self.assertRaises(OSError):indicator.close()
         indicator.pin.deinit.assert_called_once()
 
     def test_battery_app_requires_base_with_shared_sensor(self):
         from tools.bundle import application,manifest
-        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.0.4')
+        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.1.0')
 
 class RecoveryBootTests(unittest.TestCase):
     def test_new_rollback_skips_network_but_later_boot_reports(self):
@@ -123,7 +124,7 @@ class ImportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             p=Path(folder);(p/'app_version.py').write_text('APP_VERSION="1.0.0"\nAPP_API_VERSION=1\n')
             (p/'lights_app.py').write_text('import config\nVALUE=config.SLOT\n')
-            command='from ota_bootstrap import load_app; app,_=load_app(%r); print(app.VALUE)'%folder
+            command="import sys,types; sys.modules['board']=types.SimpleNamespace(board_id='unexpectedmaker_feathers2'); from ota_bootstrap import load_app;" + ' app,_=load_app(%r); print(app.VALUE)'%folder
             failed=subprocess.run([sys.executable,'-c',command],capture_output=True,text=True)
             self.assertNotEqual(failed.returncode,0)
             self.assertIn("No module named 'config'",failed.stderr)

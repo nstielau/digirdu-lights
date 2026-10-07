@@ -1,14 +1,17 @@
 """USB-managed release contract, shared by device and host tooling."""
 import hashlib
 
-BASE_VERSION = "1.0.4"
+BASE_VERSION = "1.1.3"
 # App compatibility is independent of optional USB-base improvements.
-APP_MINIMUM_BASE = "1.0.4"  # Battery effect imports the shared base sensor.
+APP_MINIMUM_BASE = "1.1.0"
 APP_API = 1
-BOARDS = ("unexpectedmaker_feathers2", "adafruit_feather_esp32_v2")
-APP_FILES = ("animation.py", "app_version.py", "audio_features.py", "audio_spectrum.py",
+LEGACY_BOARDS = ("unexpectedmaker_feathers2", "adafruit_feather_esp32_v2")
+LEGACY_APP_FILES = ("animation.py", "app_version.py", "audio_features.py", "audio_spectrum.py",
              "config.py", "effects.py", "lights_app.py", "radio_protocol.py",
              "sound_reactive.py", "wireless.py")
+BOARDS = LEGACY_BOARDS + ("adafruit_feather_esp32s3_reverse_tft",)
+APP_FILES = tuple(sorted(LEGACY_APP_FILES + ("dashboard.py", "device_setup.py")))
+CONTRACTS = {1: (LEGACY_BOARDS, LEGACY_APP_FILES), 2: (BOARDS, APP_FILES)}
 MAX_FILE = 65536
 MAX_TOTAL = 262144
 MAX_MANIFEST = 8192
@@ -45,9 +48,13 @@ def validate(m, board_id=None, role=None, cp_version="10.3.1", require_sequence=
         keys.add("sequence")
     if type(m) is not dict or set(m) != keys:
         raise ValueError("manifest_fields")
-    if (type(m["schema"]) is not int or m["schema"] != 1 or type(m["app_api"]) is not int
+    if type(m["schema"]) is not int or m["schema"] not in CONTRACTS:
+        raise ValueError("incompatible_manifest")
+    boards, allowed_files = CONTRACTS[m["schema"]]
+    if ((m["schema"] == 2 and version_tuple(m["minimum_base"]) < (1, 1, 0))
+            or type(m["app_api"]) is not int
             or m["app_api"] != APP_API or version_tuple(m["minimum_base"]) > version_tuple(BASE_VERSION)
-            or m["circuitpython"] != cp_version or m["boards"] != list(BOARDS)
+            or m["circuitpython"] != cp_version or m["boards"] != list(boards)
             or m["roles"] != ["producer", "consumer"] or m["protocol_send"] != 3
             or m["protocol_receive"] != [3]):
         raise ValueError("incompatible_manifest")
@@ -63,14 +70,14 @@ def validate(m, board_id=None, role=None, cp_version="10.3.1", require_sequence=
     if require_sequence and (type(m["sequence"]) is not int or not 0 < m["sequence"] <= 2147483647):
         raise ValueError("invalid_sequence")
     files = m["files"]
-    if type(files) is not list or len(files) != len(APP_FILES):
+    if type(files) is not list or len(files) != len(allowed_files):
         raise ValueError("file_list")
     names = []
     total = 0
     for f in files:
         if type(f) is not dict or set(f) != {"name", "size", "sha256"}:
             raise ValueError("file_fields")
-        if (f["name"] not in APP_FILES or f["name"] in names or type(f["size"]) is not int
+        if (f["name"] not in allowed_files or f["name"] in names or type(f["size"]) is not int
                 or not 0 < f["size"] <= MAX_FILE or not is_digest(f["sha256"])):
             raise ValueError("invalid_file")
         names.append(f["name"])

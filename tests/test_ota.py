@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from ota_manifest import APP_FILES, BOARDS, bundle_digest, sha256, validate
+from ota_manifest import LEGACY_APP_FILES as APP_FILES, LEGACY_BOARDS as BOARDS, bundle_digest, sha256, validate
 from ota_store import UpdateStore
 
 

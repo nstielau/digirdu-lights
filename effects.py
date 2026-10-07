@@ -165,3 +165,46 @@ class SleepTransition:
         level = max(0.0, 1.0 - self.elapsed(now) / self.duration)
         # GRB, pure red, with the same installation-wide brightness cap.
         return bytes((0, int(255 * config.brightness * level), 0)) * config.pixel_count
+
+
+class ReleaseGate:
+    """Stable released input before arming a level-triggered wake alarm."""
+    def __init__(self, debounce_s):
+        self.debounce_s = debounce_s
+        self.since = None
+
+    def update(self, pressed, now):
+        if pressed:
+            self.since = None
+        elif self.since is None:
+            self.since = now
+        return self.since is not None and now - self.since >= self.debounce_s
+
+
+class TFTControls:
+    def __init__(self, role, debounce_s, hold_s):
+        self.role = role
+        self.buttons = [ButtonGesture(debounce_s,hold_s) for _ in range(3)]
+        self.releases = [ReleaseGate(debounce_s) for _ in range(3)]
+        self.armed = [False]*3
+        self.countdown = 0
+
+    def update(self, levels, now):
+        action = None
+        self.countdown = 0
+        for index,(level,button) in enumerate(zip(levels,self.buttons)):
+            pressed = not level if index == 0 else level
+            if not self.armed[index]:
+                self.armed[index] = self.releases[index].update(pressed,now)
+                continue
+            gesture = button.update(pressed,now)
+            if pressed and button.pressed_at is not None:
+                self.countdown = max(self.countdown,
+                                     max(0,button.hold_s-(now-button.pressed_at)))
+            if gesture == ButtonGesture.HOLD:
+                action = 'sleep'
+            elif gesture == ButtonGesture.SHORT and action != 'sleep':
+                if index == 0:action='page'
+                elif index == 1:action='next'
+                else:action='decrease'
+        return action

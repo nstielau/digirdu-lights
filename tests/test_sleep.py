@@ -191,3 +191,67 @@ class ShutdownTests(unittest.TestCase):
         for overrides in ({'sleep_fade_s':0},{'sleep_fade_s':11},
                           {'button_sleep_hold_s':.001},{'sleep_fade_s':float('nan')}):
             with self.assertRaises(ValueError):Config(**overrides)
+
+    def test_s3_release_precedes_alarm_and_preserves_power_outputs(self):
+        app=load_app()
+        self.assertTrue(hasattr(app,'wait_for_wake_release'),'S3 release-before-wake missing')
+        calls=[]
+        class DeepSleep(BaseException):pass
+        alarm=Mock();alarm.exit_and_deep_sleep_until_alarms.side_effect=DeepSleep
+        held=(object(),object(),object())
+        mcu=SimpleNamespace(watchdog=SimpleNamespace(mode='reset'))
+        with patch.object(app,'PROFILE',{'display':True}), \
+             patch.object(app,'board',SimpleNamespace(D0=0,D1=1,D2=2)), \
+             patch.object(app,'wait_for_wake_release',side_effect=lambda:calls.append('release')), \
+             patch('hardware.sleep_power',side_effect=lambda:calls.append('power') or held,create=True), \
+             patch.dict(sys.modules,{'alarm':alarm,'microcontroller':mcu,'supervisor':SimpleNamespace(runtime=Mock()),
+                                    'wifi':SimpleNamespace(radio=Mock())}):
+            with self.assertRaises(DeepSleep):app.enter_deep_sleep()
+        self.assertEqual(calls,['release','power'])
+        self.assertEqual(alarm.pin.PinAlarm.call_args_list,[
+            unittest.mock.call(pin=0,value=False,pull=True),
+            unittest.mock.call(pin=1,value=True,pull=True),
+            unittest.mock.call(pin=2,value=True,pull=True),
+        ])
+        preserved=alarm.exit_and_deep_sleep_until_alarms.call_args.kwargs['preserve_dios']
+        self.assertEqual(preserved[1:],held)
+
+
+class TFTInputBiasTests(unittest.TestCase):
+    def test_buttons_bias_idle_levels_opposite_pressed_polarity(self):
+        app=load_app()
+        pins=[Mock(),Mock(),Mock()]
+        app.board=SimpleNamespace(D0=0,D1=1,D2=2)
+        app.digitalio.DigitalInOut.side_effect=pins
+        buttons=app.TFTButtons()
+        for pin,pull in zip(pins,(app.digitalio.Pull.UP,app.digitalio.Pull.DOWN,app.digitalio.Pull.DOWN)):
+            pin.switch_to_input.assert_called_once_with(pull=pull)
+        buttons.deinit()
+
+    def test_release_wait_requires_all_buttons_to_be_stably_released(self):
+        app=load_app();app.board=SimpleNamespace(D0=0,D1=1,D2=2)
+
+        class Input:
+            def __init__(self, values):
+                self.values=iter(values)
+                self.pulls=[]
+            @property
+            def value(self):
+                return next(self.values)
+            def __enter__(self):
+                return self
+            def __exit__(self,*args):
+                return False
+            def switch_to_input(self,**kwargs):
+                self.pulls.append(kwargs['pull'])
+            def deinit(self):
+                pass
+
+        pins=[Input((False,True,True,True)),Input((True,False,False,False)),Input((True,False,False,False))]
+        app.digitalio.DigitalInOut.side_effect=pins
+        with patch('hardware.TextScreen'), \
+             patch.object(app.time,'monotonic',side_effect=[0,.01,.1,.2]):
+            app.wait_for_wake_release()
+        self.assertEqual([pin.pulls for pin in pins],[[app.digitalio.Pull.UP],
+                                                       [app.digitalio.Pull.DOWN],
+                                                       [app.digitalio.Pull.DOWN]])

@@ -1,8 +1,8 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 const c=require('../contract.cjs');
-function manifest(){const files=c.FILES.map(name=>({name,size:1,sha256:c.hash('x')}));return {
+function manifest(){const files=c.LEGACY_FILES.map(name=>({name,size:1,sha256:c.hash('x')}));return {
  schema:1,version:'1.2.0',git_commit:'a'.repeat(40),app_api:1,minimum_base:'1.0.0',circuitpython:'10.3.1',
- boards:c.BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
+ boards:c.LEGACY_BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
  sha256:c.hash(files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''))};}
 test('manifest and numeric semantic ordering',()=>{assert.equal(c.validateManifest(manifest()).version,'1.2.0');assert.ok(c.compare('1.10.0','1.9.0')>0);});
 test('reject paths, duplicated files, bad digest and incompatible packet version',()=>{
@@ -30,4 +30,18 @@ test('optional battery reports preserve old devices and validate voltage/status 
    {voltage:null,status:'measured'},{voltage:3.9,status:'measured',percent:100}]) {
   assert.throws(()=>c.validateReport({...report(),battery},'test'),/invalid_report/);
  }
+});
+
+test('schema 2 extends exact legacy contract and requires new base',()=>{
+ const old=manifest();assert.equal(c.validateManifest(old).schema,1);
+ const m=manifest();m.schema=2;m.minimum_base='1.1.0';
+ m.boards=[...old.boards,'adafruit_feather_esp32s3_reverse_tft'];
+ for(const name of ['dashboard.py','device_setup.py'])m.files.push({name,size:1,sha256:c.hash('x')});
+ m.sha256=c.hash([...m.files].sort((a,b)=>a.name.localeCompare(b.name)).map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
+ assert.equal(c.validateManifest(m).schema,2);
+ assert.equal(c.compatible(m,{board:old.boards[0],role:'producer',base_version:'1.0.4',circuitpython:'10.3.1'}),false);
+ for(const edit of [x=>x.schema=1,x=>x.minimum_base='1.0.4',x=>x.boards.pop(),x=>x.files.pop()]){
+  const bad=structuredClone(m);edit(bad);assert.throws(()=>c.validateManifest(bad));
+ }
+ assert.equal(c.validateReport({...report(),board:m.boards[2]},'test').board,m.boards[2]);
 });
