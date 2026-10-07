@@ -13,12 +13,15 @@ MOUNT ?=
 LEGACY_RAINBOW ?=
 CAPTURE ?= .artifacts/samples/didgeridoo-2026-09-16/take1.jsonl
 REPLAY_OUTPUT ?= .artifacts/replay.html
+REVIEW_AUDIO ?= tests/fixtures/audio/drone-yell-10s.wav
+REVIEW_LABELS ?= tests/fixtures/audio/drone-yell-10s.labels.json
+AUDIO_INPUT ?= 0
 BASE_ONLY ?=
 NODE_CONFIG ?=
 BOARD_ARGS = --board '$(BOARD)' --port '$(PORT)' $(if $(MOUNT),--mount '$(MOUNT)')
 ROM_FIRMWARE := .artifacts/firmware/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).bin
 
-.PHONY: help setup ports firmware flash flash-rom deploy console check test-mic test-buttons benchmark
+.PHONY: help setup ports firmware flash flash-rom deploy console check test-mic test-buttons benchmark record-review sound-review
 help:
 	@echo 'make setup    Install host tools into .venv'
 	@echo 'make ports    List USB serial devices'
@@ -33,6 +36,8 @@ help:
 	@echo 'make test-buttons Inspect producer button GPIO transitions for 20 seconds, then resume'
 	@echo 'make replay   Replay saved feature samples through all effects in a local HTML player'
 	@echo 'make benchmark Measure live FFT/render timing for 5 seconds, then resume the app'
+	@echo 'make record-review Record and validate the review audio fixture from macOS input'
+	@echo 'make sound-review Run the sound review against the recorded fixture and labels'
 	@echo 'Default board: unexpectedmaker_feathers2; old board: BOARD=adafruit_feather_esp32_v2'
 	@echo 'Optional: PORT=/dev/cu.usbserial-... overrides automatic port selection'
 
@@ -75,12 +80,18 @@ test-buttons: setup
 benchmark: setup
 	$(PY) tools/board.py benchmark $(BOARD_ARGS)
 
+record-review: setup
+	$(PY) tools/record_fixture.py --output '$(REVIEW_AUDIO)' --input '$(AUDIO_INPUT)'
+
+sound-review: $(VENV)/.dev-ready
+	$(PY) tools/sound_review.py --audio '$(REVIEW_AUDIO)' --labels '$(REVIEW_LABELS)' --output-dir '.artifacts/sound-review'
+
 $(VENV)/.dev-ready: $(VENV)/.ready requirements-dev.txt
 	$(PY) -m pip install -r requirements-dev.txt
 	touch $@
 
 check: $(VENV)/.dev-ready
-	$(PY) -m py_compile tools/replay.py tools/cloud.py tools/firmware_release.py tools/ota_provision.py
+	$(PY) -m py_compile tools/replay.py tools/cloud.py tools/firmware_release.py tools/ota_provision.py tools/record_fixture.py
 	$(PY) -m py_compile battery.py boot.py ota_manifest.py ota_store.py ota_http.py ota_bootstrap.py app_version.py lights_app.py tools/bundle.py code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
 	$(PY) -m unittest discover -s tests
 	git diff --check
