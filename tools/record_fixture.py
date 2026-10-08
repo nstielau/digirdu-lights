@@ -478,7 +478,7 @@ def _record(args):
         process_reaped = True
         returncode = process.returncode
         if not isinstance(returncode, int) or (
-            returncode > 0 and not termination_succeeded
+            returncode != 0 and not termination_succeeded
         ):
             message = f"ffmpeg exited with status {returncode}"
             diagnostic = _stderr_text(stderr)

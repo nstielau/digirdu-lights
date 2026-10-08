@@ -466,6 +466,32 @@ class CliTests(unittest.TestCase):
             self.assertEqual(list(root.glob(f".{output.name}.*")), [])
             self.assertFalse(process.terminated)
 
+    def test_natural_signal_exit_after_exact_stream_preserves_existing_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            process = FakeStreamProcess(
+                b"\0" * (16000 * 2),
+                b"ffmpeg was terminated by a signal",
+                returncode=-9,
+                running=False,
+            )
+            stderr = io.StringIO()
+
+            with patch.object(record_fixture.subprocess, "Popen", side_effect=fake_popen(process)), \
+                    redirect_stderr(stderr):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 1)
+            self.assertIn("status -9", stderr.getvalue())
+            self.assertIn("ffmpeg was terminated by a signal", stderr.getvalue())
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+            self.assertFalse(process.terminated)
+
     def test_intentional_termination_accepts_positive_ffmpeg_exit(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / "fixture.wav"
