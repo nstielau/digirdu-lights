@@ -15,10 +15,13 @@ from audio_features import AudioFeatures
 from config import Config
 from tools.sound_review import (
     analyze_wav,
+    build_artifacts,
     compare_drone,
     compare_labels,
+    group_pixels,
     load_labels,
     read_wav_hops,
+    render_effects,
     serialize_features,
 )
 from tools.record_fixture import validate_wav as validate_fixture_wav
@@ -35,6 +38,32 @@ def write_pcm_wav(path, sample_rate_hz, samples):
         destination.setframerate(sample_rate_hz)
         destination.writeframes(little_endian.tobytes())
     return path
+
+
+def fixture_feature_frames():
+    """Small serialized feature timeline for deterministic renderer tests."""
+    frames = []
+    for time_ms in range(0, 1001, 100):
+        level = 0.2 if time_ms < 500 else 0.8
+        frames.append(
+            {
+                "time_ms": time_ms,
+                "calibrating": False,
+                "volume": level,
+                "drone": level,
+                "growl": 0.15,
+                "vocal": 0.1,
+                "transient_strength": 0.0,
+                "low_energy": 0.55,
+                "mid_energy": 0.3,
+                "high_energy": 0.15,
+                "spectrum": (level, 0.5, 0.25, 0.1, 0.05, 0.0, 0.0, 0.0),
+                "active": level > 0.0,
+                "raw_rms": 100.0,
+                "dominant_frequency_hz": 93.75,
+            }
+        )
+    return frames
 
 
 class SoundReviewWavTests(unittest.TestCase):
@@ -582,6 +611,117 @@ class SoundReviewMetricTests(unittest.TestCase):
         self.assertIn("comparison", result)
         self.assertEqual(result["labels"]["labels"], [])
         self.assertEqual(json.loads(labels_path.read_text()), original)
+
+
+class SoundReviewEffectTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.tempdir = Path(self.temporary.name)
+
+    def test_group_pixels_converts_grb_and_averages_equal_groups(self):
+        grb = bytes((10, 20, 30, 30, 40, 50, 50, 60, 70, 70, 80, 90))
+
+        self.assertEqual(
+            group_pixels(grb, groups=2),
+            [[30, 20, 40], [70, 60, 80]],
+        )
+
+    def test_render_effects_groups_renderer_output_for_three_nodes(self):
+        effects = render_effects(
+            fixture_feature_frames(),
+            Config(),
+            fps=20,
+            node_distances_mm=(-5000, 0, 5000),
+            virtual_wave_speed_mm_s=10000,
+        )
+
+        self.assertEqual(effects["node_distances_mm"], [-5000, 0, 5000])
+        self.assertEqual(
+            set(effects["effects"]),
+            {"Spectrum", "Ember", "Aurora", "Ripple", "Chroma"},
+        )
+        self.assertEqual(
+            len(effects["frames"]["Spectrum"]["0"][0]["pixels_rgb"]), 8
+        )
+        self.assertTrue(
+            all(
+                len(pixel) == 3
+                for pixel in effects["frames"]["Spectrum"]["0"][0][
+                    "pixels_rgb"
+                ]
+            )
+        )
+
+    def test_render_effects_uses_absolute_causal_delay_for_nodes(self):
+        effects = render_effects(
+            fixture_feature_frames(),
+            Config(),
+            fps=2,
+            node_distances_mm=(-5000, 0, 5000),
+            virtual_wave_speed_mm_s=10000,
+        )
+
+        midpoint = effects["frames"]["Spectrum"]["1"][1]
+        outward = effects["frames"]["Spectrum"]["0"][1]
+        opposite = effects["frames"]["Spectrum"]["2"][1]
+        self.assertEqual(midpoint["time_ms"], 500)
+        self.assertEqual(midpoint["source_time_ms"], 500)
+        self.assertEqual(outward["source_time_ms"], 0)
+        self.assertEqual(opposite["source_time_ms"], 0)
+
+    def test_artifacts_are_byte_stable_and_manifest_is_hashed_without_clock_data(
+        self,
+    ):
+        config = Config()
+        audio_path = write_pcm_wav(
+            self.tempdir / "take.wav",
+            config.sample_rate,
+            array.array("h", [0]) * (config.hop_size * 3),
+        )
+        labels_path = self.tempdir / "take.labels.json"
+        labels_path.write_text(
+            json.dumps(
+                {
+                    "audio_file": audio_path.name,
+                    "sample_rate_hz": config.sample_rate,
+                    "labels": [],
+                }
+            )
+        )
+        output_dir = self.tempdir / "artifacts"
+
+        first = build_artifacts(audio_path, labels_path, output_dir, config)
+        first_bytes = {
+            name: Path(path).read_bytes()
+            for name, path in first.items()
+        }
+        second = build_artifacts(audio_path, labels_path, output_dir, config)
+        second_bytes = {
+            name: Path(path).read_bytes()
+            for name, path in second.items()
+        }
+
+        self.assertEqual(first_bytes, second_bytes)
+        manifest = json.loads(Path(first["run_json"]).read_text())
+        self.assertEqual(manifest["random_seed"], 0)
+        self.assertNotIn("generated_at", manifest)
+        self.assertEqual(
+            set(manifest["source_sha256"]),
+            {"audio", "labels"},
+        )
+        self.assertEqual(
+            set(manifest["module_sha256"]),
+            {
+                "audio_spectrum.py",
+                "audio_features.py",
+                "audio_events.py",
+                "animation.py",
+                "effects.py",
+                "config.py",
+                "tools/sound_review.py",
+            },
+        )
 
 
 if __name__ == "__main__":

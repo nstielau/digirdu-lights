@@ -1,17 +1,21 @@
 """Analyze WAV fixtures through the production sound feature pipeline."""
 
 import array
+import hashlib
 import json
 import math
 import os
+import subprocess
 import sys
 from pathlib import Path
 import wave
 
 from audio_events import SemanticEventDetector
-from audio_features import Analyzer
+from audio_features import Analyzer, AudioFeatures
 from audio_spectrum import Spectrum
+from animation import CulvertAnimation
 from config import Config
+from effects import EFFECT_NAMES
 from tools.record_fixture import validate_wav
 
 
@@ -522,3 +526,379 @@ def analyze_wav(audio_path, labels_path, config=None, fps=20):
         "comparison": comparison,
         "fps": fps,
     }
+
+
+def _positive_finite(value, name):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ValueError(f"{name} must be a positive finite number")
+    return value
+
+
+def _finite_number(value, name):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+    ):
+        raise ValueError(f"{name} must be a finite number")
+    return value
+
+
+def group_pixels(grb_bytes, groups=8):
+    """Convert equally sized GRB renderer groups to averaged RGB pixels."""
+    if (
+        isinstance(groups, bool)
+        or not isinstance(groups, int)
+        or groups <= 0
+    ):
+        raise ValueError("groups must be a positive integer")
+    if not isinstance(grb_bytes, (bytes, bytearray, memoryview)):
+        raise ValueError("grb_bytes must be a byte sequence")
+    if len(grb_bytes) == 0 or len(grb_bytes) % 3:
+        raise ValueError("Renderer output must contain complete RGB pixels")
+    pixel_count = len(grb_bytes) // 3
+    if pixel_count < groups or pixel_count % groups:
+        raise ValueError("Renderer pixels must divide evenly into groups")
+
+    pixels = [
+        grb_bytes[offset : offset + 3]
+        for offset in range(0, len(grb_bytes), 3)
+    ]
+    width = pixel_count // groups
+    result = []
+    for group in range(groups):
+        members = pixels[group * width : (group + 1) * width]
+        result.append(
+            [
+                round(sum(pixel[1] for pixel in members) / len(members)),
+                round(sum(pixel[0] for pixel in members) / len(members)),
+                round(sum(pixel[2] for pixel in members) / len(members)),
+            ]
+        )
+    return result
+
+
+def _feature_frame(frame, time_ms):
+    """Reconstruct the renderer's feature object from one serialized frame."""
+    if not isinstance(frame, dict):
+        raise ValueError("Feature frames must be objects")
+    result = AudioFeatures()
+    result.volume = _normalized(frame.get("volume"), "volume")
+    result.drone = _normalized(frame.get("drone"), "drone")
+    result.growl = _normalized(frame.get("growl"), "growl")
+    result.vocal = _normalized(frame.get("vocal"), "vocal")
+    result.attack = _normalized(
+        frame.get("transient_strength"), "transient strength"
+    )
+    spectrum = frame.get("spectrum")
+    if not isinstance(spectrum, (list, tuple)) or len(spectrum) != 8:
+        raise ValueError("Feature frames must contain eight spectrum levels")
+    result.spectrum = tuple(
+        _normalized(value, f"spectrum level {index}")
+        for index, value in enumerate(spectrum)
+    )
+    active = frame.get("active")
+    calibrating = frame.get("calibrating")
+    if not isinstance(active, bool) or not isinstance(calibrating, bool):
+        raise ValueError("Feature state flags must be booleans")
+    result.active = active
+    result.calibrating = calibrating
+    if not _integer_timestamp(time_ms):
+        raise ValueError("Feature frame timestamps must be integers")
+    return result
+
+
+def _validate_feature_frames(feature_frames):
+    if not isinstance(feature_frames, (list, tuple)):
+        raise ValueError("feature_frames must be a list")
+    previous = None
+    for frame in feature_frames:
+        if not isinstance(frame, dict):
+            raise ValueError("Feature frames must be objects")
+        time_ms = frame.get("time_ms")
+        if not _integer_timestamp(time_ms) or time_ms < 0:
+            raise ValueError("Feature frame timestamps must be non-negative integers")
+        if previous is not None and time_ms <= previous:
+            raise ValueError("Feature frame timestamps must increase")
+        previous = time_ms
+    return feature_frames
+
+
+def _sample_feature(feature_frames, target_ms):
+    """Return the newest frame no later than target_ms, or a silent frame."""
+    selected = None
+    for frame in feature_frames:
+        if frame["time_ms"] > target_ms:
+            break
+        selected = frame
+    if selected is None:
+        return _feature_frame(
+            {
+                "volume": 0.0,
+                "drone": 0.0,
+                "growl": 0.0,
+                "vocal": 0.0,
+                "transient_strength": 0.0,
+                "spectrum": (0.0,) * 8,
+                "active": False,
+                "calibrating": False,
+            },
+            0,
+        ), None
+    return _feature_frame(selected, selected["time_ms"]), selected["time_ms"]
+
+
+def _renderer_config(config, effect_id):
+    overrides = dict(vars(config))
+    overrides["effect_index"] = effect_id
+    return Config(**overrides)
+
+
+def render_effects(
+    feature_frames,
+    config,
+    fps=20,
+    node_distances_mm=(-5000, 0, 5000),
+    virtual_wave_speed_mm_s=10000,
+):
+    """Render deterministic eight-pixel views for five audio effects."""
+    fps = _positive_finite(fps, "fps")
+    virtual_wave_speed_mm_s = _positive_finite(
+        virtual_wave_speed_mm_s, "virtual_wave_speed_mm_s"
+    )
+    if not isinstance(node_distances_mm, (list, tuple)) or not node_distances_mm:
+        raise ValueError("node_distances_mm must be a non-empty sequence")
+    distances = []
+    for distance in node_distances_mm:
+        distances.append(_finite_number(distance, "node distance"))
+    feature_frames = _validate_feature_frames(feature_frames)
+
+    duration_ms = feature_frames[-1]["time_ms"] if feature_frames else 0
+    frame_count = max(1, int(math.ceil(duration_ms * fps / 1000.0)))
+    frame_times = [round(index * 1000.0 / fps) for index in range(frame_count)]
+    delays_ms = [
+        abs(distance) * 1000.0 / virtual_wave_speed_mm_s for distance in distances
+    ]
+    effects = {}
+    for effect_id, effect_name in enumerate(EFFECT_NAMES[:5]):
+        by_node = {}
+        for node_index, delay_ms in enumerate(delays_ms):
+            renderer = CulvertAnimation(_renderer_config(config, effect_id))
+            rendered = []
+            for time_ms in frame_times:
+                source_target_ms = max(0.0, time_ms - delay_ms)
+                source_time_ms = int(math.floor(source_target_ms))
+                features, selected_time_ms = _sample_feature(
+                    feature_frames, source_time_ms
+                )
+                pixels = renderer.render(features, 1.0 / fps)
+                rendered.append(
+                    {
+                        "time_ms": time_ms,
+                        "source_time_ms": selected_time_ms,
+                        "pixels_rgb": group_pixels(pixels),
+                    }
+                )
+            by_node[str(node_index)] = rendered
+        effects[effect_name] = by_node
+
+    return {
+        "fps": fps,
+        "node_distances_mm": distances,
+        "virtual_wave_speed_mm_s": virtual_wave_speed_mm_s,
+        "pixel_channel_order": "rgb",
+        "effects": list(EFFECT_NAMES[:5]),
+        "frames": effects,
+    }
+
+
+def _json_value(value):
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("Configuration contains a non-finite value")
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    raise ValueError(f"Configuration contains unsupported value: {type(value).__name__}")
+
+
+def _config_values(config):
+    values = {}
+    for name in dir(config):
+        if name.startswith("_"):
+            continue
+        value = getattr(config, name)
+        if callable(value):
+            continue
+        values[name] = _json_value(value)
+    return values
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def source_hashes(paths):
+    """Return stable SHA-256 hashes for repository source paths."""
+    root = Path(__file__).resolve().parent.parent
+    hashes = {}
+    for path in paths:
+        path = Path(path)
+        resolved = path if path.is_absolute() else root / path
+        if not resolved.is_file():
+            raise ValueError(f"Source file does not exist: {path}")
+        hashes[path.as_posix()] = _sha256(resolved)
+    return hashes
+
+
+def write_json(path, value):
+    """Write compact, sorted JSON with stable UTF-8 and a final newline."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = json.dumps(
+        value,
+        ensure_ascii=True,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    path.write_text(encoded + "\n")
+    return path
+
+
+def _git_commit():
+    root = Path(__file__).resolve().parent.parent
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    commit = result.stdout.strip()
+    return commit if result.returncode == 0 and commit else None
+
+
+def manifest_without_wall_clock(
+    audio_path,
+    labels_path,
+    result,
+    config,
+    module_hashes,
+    node_distances_mm,
+    fps,
+    virtual_wave_speed_mm_s,
+):
+    """Build run metadata without filesystem times or other wall-clock data."""
+    manifest = {
+        "schema_version": 1,
+        "audio_file": Path(audio_path).name,
+        "labels_file": Path(labels_path).name,
+        "source_sha256": {
+            "audio": _sha256(audio_path),
+            "labels": _sha256(labels_path),
+        },
+        "module_sha256": dict(module_hashes),
+        "sample_rate_hz": result["info"]["sample_rate_hz"],
+        "frame_count": result["info"]["frame_count"],
+        "duration_ms": result["info"]["duration_ms"],
+        "analysis": {
+            "sample_rate_hz": config.sample_rate,
+            "fft_size": config.fft_size,
+            "hop_size": config.hop_size,
+            "window": "hann",
+            "feature_fps": result["fps"],
+            "config": _config_values(config),
+            "detector": {
+                "drone_on_threshold": 0.45,
+                "drone_off_threshold": 0.25,
+                "drone_start_hold_s": 0.12,
+                "drone_stop_hold_s": 0.30,
+            },
+        },
+        "effect_engine": {
+            "version": 1,
+            "renderer": "CulvertAnimation",
+            "effects": list(EFFECT_NAMES[:5]),
+            "fps": fps,
+            "node_distances_mm": list(node_distances_mm),
+            "virtual_wave_speed_mm_s": virtual_wave_speed_mm_s,
+            "pixel_groups": 8,
+            "pixel_channel_order": "rgb",
+        },
+        "random_seed": 0,
+        "event_count": len(result["events"]),
+        "comparison": result["comparison"],
+    }
+    commit = _git_commit()
+    if commit is not None:
+        manifest["git_commit"] = commit
+    return manifest
+
+
+def build_artifacts(audio_path, labels_path, output_dir, config=None):
+    """Analyze a WAV and write deterministic feature, event, effect, and run JSON."""
+    config = config or Config()
+    node_distances_mm = (-5000, 0, 5000)
+    virtual_wave_speed_mm_s = 10000
+    fps = 20
+    result = analyze_wav(audio_path, labels_path, config, fps=fps)
+    result["effects"] = render_effects(
+        result["features"],
+        config,
+        fps=fps,
+        node_distances_mm=node_distances_mm,
+        virtual_wave_speed_mm_s=virtual_wave_speed_mm_s,
+    )
+    output_dir = Path(output_dir)
+    stem = Path(audio_path).stem
+    module_hashes = source_hashes(
+        (
+            "audio_spectrum.py",
+            "audio_features.py",
+            "audio_events.py",
+            "animation.py",
+            "effects.py",
+            "config.py",
+            "tools/sound_review.py",
+        )
+    )
+    paths = {
+        "features_json": output_dir / f"{stem}.features.json",
+        "events_json": output_dir / f"{stem}.events.json",
+        "effects_json": output_dir / f"{stem}.effects.json",
+        "run_json": output_dir / f"{stem}.run.json",
+    }
+    write_json(paths["features_json"], result["features"])
+    write_json(paths["events_json"], result["events"])
+    write_json(paths["effects_json"], result["effects"])
+    write_json(
+        paths["run_json"],
+        manifest_without_wall_clock(
+            audio_path,
+            labels_path,
+            result,
+            config,
+            module_hashes,
+            node_distances_mm,
+            fps,
+            virtual_wave_speed_mm_s,
+        ),
+    )
+    return paths
