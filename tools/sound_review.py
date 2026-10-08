@@ -1,6 +1,7 @@
 """Analyze WAV fixtures through the production sound feature pipeline."""
 
 import array
+import argparse
 import hashlib
 import json
 import math
@@ -9,6 +10,11 @@ import subprocess
 import sys
 from pathlib import Path
 import wave
+
+# Make the CLI work when invoked as `python tools/sound_review.py`.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from audio_events import DroneEventConfig, SemanticEventDetector
 from audio_features import Analyzer, AudioFeatures
@@ -229,6 +235,20 @@ def serialize_features(features, raw, time_ms):
     for name in ("low_energy", "mid_energy", "high_energy"):
         result[name] = _normalized(result[name], name)
     return result
+
+
+def waveform_preview(hops):
+    """Return deterministic normalized peak levels for the browser timeline."""
+    return [
+        round(
+            min(
+                1.0,
+                max((abs(sample) for sample in hop), default=0) / 32768.0,
+            ),
+            6,
+        )
+        for hop in hops
+    ]
 
 
 _MAX_METRIC_MS = 1_000_000_000_000
@@ -544,6 +564,7 @@ def analyze_wav(
     return {
         "info": info,
         "labels": labels,
+        "waveform": waveform_preview(hops),
         "features": features,
         "events": list(events),
         "comparison": comparison,
@@ -1005,6 +1026,7 @@ def build_artifacts(
         "events_json": output_dir / f"{stem}.events.json",
         "effects_json": output_dir / f"{stem}.effects.json",
         "run_json": output_dir / f"{stem}.run.json",
+        "review_json": output_dir / "review.json",
     }
     write_json(paths["features_json"], result["features"])
     write_json(paths["events_json"], result["events"])
@@ -1022,4 +1044,38 @@ def build_artifacts(
             virtual_wave_speed_mm_s,
         ),
     )
+    audio_url = Path(
+        os.path.relpath(os.fspath(audio_path), start=os.fspath(output_dir))
+    ).as_posix()
+    write_json(
+        paths["review_json"],
+        {
+            "schema_version": 1,
+            "duration_ms": result["info"]["duration_ms"],
+            "sample_rate_hz": result["info"]["sample_rate_hz"],
+            "audio_url": audio_url,
+            "waveform": result["waveform"],
+            "labels": result["labels"]["labels"],
+            "features": result["features"],
+            "events": result["events"],
+            "comparison": result["comparison"],
+            "effects": result["effects"],
+        },
+    )
     return paths
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--audio", required=True, type=Path)
+    parser.add_argument("--labels", required=True, type=Path)
+    parser.add_argument("--output-dir", required=True, type=Path)
+    args = parser.parse_args(argv)
+    paths = build_artifacts(args.audio, args.labels, args.output_dir)
+    for name, path in paths.items():
+        print(f"{name}={path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

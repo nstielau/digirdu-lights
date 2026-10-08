@@ -93,9 +93,10 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
   duration_ms:1000,
   audio_url:'/fixture.wav',
   waveform:[0,.2,.8,.3],
-  labels:[{type:'drone',start_ms:0,end_ms:1000}],
+  labels:[{type:'drone',start_ms:200,end_ms:800}],
   events:[{type:'yell',time_ms:500,confidence:.9}],
   features:[{time_ms:500,volume:.8,drone:.7,vocal:.9,transient_strength:.2}],
+  comparison:{yell:{true_positive:1,false_positive:1,false_negative:0,precision:.5,recall:1,f1:2/3,timing_error_ms:[100],absolute_timing_error_ms:[100],unmatched_labels:[],unmatched_events:[]}},
   effects:{node_distances_mm:[0],frames:{Spectrum:{'0':[
    {time_ms:500,pixels_rgb:Array.from({length:8},()=>[1,2,3])}
   ]}}}
@@ -109,8 +110,14 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(page.locator('[data-track-cursor="waveform"]')).toHaveAttribute('data-time-ms','500');
  await expect(page.locator('#review-events')).toContainText('yell');
  await expect(page.locator('#review-features')).toContainText('0.80');
+ await expect(page.locator('#review-comparison')).toContainText('yell');
+ await expect(page.locator('#review-comparison')).toContainText('50% precision');
  await expect(page.locator('#review-led')).toHaveAttribute('data-time-ms','500');
- await page.getByRole('button',{name:/drone label/i}).click();
+ const labelButton=page.locator('#review-labels button');
+ await expect(labelButton).toHaveAttribute('data-active','true');
+ await expect(page.locator('.label-overlay')).toHaveAttribute('data-active','true');
+ await labelButton.click();
+ await expect(labelButton).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('#review-selected-label')).toContainText('drone');
  await page.getByRole('button',{name:'Replay label'}).click();
  await expect(page.getByRole('slider',{name:'Position'})).toHaveValue('0');
@@ -118,6 +125,9 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await page.getByRole('slider',{name:'Zoom'}).dispatchEvent('input');
  await expect(page.locator('#review-waveform')).toHaveAttribute('data-zoom','4');
  await expect(page.locator('#review-time')).toHaveText('0.00 s');
+ await expect(labelButton).toHaveAttribute('data-active','false');
+ await expect(labelButton).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('.label-overlay')).toHaveAttribute('data-active','false');
  await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(e=>e.clientWidth));
 });
 

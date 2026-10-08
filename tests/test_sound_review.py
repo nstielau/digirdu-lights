@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -867,6 +868,69 @@ class SoundReviewEffectTests(unittest.TestCase):
                 "tools/sound_review.py",
             },
         )
+
+    def test_artifacts_include_a_deterministic_browser_review_bundle(self):
+        config = Config()
+        audio_path = write_pcm_wav(
+            self.tempdir / "take.wav",
+            config.sample_rate,
+            array.array("h", [0]) * (config.hop_size * 3),
+        )
+        labels_path = self.tempdir / "take.labels.json"
+        labels_path.write_text(
+            json.dumps(
+                {
+                    "audio_file": audio_path.name,
+                    "sample_rate_hz": config.sample_rate,
+                    "labels": [],
+                }
+            )
+        )
+        output_dir = self.tempdir / "artifacts"
+
+        paths = build_artifacts(audio_path, labels_path, output_dir, config)
+
+        self.assertIn("review_json", paths)
+        bundle = json.loads(Path(paths["review_json"]).read_text())
+        self.assertEqual(
+            set(bundle),
+            {
+                "schema_version",
+                "duration_ms",
+                "sample_rate_hz",
+                "audio_url",
+                "waveform",
+                "labels",
+                "features",
+                "events",
+                "effects",
+                "comparison",
+            },
+        )
+        self.assertEqual(bundle["schema_version"], 1)
+        self.assertEqual(bundle["duration_ms"], 192)
+        self.assertEqual(bundle["sample_rate_hz"], config.sample_rate)
+        self.assertEqual(bundle["audio_url"], "../take.wav")
+        self.assertEqual(bundle["labels"], [])
+        self.assertEqual(bundle["features"], json.loads(Path(paths["features_json"]).read_text()))
+        self.assertEqual(bundle["events"], json.loads(Path(paths["events_json"]).read_text()))
+        self.assertEqual(bundle["effects"], json.loads(Path(paths["effects_json"]).read_text()))
+        self.assertEqual(
+            bundle["comparison"],
+            json.loads(Path(paths["run_json"]).read_text())["comparison"],
+        )
+
+    def test_sound_review_cli_is_executable_from_repository_root(self):
+        root = Path(__file__).resolve().parent.parent
+        completed = subprocess.run(
+            [sys.executable, str(root / "tools/sound_review.py"), "--help"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--output-dir", completed.stdout)
 
 
 if __name__ == "__main__":

@@ -17,6 +17,10 @@
     .timeline-viewport{overflow:hidden;border:1px solid #46314f;border-radius:5px;background:#080612}
     .timeline-track{position:relative;min-height:84px;width:calc(100% * var(--timeline-zoom, 1));min-width:100%;transform-origin:left center;background:repeating-linear-gradient(90deg,#0e1830 0,#0e1830 1px,transparent 1px,transparent 10%)}
     .wave-bar{position:absolute;bottom:12px;width:max(2px,calc(100% / var(--wave-count, 1) - 2px));border-radius:2px 2px 0 0;background:linear-gradient(#ff57bd,#59eeff);opacity:.8}
+    .label-overlay-layer{position:absolute;inset:0;z-index:1}
+    .label-overlay{position:absolute;top:10px;min-width:6px;height:18px;padding:0 4px;overflow:hidden;border:1px solid #ff57bd;border-radius:3px;background:#ff57bd55;color:#fff;font:10px ui-monospace,monospace;white-space:nowrap;text-align:left}
+    .label-overlay[data-active="true"]{background:#59eeff88;border-color:#59eeff;box-shadow:0 0 12px #59eeff66}
+    .label-overlay[data-selected="true"]{outline:1px solid #fff;outline-offset:2px}
     .timeline-viewport[data-track-cursor]{position:relative}
     .track-cursor{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 10px #59eeff;pointer-events:none;z-index:2}
     .track-cursor-label{position:absolute;top:4px;left:6px;white-space:nowrap;color:#fff;font:11px ui-monospace,monospace}
@@ -27,6 +31,7 @@
     .review-data{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0}
     .review-data div{padding:10px;border:1px solid #46314f;border-radius:5px;background:#0b0a15}
     .review-data dt{font-size:11px}.review-data dd{margin:4px 0 0;color:#f2edff;font:700 15px ui-monospace,monospace}
+    .review-metric{padding:10px;border:1px solid #46314f;border-radius:5px;background:#0b0a15;color:#f2edff;font:700 13px ui-monospace,monospace}
     .led-view{display:grid;grid-template-columns:repeat(8,minmax(20px,1fr));gap:6px;max-width:560px;margin:auto;padding:14px;background:#050509;border:1px solid #46314f;border-radius:5px}
     .led-pixel{aspect-ratio:1;border-radius:50%;background:#151527;box-shadow:inset 0 0 0 1px #46314f}
     .review-help{font-size:13px}
@@ -77,6 +82,11 @@
     <section class="review-panel" aria-labelledby="features-title">
       <h2 id="features-title">Derived features</h2>
       <dl id="review-features" class="review-data" data-time-ms="0"></dl>
+    </section>
+
+    <section class="review-panel" aria-labelledby="comparison-title">
+      <h2 id="comparison-title">Human/detector comparison</h2>
+      <ul id="review-comparison" class="review-list" aria-label="Comparison metrics"></ul>
     </section>
 
     <section class="review-panel" aria-labelledby="led-title">

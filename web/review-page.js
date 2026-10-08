@@ -20,6 +20,7 @@ const waveform = document.querySelector('#review-waveform');
 const labels = document.querySelector('#review-labels');
 const events = document.querySelector('#review-events');
 const features = document.querySelector('#review-features');
+const comparison = document.querySelector('#review-comparison');
 const led = document.querySelector('#review-led');
 const selectedLabel = document.querySelector('#review-selected-label');
 
@@ -55,6 +56,7 @@ function normalizeBundle(bundle) {
     labels: normalizeRows(bundle.labels, 'labels'),
     events: normalizeRows(bundle.events, 'events'),
     features: normalizeRows(bundle.features, 'features'),
+    comparison: bundle.comparison && typeof bundle.comparison === 'object' ? bundle.comparison : {},
     effects: bundle.effects && typeof bundle.effects === 'object' ? bundle.effects : {frames: {}},
   };
 }
@@ -95,33 +97,83 @@ function renderWaveform() {
     bar.style.height = `${Math.max(4, magnitude * 70)}px`;
     track.append(bar);
   });
+  const labelLayer = document.createElement('div');
+  labelLayer.className = 'label-overlay-layer';
+  track.append(labelLayer);
   const cursor = document.createElement('span');
   cursor.className = 'track-cursor';
   track.append(cursor);
+}
+
+function labelIsActive(label, timeMs) {
+  return timeMs >= rowTime(label) && timeMs <= rowEnd(label);
+}
+
+function updateLabelState(timeMs) {
+  state.bundle.labels.forEach((label, index) => {
+    const active = labelIsActive(label, timeMs);
+    const selected = state.selectedLabel === index;
+    const nodes = [
+      labels.querySelector(`[data-label-index="${index}"]`),
+      waveform.querySelector(`.label-overlay[data-label-index="${index}"]`),
+    ].filter(Boolean);
+    nodes.forEach((node) => {
+      node.dataset.active = String(active);
+      node.dataset.selected = String(selected);
+      node.setAttribute('aria-pressed', String(selected));
+    });
+  });
+}
+
+function selectLabel(index) {
+  const label = state.bundle.labels[index];
+  state.selectedLabel = index;
+  selectedLabel.textContent = `Selected: ${label.type} · ${formatMs(rowTime(label))}${rowEnd(label) !== rowTime(label) ? `–${formatMs(rowEnd(label))}` : ''}`;
+  replay.disabled = false;
+  updateLabelState(state.timeMs);
+  setTime(rowTime(label));
+}
+
+function renderLabelOverlays() {
+  const layer = waveform.querySelector('.label-overlay-layer');
+  layer.replaceChildren();
+  state.bundle.labels.forEach((label, index) => {
+    const start = rowTime(label);
+    const end = rowEnd(label);
+    const marker = document.createElement('button');
+    const width = end > start ? percentAt(end) - percentAt(start) : 0.75;
+    marker.type = 'button';
+    marker.className = 'label-overlay';
+    marker.dataset.labelIndex = String(index);
+    marker.style.left = `${percentAt(start)}%`;
+    marker.style.width = `${Math.max(0.75, width)}%`;
+    marker.textContent = label.type;
+    marker.setAttribute('aria-label', `${label.type} timeline label at ${formatMs(start)}`);
+    marker.addEventListener('click', () => selectLabel(index));
+    layer.append(marker);
+  });
 }
 
 function renderLabels() {
   labels.replaceChildren();
   if (!state.bundle.labels.length) {
     labels.append(emptyMessage('No human labels in this bundle.'));
+    renderLabelOverlays();
     return;
   }
   state.bundle.labels.forEach((label, index) => {
     const button = document.createElement('button');
     const end = rowEnd(label);
     button.type = 'button';
+    button.dataset.labelIndex = String(index);
     button.textContent = `${label.type} · ${formatMs(rowTime(label))}${end !== rowTime(label) ? `–${formatMs(end)}` : ''}`;
     button.setAttribute('aria-label', `${label.type} label at ${formatMs(rowTime(label))}`);
     button.setAttribute('aria-pressed', state.selectedLabel === index ? 'true' : 'false');
-    button.addEventListener('click', () => {
-      state.selectedLabel = index;
-      renderLabels();
-      selectedLabel.textContent = `Selected: ${button.textContent}`;
-      replay.disabled = false;
-      setTime(rowTime(label));
-    });
+    button.addEventListener('click', () => selectLabel(index));
     labels.append(button);
   });
+  renderLabelOverlays();
+  updateLabelState(state.timeMs);
 }
 
 function renderEvents(timeMs) {
@@ -163,6 +215,29 @@ function renderFeatureCursor(timeMs) {
     detail.textContent = typeof value === 'number' ? value.toFixed(2) : String(value);
     term.append(title, detail);
     features.append(term);
+  });
+}
+
+function percentage(value) {
+  return `${(Math.max(0, Math.min(1, Number(value) || 0)) * 100).toFixed(0)}%`;
+}
+
+function renderComparison() {
+  comparison.replaceChildren();
+  const reports = Object.entries(state.bundle.comparison);
+  if (!reports.length) {
+    comparison.append(emptyMessage('No human/detector comparison in this bundle.'));
+    return;
+  }
+  reports.forEach(([type, report]) => {
+    const item = document.createElement('li');
+    item.className = 'review-metric';
+    if (Number.isFinite(report?.precision)) {
+      item.textContent = `${type} · ${percentage(report.precision)} precision · ${percentage(report.recall)} recall · ${percentage(report.f1)} F1 · TP ${report.true_positive ?? 0} · FP ${report.false_positive ?? 0} · FN ${report.false_negative ?? 0}`;
+    } else {
+      item.textContent = `${type} · ${percentage(report?.intersection_over_union)} interval overlap · ${formatMs(report?.false_active_ms ?? 0)} false active · ${formatMs(report?.false_inactive_ms ?? 0)} false inactive`;
+    }
+    comparison.append(item);
   });
 }
 
@@ -213,6 +288,7 @@ function setTime(timeMs) {
     cursor.dataset.timeMs = String(Math.round(state.timeMs));
     cursor.style.left = `${percentAt(state.timeMs)}%`;
   }
+  updateLabelState(state.timeMs);
   renderFeatureCursor(state.timeMs);
   renderEvents(state.timeMs);
   renderLedFrame(state.timeMs);
@@ -262,6 +338,7 @@ function configureBundle(bundle, sourceUrl) {
   replay.disabled = true;
   renderWaveform();
   renderLabels();
+  renderComparison();
   setZoom(zoom.value);
   setTime(0);
   if (state.bundle.audio_url) {
