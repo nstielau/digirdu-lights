@@ -21,6 +21,9 @@
     .label-overlay{position:absolute;top:10px;min-width:6px;height:18px;padding:0 4px;overflow:hidden;border:1px solid #ff57bd;border-radius:3px;background:#ff57bd55;color:#fff;font:10px ui-monospace,monospace;white-space:nowrap;text-align:left}
     .label-overlay[data-active="true"]{background:#59eeff88;border-color:#59eeff;box-shadow:0 0 12px #59eeff66}
     .label-overlay[data-selected="true"]{outline:1px solid #fff;outline-offset:2px}
+    .event-overlay-layer{position:absolute;inset:0;z-index:2;pointer-events:none}
+    .event-overlay{position:absolute;top:53px;min-width:6px;padding:2px 4px;transform:translateX(-50%);border:1px solid #ffc857;border-radius:3px;background:#ffc85755;color:#fff;font:10px ui-monospace,monospace;white-space:nowrap;pointer-events:auto}
+    .event-overlay[data-active="true"]{background:#ffc857aa;border-color:#fff;box-shadow:0 0 12px #ffc85788}
     .timeline-viewport[data-track-cursor]{position:relative}
     .track-cursor{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 10px #59eeff;pointer-events:none;z-index:2}
     .track-cursor-label{position:absolute;top:4px;left:6px;white-space:nowrap;color:#fff;font:11px ui-monospace,monospace}

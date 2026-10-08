@@ -356,6 +356,70 @@ class SoundReviewAnalysisTests(unittest.TestCase):
         )
         self.assertEqual(result["fps"], 20)
 
+    def test_analyze_wav_uses_exact_sample_end_delta_for_1025_samples(self):
+        config = Config()
+        audio_path = write_pcm_wav(
+            self.tempdir / "unaligned.wav",
+            config.sample_rate,
+            array.array("h", [0]) * 1025,
+        )
+        labels_path = self.tempdir / "labels.json"
+        labels_path.write_text(
+            json.dumps(
+                {
+                    "audio_file": audio_path.name,
+                    "sample_rate_hz": config.sample_rate,
+                    "labels": [],
+                }
+            )
+        )
+        seen_dts = []
+        original_update = Analyzer.update
+
+        def record_update(analyzer, raw, dt_s):
+            seen_dts.append(dt_s)
+            return original_update(analyzer, raw, dt_s)
+
+        with patch.object(Analyzer, "update", record_update):
+            result = analyze_wav(audio_path, labels_path, config)
+
+        timestamps = [frame["time_ms"] for frame in result["features"]]
+        self.assertEqual(result["info"]["duration_ms"], 65)
+        self.assertEqual(timestamps, [64, 65])
+        self.assertEqual(seen_dts, [1024 / config.sample_rate, 1 / config.sample_rate])
+        self.assertEqual(timestamps, sorted(set(timestamps)))
+
+    def test_analyze_wav_uses_actual_duration_for_shorter_than_hop_audio(self):
+        config = Config()
+        audio_path = write_pcm_wav(
+            self.tempdir / "short.wav",
+            config.sample_rate,
+            array.array("h", [0]) * 512,
+        )
+        labels_path = self.tempdir / "labels.json"
+        labels_path.write_text(
+            json.dumps(
+                {
+                    "audio_file": audio_path.name,
+                    "sample_rate_hz": config.sample_rate,
+                    "labels": [],
+                }
+            )
+        )
+        seen_dts = []
+        original_update = Analyzer.update
+
+        def record_update(analyzer, raw, dt_s):
+            seen_dts.append(dt_s)
+            return original_update(analyzer, raw, dt_s)
+
+        with patch.object(Analyzer, "update", record_update):
+            result = analyze_wav(audio_path, labels_path, config)
+
+        self.assertEqual(result["info"]["duration_ms"], 32)
+        self.assertEqual([frame["time_ms"] for frame in result["features"]], [32])
+        self.assertEqual(seen_dts, [512 / config.sample_rate])
+
     def test_analyze_wav_rejects_labels_for_a_different_audio_file(self):
         config = Config()
         audio_path = write_pcm_wav(
@@ -769,6 +833,28 @@ class SoundReviewEffectTests(unittest.TestCase):
                 for left, right in zip(plain_frames, event_frames)
             )
         )
+
+    def test_render_effects_delivers_event_on_terminal_feature_frame(self):
+        plain = fixture_feature_frames()
+        with_event = fixture_feature_frames()
+        with_event[-1]["transient_strength"] = 1.0
+        with_event[-1]["attack_event"] = True
+        with_event[-1]["attack_age_s"] = 0.0
+
+        plain_frames = render_effects(
+            plain, Config(), fps=20, node_distances_mm=(0,), virtual_wave_speed_mm_s=10000
+        )["frames"]["Ember"]["0"]
+        event_frames = render_effects(
+            with_event,
+            Config(),
+            fps=20,
+            node_distances_mm=(0,),
+            virtual_wave_speed_mm_s=10000,
+        )["frames"]["Ember"]["0"]
+
+        self.assertEqual(event_frames[-1]["time_ms"], 1000)
+        self.assertEqual(event_frames[-1]["source_time_ms"], 1000)
+        self.assertNotEqual(plain_frames[-1]["pixels_rgb"], event_frames[-1]["pixels_rgb"])
 
     def test_render_effects_consumes_sample_held_event_only_once(self):
         coarse = fixture_feature_frames()

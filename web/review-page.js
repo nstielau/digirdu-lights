@@ -100,6 +100,9 @@ function renderWaveform() {
   const labelLayer = document.createElement('div');
   labelLayer.className = 'label-overlay-layer';
   track.append(labelLayer);
+  const eventLayer = document.createElement('div');
+  eventLayer.className = 'event-overlay-layer';
+  track.append(eventLayer);
   const cursor = document.createElement('span');
   cursor.className = 'track-cursor';
   track.append(cursor);
@@ -176,20 +179,55 @@ function renderLabels() {
   updateLabelState(state.timeMs);
 }
 
+function updateEventState(timeMs) {
+  state.bundle.events.forEach((event, index) => {
+    const active = timeMs >= rowTime(event) && timeMs <= rowEnd(event);
+    const nodes = [
+      events.querySelector(`[data-event-index="${index}"]`),
+      waveform.querySelector(`.event-overlay[data-event-index="${index}"]`),
+    ].filter(Boolean);
+    nodes.forEach((node) => {
+      node.dataset.active = String(active);
+      if (node.tagName === 'LI') node.classList.toggle('event-active', active);
+    });
+  });
+}
+
+function renderEventOverlays() {
+  const layer = waveform.querySelector('.event-overlay-layer');
+  layer.replaceChildren();
+  state.bundle.events.forEach((event, index) => {
+    const marker = document.createElement('button');
+    const timeMs = rowTime(event);
+    marker.type = 'button';
+    marker.className = 'event-overlay';
+    marker.dataset.eventIndex = String(index);
+    marker.style.left = `${percentAt(timeMs)}%`;
+    marker.textContent = event.type;
+    marker.setAttribute('aria-label', `${event.type} detected at ${formatMs(timeMs)}`);
+    marker.addEventListener('click', () => setTime(timeMs));
+    layer.append(marker);
+  });
+}
+
 function renderEvents(timeMs) {
   events.replaceChildren();
   if (!state.bundle.events.length) {
     events.append(emptyMessage('No detected events in this bundle.'));
+    renderEventOverlays();
     return;
   }
-  state.bundle.events.forEach((event) => {
+  state.bundle.events.forEach((event, index) => {
     const item = document.createElement('li');
     const active = timeMs >= rowTime(event) && timeMs <= rowEnd(event);
     item.textContent = `${event.type} · ${formatMs(rowTime(event))}${event.confidence === undefined ? '' : ` · ${(event.confidence * 100).toFixed(0)}%`}`;
+    item.dataset.eventIndex = String(index);
     item.dataset.active = active ? 'true' : 'false';
     item.className = active ? 'event-active' : '';
     events.append(item);
   });
+  renderEventOverlays();
+  updateEventState(timeMs);
 }
 
 function renderFeatureCursor(timeMs) {

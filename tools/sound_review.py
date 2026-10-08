@@ -80,7 +80,7 @@ def read_wav_hops(path, config):
     values.frombytes(raw)
     if sys.byteorder != "little":
         values.byteswap()
-    metadata["duration_ms"] = round(
+    metadata["duration_ms"] = math.ceil(
         metadata["frame_count"] * 1000 / config.sample_rate
     )
     hops = []
@@ -547,18 +547,23 @@ def analyze_wav(
     detector = SemanticEventDetector(detector_config)
     features = []
     events = []
+    previous_sample_end = None
     previous_time_ms = None
     for index, samples in enumerate(hops, 1):
         raw = spectrum.push(samples)
         if raw is None:
             continue
         sample_end = min(index * config.hop_size, info["frame_count"])
-        time_ms = round(sample_end * 1000 / config.sample_rate)
-        if previous_time_ms is None:
-            dt_s = config.hop_size / config.sample_rate
+        endpoint_ms = math.ceil(sample_end * 1000 / config.sample_rate)
+        if previous_time_ms is not None:
+            endpoint_ms = max(endpoint_ms, previous_time_ms + 1)
+        time_ms = endpoint_ms
+        if previous_sample_end is None:
+            dt_s = sample_end / config.sample_rate
         else:
-            dt_s = (time_ms - previous_time_ms) / 1000
+            dt_s = (sample_end - previous_sample_end) / config.sample_rate
         current = analyzer.update(raw, dt_s)
+        previous_sample_end = sample_end
         previous_time_ms = time_ms
         features.append(serialize_features(current, raw, time_ms))
         events.extend(detector.update(current, time_ms))
@@ -794,6 +799,8 @@ def render_effects(
     duration_ms = feature_frames[-1]["time_ms"] if feature_frames else 0
     frame_count = max(1, int(math.ceil(duration_ms * fps / 1000.0)))
     frame_times = [round(index * 1000.0 / fps) for index in range(frame_count)]
+    if frame_times[-1] != duration_ms:
+        frame_times.append(duration_ms)
     delays_ms = [
         abs(distance) * 1000.0 / virtual_wave_speed_mm_s for distance in distances
     ]

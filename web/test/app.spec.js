@@ -109,6 +109,8 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(page.locator('#review-time')).toHaveText('0.50 s');
  await expect(page.locator('[data-track-cursor="waveform"]')).toHaveAttribute('data-time-ms','500');
  await expect(page.locator('#review-events')).toContainText('yell');
+ await expect(page.locator('.event-overlay')).toHaveCount(1);
+ await expect(page.locator('.event-overlay')).toHaveAttribute('data-active','true');
  await expect(page.locator('#review-features')).toContainText('0.80');
  await expect(page.locator('#review-comparison')).toContainText('yell');
  await expect(page.locator('#review-comparison')).toContainText('50% precision');
