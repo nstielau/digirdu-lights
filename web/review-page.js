@@ -1,4 +1,4 @@
-const DEFAULT_DATA_URL = './review.json';
+import {localReviewDataUrl} from './review-mode.mjs';
 
 const state = {
   bundle: null,
@@ -501,8 +501,12 @@ function waveformPointerUp(event) {
 }
 
 function configureBundle(bundle, sourceUrl) {
+  stopPlayback();
   state.bundle = normalizeBundle(bundle);
   state.selectedLabel = null;
+  state.replayEndMs = null;
+  zoom.value = '1';
+  waveform.scrollLeft = 0;
   position.max = String(Math.round(state.bundle.duration_ms));
   position.disabled = false;
   zoom.disabled = false;
@@ -512,19 +516,48 @@ function configureBundle(bundle, sourceUrl) {
   renderLabels();
   renderEventFilters();
   renderComparison();
-  setZoom(zoom.value);
-  setTime(0);
   if (state.bundle.audio_url) {
     audio.src = new URL(state.bundle.audio_url, sourceUrl).href;
   } else {
     setStatus('Review loaded; this bundle has no audio URL.');
   }
+  setZoom(1);
+  setTime(0, {seekAudio: false});
   if (state.bundle.audio_url) setStatus('Review loaded.');
 }
 
-async function loadBundle() {
-  const query = new URLSearchParams(window.location.search);
-  const dataUrl = query.get('data') || DEFAULT_DATA_URL;
+function clearReview() {
+  stopPlayback();
+  state.bundle = null;
+  state.timeMs = 0;
+  state.selectedLabel = null;
+  state.replayEndMs = null;
+  state.enabledEventGroups.clear();
+  audio.removeAttribute('src');
+  audio.load();
+  play.disabled = true;
+  replay.disabled = true;
+  position.disabled = true;
+  position.max = '0';
+  position.value = '0';
+  zoom.disabled = true;
+  zoom.value = '1';
+  timeOutput.textContent = '0.00 s';
+  waveform.scrollLeft = 0;
+  waveform.dataset.zoom = '1';
+  waveform.dataset.timeMs = '0';
+  waveform.querySelector('.timeline-track').replaceChildren();
+  eventFilters.replaceChildren();
+  eventFilters.hidden = true;
+  labels.replaceChildren();
+  events.replaceChildren();
+  features.replaceChildren();
+  comparison.replaceChildren();
+  led.replaceChildren();
+  selectedLabel.textContent = 'No label selected.';
+}
+
+async function loadBundle(dataUrl) {
   try {
     const response = await fetch(dataUrl, {cache: 'no-store'});
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -560,6 +593,14 @@ waveform.addEventListener('pointerup', waveformPointerUp);
 waveform.addEventListener('pointercancel', (event) => clearWaveformGesture(event.pointerId));
 waveform.addEventListener('lostpointercapture', (event) => clearWaveformGesture(event.pointerId, {release: false}));
 
-loadBundle();
+const localDataUrl = localReviewDataUrl(window.location);
+if (localDataUrl) {
+  document.querySelector('#review-protected').hidden = false;
+  loadBundle(localDataUrl);
+} else {
+  import('./review-online.js')
+    .then(({initOnlineReview}) => initOnlineReview({clearReview, configureBundle, setStatus}))
+    .catch(() => setStatus('Online review could not start.', true));
+}
 
-export {setTime, state};
+export {clearReview, configureBundle, setStatus, setTime, state, stopPlayback};

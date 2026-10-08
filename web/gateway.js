@@ -7,6 +7,7 @@ const app=initializeApp(firebaseConfig);
 initializeAppCheck(app,{provider:new ReCaptchaEnterpriseProvider(appCheckSiteKey),isTokenAutoRefreshEnabled:true});
 const auth=getAuth(app),fn=getFunctions(app,'us-east1');
 export const overview=httpsCallable(fn,'fleetOverview'),change=httpsCallable(fn,'fleetChange');
+export const reviewCatalog=httpsCallable(fn,'reviewCatalog'),reviewRecording=httpsCallable(fn,'reviewRecording');
 export const signIn=()=>signInWithPopup(auth,new GoogleAuthProvider());
 export const signOut=()=>firebaseSignOut(auth);
 export const onUser=callback=>onAuthStateChanged(auth,callback);

@@ -88,6 +88,90 @@ test('missing replay keeps the effect guide usable',async({page})=>{
  await expect(page.getByRole('heading',{name:'Chroma',exact:true})).toBeVisible();
 });
 
+const reviewAudioBase64='UklGRmQBAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YUABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
+const hostedCatalog={schema_version:1,recordings:[
+ {id:'drone-yell-10s',name:'Generated drone/yell fixture',duration_ms:1000,label_counts:{drone:1,yell:1},event_counts:{transient:1,yell:1}},
+ {id:'high-yell-01',name:'High yell 01',duration_ms:2000,label_counts:{drone:1,yell:1},event_counts:{transient:1,yell:1}}
+]};
+function hostedReview(id){
+ const high=id==='high-yell-01';
+ return {id,audio_mime_type:'audio/wav',audio_base64:reviewAudioBase64,bundle:{
+  duration_ms:high?2000:1000,waveform:[0,.5,1],
+  labels:[{type:'drone',start_ms:high?200:100,end_ms:high?1800:900},{type:'yell',start_ms:high?950:450,end_ms:high?1050:550}],
+  events:[{type:'transient',time_ms:300},{type:'yell',time_ms:high?1000:500}],features:[],
+  comparison:{yell:{true_positive:1,false_positive:0,false_negative:0,precision:1,recall:1,f1:1}},effects:{frames:{}}
+ }};
+}
+async function routeHostedReviews(page){
+ await page.route('**/test-api/review-catalog',route=>route.fulfill({json:hostedCatalog}));
+ await page.route('**/test-api/review-recording',route=>route.fulfill({json:hostedReview(route.request().postDataJSON().id)}));
+}
+
+test('hosted review signs in, switches recordings, resets view state, and clears on sign-out',async({page})=>{
+ await page.addInitScript(()=>{
+  window.reviewObjectUrls={created:[],revoked:[]};
+  const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);
+  URL.createObjectURL=blob=>{const url=create(blob);window.reviewObjectUrls.created.push(url);return url;};
+  URL.revokeObjectURL=url=>{window.reviewObjectUrls.revoked.push(url);return revoke(url);};
+ });
+ await routeHostedReviews(page);
+ await page.goto('/review.html');
+ await expect(page.locator('#review-protected')).toBeHidden();
+ await page.getByRole('button',{name:'Sign in with Google'}).click();
+ const recording=page.getByRole('combobox',{name:'Recording'});
+ await expect(recording.locator('option')).toHaveCount(2);
+ await expect(recording).toHaveValue('drone-yell-10s');
+ await expect(page.locator('#review-selected-recording')).toContainText('Generated drone/yell fixture');
+ await expect(page.locator('#review-labels')).toContainText('0.45 s');
+ const position=page.getByRole('slider',{name:'Position'}),zoom=page.getByRole('slider',{name:'Zoom'});
+ await position.fill('500');await position.dispatchEvent('input');
+ await zoom.fill('4');await zoom.dispatchEvent('input');
+ await page.locator('#review-waveform').evaluate(node=>{node.scrollLeft=100;});
+ await page.locator('#review-labels button').first().click();
+ await page.getByRole('checkbox',{name:'Transient (1)'}).check();
+ await recording.selectOption('high-yell-01');
+ await expect(page.locator('#review-selected-recording')).toContainText('High yell 01');
+ await expect(page.locator('#review-labels')).toContainText('0.95 s');
+ await expect(position).toHaveValue('0');
+ await expect(zoom).toHaveValue('1');
+ await expect(page.locator('#review-waveform')).toHaveJSProperty('scrollLeft',0);
+ await expect(page.locator('#review-selected-label')).toHaveText('No label selected.');
+ await expect(page.getByRole('checkbox',{name:'Transient (1)'})).not.toBeChecked();
+ await page.getByRole('button',{name:'Open account menu'}).click();
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();
+ await expect(page.locator('#review-protected')).toBeHidden();
+ await expect(page.locator('#review-labels')).toBeEmpty();
+ expect(await page.evaluate(()=>window.reviewObjectUrls)).toMatchObject({created:[expect.any(String),expect.any(String)],revoked:[expect.any(String),expect.any(String)]});
+});
+
+test('hosted review rejects unauthorized catalog access',async({page})=>{
+ await page.route('**/test-api/review-catalog',route=>route.fulfill({status:403,body:'forbidden'}));
+ await page.goto('/review.html');
+ await page.getByRole('button',{name:'Sign in with Google'}).click();
+ await expect(page.locator('#review-status')).toContainText('Administrator access is required');
+ await expect(page.locator('#review-protected')).toBeHidden();
+});
+
+test('hosted review ignores a stale recording response',async({page})=>{
+ let releaseFirst;
+ const firstReady=new Promise(resolve=>{releaseFirst=resolve;});
+ await page.route('**/test-api/review-catalog',route=>route.fulfill({json:hostedCatalog}));
+ await page.route('**/test-api/review-recording',async route=>{
+  const id=route.request().postDataJSON().id;
+  if(id==='drone-yell-10s')await firstReady;
+  await route.fulfill({json:hostedReview(id)});
+ });
+ await page.goto('/review.html');
+ await page.getByRole('button',{name:'Sign in with Google'}).click();
+ const recording=page.getByRole('combobox',{name:'Recording'});
+ await expect(recording.locator('option')).toHaveCount(2);
+ await recording.selectOption('high-yell-01');
+ await expect(page.locator('#review-selected-recording')).toContainText('High yell 01');
+ releaseFirst();
+ await page.waitForTimeout(100);
+ await expect(page.locator('#review-selected-recording')).toContainText('High yell 01');
+});
+
 async function routeReviewBundle(page,url='/gesture-review.json'){
  await page.route(`**${url}`,route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
   duration_ms:1000,
@@ -102,7 +186,12 @@ async function routeReviewBundle(page,url='/gesture-review.json'){
  await page.route('**/fixture.wav',route=>route.abort());
 }
 
-async function dragReviewWaveform(page,waveform,box,fromFraction,toFraction,browserName){
+async function dragReviewWaveform(page,waveform,_box,fromFraction,toFraction,browserName){
+ const box=await waveform.evaluate(node=>{
+  node.scrollIntoView({block:'center'});
+  const rect=node.getBoundingClientRect();
+  return {x:rect.x,y:rect.y,width:rect.width};
+ });
  const startX=box.x+box.width*fromFraction;
  const endX=box.x+box.width*toFraction;
  const clientY=box.y+40;

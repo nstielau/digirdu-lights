@@ -14,7 +14,8 @@ export function initAccount(onChange=()=>{}) {
       </div>
     </div>`;
   const $=id=>document.getElementById(id),toggle=$('profile-toggle'),menu=$('profile-menu');
-  const message=text=>{$('status').textContent=text;};
+  const status=$('status')||$('review-status');
+  const message=text=>{if(status)status.textContent=text;};
   function open(value){menu.hidden=!value;toggle.setAttribute('aria-expanded',String(value));}
   toggle.onclick=()=>open(menu.hidden);
   toggle.addEventListener('keydown',event=>{

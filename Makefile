@@ -87,6 +87,7 @@ sound-review: $(VENV)/.dev-ready
 	$(PY) tools/sound_review.py --audio '$(REVIEW_AUDIO)' --labels '$(REVIEW_LABELS)' --output-dir '.artifacts/sound-review'
 	cp web/review.html .artifacts/sound-review/review.html
 	cp web/review-page.js .artifacts/sound-review/review-page.js
+	cp web/review-mode.mjs .artifacts/sound-review/review-mode.mjs
 	cp web/styles.css .artifacts/sound-review/styles.css
 
 review-library: $(VENV)/.dev-ready

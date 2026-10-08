@@ -8,6 +8,10 @@
   <style>
     .review-page{max-width:1120px}
     .review-status{min-height:24px;color:var(--laser-cyan)}
+    .review-library{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+    .review-library label{display:grid;gap:6px;min-width:min(100%,320px)}
+    .review-library select{min-height:42px}
+    .review-selected-recording{margin:0;color:#aebed5;font:700 13px ui-monospace,monospace}
     .review-toolbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:18px 0}
     .review-control{display:grid;gap:6px;min-width:150px}
     .review-control input{width:100%;accent-color:var(--laser-pink);cursor:pointer}
@@ -48,10 +52,23 @@
   </style>
 </head>
 <body>
+  <header><a class="brand" href="/">DIGIRDU LIGHTS</a><div id="account-control"></div><nav aria-label="Main"><a href="/">Fleet</a><a href="/effects.html">Effects</a><a href="/review.html" aria-current="page">Review</a></nav></header>
   <main class="review-page">
     <p class="eyebrow">NIC-8 · DETERMINISTIC AUDIO REVIEW</p>
     <h1>Human-reviewed sound analysis</h1>
     <p id="review-status" class="review-status" role="status" aria-live="polite">Loading review…</p>
+
+    <div id="review-protected" hidden>
+    <section class="review-panel" aria-labelledby="recording-title">
+      <h2 id="recording-title">Recording library</h2>
+      <div class="review-library">
+        <label for="review-recording">Recording
+          <select id="review-recording"></select>
+        </label>
+        <button id="review-retry" type="button" hidden>Retry recording</button>
+        <p id="review-selected-recording" class="review-selected-recording"></p>
+      </div>
+    </section>
 
     <section class="review-panel" aria-labelledby="review-controls-title">
       <h2 id="review-controls-title">Playback</h2>
@@ -105,6 +122,7 @@
       <h2 id="led-title">Virtual consumer</h2>
       <div id="review-led" class="led-view" data-time-ms="0" role="img" aria-label="Virtual eight-pixel consumer frame"></div>
     </section>
+    </div>
   </main>
   <script type="module" src="./review-page.js"></script>
 </body>
