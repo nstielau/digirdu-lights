@@ -288,8 +288,9 @@ def _read_stderr_best_effort(stderr_file):
 def _cleanup_stream_process(process):
     """Best-effort terminate, wait, and reap a stream process."""
     if process is None:
-        return
+        return True
 
+    reaped = False
     try:
         try:
             was_running = process.poll() is None
@@ -301,7 +302,10 @@ def _cleanup_stream_process(process):
             except (OSError, ValueError):
                 pass
     finally:
-        _close_stream_stdout(process)
+        try:
+            _close_stream_stdout(process)
+        except (OSError, ValueError):
+            pass
         try:
             process.wait(timeout=STREAM_WAIT_TIMEOUT_S)
         except subprocess.TimeoutExpired:
@@ -313,14 +317,22 @@ def _cleanup_stream_process(process):
                 process.wait()
             except (OSError, ValueError, subprocess.TimeoutExpired):
                 pass
+            else:
+                reaped = True
         except (OSError, ValueError):
             try:
                 process.wait()
             except (OSError, ValueError, subprocess.TimeoutExpired):
                 pass
+            else:
+                reaped = True
+        else:
+            reaped = True
+    return reaped
 
 
 def _finish_stream(process, stderr_file, terminate):
+    termination_succeeded = False
     try:
         was_running = process.poll() is None
     except (OSError, ValueError):
@@ -330,6 +342,8 @@ def _finish_stream(process, stderr_file, terminate):
             process.terminate()
         except (OSError, ValueError):
             pass
+        else:
+            termination_succeeded = True
     _close_stream_stdout(process)
     try:
         process.wait(timeout=STREAM_WAIT_TIMEOUT_S)
@@ -360,7 +374,7 @@ def _finish_stream(process, stderr_file, terminate):
             diagnostic = f": {diagnostic}"
         raise OSError(f"ffmpeg wait failed{diagnostic}: {exc}") from exc
     stderr = _read_stderr_best_effort(stderr_file)
-    return stderr, was_running
+    return stderr, was_running, termination_succeeded
 
 
 def _read_stdout_chunk(process, remaining):
@@ -436,8 +450,7 @@ def _record(args):
         try:
             pcm = _read_requested_pcm(process, requested_byte_count, capture_deadline)
         except TimeoutError as exc:
-            _cleanup_stream_process(process)
-            process_reaped = True
+            process_reaped = _cleanup_stream_process(process)
             stderr = _read_stderr_best_effort(stderr_file)
             diagnostic = _stderr_text(stderr)
             message = str(exc)
@@ -445,11 +458,10 @@ def _record(args):
                 message = f"{message}: {diagnostic}"
             raise ValueError(message) from exc
         except (OSError, ValueError):
-            _cleanup_stream_process(process)
-            process_reaped = True
+            process_reaped = _cleanup_stream_process(process)
             raise
         if len(pcm) != requested_byte_count:
-            stderr, _ = _finish_stream(process, stderr_file, terminate=False)
+            stderr, _, _ = _finish_stream(process, stderr_file, terminate=False)
             process_reaped = True
             diagnostic = _stderr_text(stderr)
             message = (
@@ -460,10 +472,14 @@ def _record(args):
                 message = f"{message}: {diagnostic}"
             raise ValueError(message)
 
-        stderr, was_running = _finish_stream(process, stderr_file, terminate=True)
+        stderr, _, termination_succeeded = _finish_stream(
+            process, stderr_file, terminate=True
+        )
         process_reaped = True
         returncode = process.returncode
-        if not isinstance(returncode, int) or (not was_running and returncode != 0):
+        if not isinstance(returncode, int) or (
+            returncode > 0 and not termination_succeeded
+        ):
             message = f"ffmpeg exited with status {returncode}"
             diagnostic = _stderr_text(stderr)
             if diagnostic:
@@ -492,7 +508,7 @@ def _record(args):
         return 1
     finally:
         if process is not None and not process_reaped:
-            _cleanup_stream_process(process)
+            process_reaped = _cleanup_stream_process(process)
         if stderr_file is not None:
             try:
                 stderr_file.close()

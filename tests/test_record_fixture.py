@@ -77,6 +77,15 @@ class TerminateRaceStreamProcess(FakeStreamProcess):
         raise ProcessLookupError("process already exited")
 
 
+class RetryWaitStreamProcess(FakeStreamProcess):
+    def wait(self, timeout=None):
+        self.wait_calls.append(timeout)
+        if len(self.wait_calls) <= 2:
+            raise OSError("wait failed")
+        self.running = False
+        return self.returncode
+
+
 class CloseErrorBytesIO(RecordingBytesIO):
     def __init__(self, value=b""):
         super().__init__(value)
@@ -521,6 +530,27 @@ class CliTests(unittest.TestCase):
             self.assertEqual(output.read_bytes(), b"keep this recording")
             self.assertEqual(list(root.glob(f".{output.name}.*")), [])
 
+    def test_failed_reap_is_retried_by_finalizer(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            process = RetryWaitStreamProcess(b"\0")
+            stderr = io.StringIO()
+
+            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+                    patch.object(record_fixture.select, "select", side_effect=OSError("select failed")), \
+                    redirect_stderr(stderr):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 1)
+            self.assertIn("select failed", stderr.getvalue())
+            self.assertGreaterEqual(len(process.wait_calls), 3)
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+
     def test_pcm_read_failure_reaps_stream_and_preserves_primary_error(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -539,6 +569,29 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(result, 1)
             self.assertIn("PCM read failed", stderr.getvalue())
+            self.assertTrue(process.terminated)
+            self.assertTrue(process.wait_calls)
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+
+    def test_terminate_race_with_positive_return_rejects_capture(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            process = TerminateRaceStreamProcess(
+                b"\0" * (16000 * 2), returncode=1
+            )
+            stderr = io.StringIO()
+
+            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+                    redirect_stderr(stderr):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 1)
+            self.assertIn("status 1", stderr.getvalue())
             self.assertTrue(process.terminated)
             self.assertTrue(process.wait_calls)
             self.assertEqual(output.read_bytes(), b"keep this recording")
