@@ -287,7 +287,14 @@ def _record(args):
                 message = f"{message}: {diagnostic}"
             raise ValueError(message)
 
-        _finish_stream(process, terminate=True)
+        stderr = _finish_stream(process, terminate=True)
+        returncode = process.returncode
+        if not isinstance(returncode, int) or returncode > 0:
+            message = f"ffmpeg exited with status {returncode}"
+            diagnostic = _stderr_text(stderr)
+            if diagnostic:
+                message = f"{message}: {diagnostic}"
+            raise ValueError(message)
         with wave.open(temporary_name, "wb") as wav:
             wav.setnchannels(args.channels)
             wav.setsampwidth(SAMPLE_WIDTH_BYTES)

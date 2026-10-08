@@ -31,9 +31,10 @@ class RecordingBytesIO(io.BytesIO):
 
 
 class FakeStreamProcess:
-    def __init__(self, stdout=b"", stderr=b""):
+    def __init__(self, stdout=b"", stderr=b"", returncode=0):
         self.stdout = RecordingBytesIO(stdout)
         self.stderr = io.BytesIO(stderr)
+        self.returncode = returncode
         self.terminated = False
         self.killed = False
         self.communicate_calls = []
@@ -312,6 +313,28 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertIn("ended before", stderr.getvalue())
             self.assertIn("input stopped early", stderr.getvalue())
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+
+    def test_positive_ffmpeg_exit_after_exact_stream_preserves_existing_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            process = FakeStreamProcess(
+                b"\0" * (16000 * 2), b"ffmpeg rejected the input", returncode=1
+            )
+            stderr = io.StringIO()
+
+            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+                    redirect_stderr(stderr):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 1)
+            self.assertIn("status 1", stderr.getvalue())
+            self.assertIn("ffmpeg rejected the input", stderr.getvalue())
             self.assertEqual(output.read_bytes(), b"keep this recording")
             self.assertEqual(list(root.glob(f".{output.name}.*")), [])
 
