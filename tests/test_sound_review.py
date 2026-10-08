@@ -31,9 +31,11 @@ from tools.sound_review import (
 from tools.record_fixture import validate_wav as validate_fixture_wav
 
 
-FIXTURE_DIR = Path(__file__).parent / "fixtures" / "audio"
+FIXTURE_DIR = Path(__file__).parent.parent / "review" / "recordings"
 REVIEW_AUDIO_FIXTURE = FIXTURE_DIR / "drone-yell-10s.wav"
 REVIEW_LABEL_FIXTURE = FIXTURE_DIR / "drone-yell-10s.labels.json"
+HIGH_YELL_AUDIO_FIXTURE = FIXTURE_DIR / "high-yell-01.wav"
+HIGH_YELL_LABEL_FIXTURE = FIXTURE_DIR / "high-yell-01.labels.json"
 REVIEW_AUDIO_SHA256 = "efa8b234ee94c014437b7d48fd6f612cd8aed68bb49764d009c5cb97f7cfafa2"
 
 
@@ -130,6 +132,29 @@ class CommittedSoundReviewFixtureTests(unittest.TestCase):
                     Path(second[name]).read_bytes(),
                     name,
                 )
+
+    def test_high_yell_recording_has_authoritative_human_labels(self):
+        self.assertEqual(
+            validate_fixture_wav(HIGH_YELL_AUDIO_FIXTURE),
+            {
+                "sample_rate_hz": 16000,
+                "channels": 1,
+                "sample_width_bytes": 2,
+                "frame_count": 160000,
+                "duration_s": 10.0,
+            },
+        )
+        self.assertEqual(
+            json.loads(HIGH_YELL_LABEL_FIXTURE.read_text()),
+            {
+                "audio_file": "high-yell-01.wav",
+                "sample_rate_hz": 16000,
+                "labels": [
+                    {"type": "drone", "start_ms": 1020, "end_ms": 6950},
+                    {"type": "yell", "start_ms": 2950, "end_ms": 3050},
+                ],
+            },
+        )
 
 
 class SoundReviewWavTests(unittest.TestCase):

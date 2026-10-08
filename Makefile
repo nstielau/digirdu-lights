@@ -13,15 +13,15 @@ MOUNT ?=
 LEGACY_RAINBOW ?=
 CAPTURE ?= .artifacts/samples/didgeridoo-2026-09-16/take1.jsonl
 REPLAY_OUTPUT ?= .artifacts/replay.html
-REVIEW_AUDIO ?= tests/fixtures/audio/drone-yell-10s.wav
-REVIEW_LABELS ?= tests/fixtures/audio/drone-yell-10s.labels.json
+REVIEW_AUDIO ?= review/recordings/drone-yell-10s.wav
+REVIEW_LABELS ?= review/recordings/drone-yell-10s.labels.json
 AUDIO_INPUT ?= 0
 BASE_ONLY ?=
 NODE_CONFIG ?=
 BOARD_ARGS = --board '$(BOARD)' --port '$(PORT)' $(if $(MOUNT),--mount '$(MOUNT)')
 ROM_FIRMWARE := .artifacts/firmware/adafruit-circuitpython-$(BOARD)-en_US-$(CIRCUITPYTHON_VERSION).bin
 
-.PHONY: help setup ports firmware flash flash-rom deploy console check test-mic test-buttons benchmark record-review sound-review
+.PHONY: help setup ports firmware flash flash-rom deploy console check test-mic test-buttons benchmark record-review sound-review review-library
 help:
 	@echo 'make setup    Install host tools into .venv'
 	@echo 'make ports    List USB serial devices'
@@ -89,12 +89,15 @@ sound-review: $(VENV)/.dev-ready
 	cp web/review-page.js .artifacts/sound-review/review-page.js
 	cp web/styles.css .artifacts/sound-review/styles.css
 
+review-library: $(VENV)/.dev-ready
+	$(PY) tools/review_library.py --catalog review/recordings/catalog.json --output-dir firebase/functions/review-data
+
 $(VENV)/.dev-ready: $(VENV)/.ready requirements-dev.txt
 	$(PY) -m pip install -r requirements-dev.txt
 	touch $@
 
 check: $(VENV)/.dev-ready
-	$(PY) -m py_compile tools/replay.py tools/cloud.py tools/firmware_release.py tools/ota_provision.py tools/record_fixture.py tools/sound_review.py
+	$(PY) -m py_compile tools/replay.py tools/cloud.py tools/firmware_release.py tools/ota_provision.py tools/record_fixture.py tools/sound_review.py tools/review_library.py
 	$(PY) -m py_compile battery.py boot.py ota_manifest.py ota_store.py ota_http.py ota_bootstrap.py app_version.py lights_app.py tools/bundle.py code.py config.py node_config.py audio_spectrum.py audio_features.py animation.py effects.py radio_protocol.py wireless.py sound_reactive.py examples/esp32_rainbow.py examples/node_follower.py examples/node_producer.py tools/board.py
 	$(PY) -m unittest discover -s tests
 	git diff --check
