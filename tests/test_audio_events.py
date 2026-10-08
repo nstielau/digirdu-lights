@@ -104,11 +104,13 @@ class AudioEventTests(unittest.TestCase):
         detector = SemanticEventDetector(config)
         detector.update(frame(drone=0.8), 0)
         detector.update(frame(drone=0.8), 100)
+        self.assertEqual(detector.update(frame(drone=0.8), 1000), ())
 
         self.assertEqual(
-            detector.finish(100),
-            ({"type": "drone_stop", "time_ms": 100, "confidence": 0.8},),
+            detector.finish(1000),
+            ({"type": "drone_stop", "time_ms": 1000, "confidence": 0.8},),
         )
+        self.assertEqual(detector.finish(1000), ())
 
     def test_invalid_drone_config_is_rejected(self):
         for kwargs in (
