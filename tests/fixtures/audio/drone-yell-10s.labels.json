@@ -1,0 +1,16 @@
+{
+  "audio_file": "drone-yell-10s.wav",
+  "sample_rate_hz": 16000,
+  "labels": [
+    {
+      "type": "drone",
+      "start_ms": 2250,
+      "end_ms": 10000
+    },
+    {
+      "type": "yell",
+      "start_ms": 4250,
+      "end_ms": 4750
+    }
+  ]
+}

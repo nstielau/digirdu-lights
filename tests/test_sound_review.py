@@ -1,6 +1,7 @@
 """Tests for offline review through the producer audio pipeline."""
 
 import array
+import hashlib
 import json
 import math
 import os
@@ -28,6 +29,12 @@ from tools.sound_review import (
     serialize_features,
 )
 from tools.record_fixture import validate_wav as validate_fixture_wav
+
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "audio"
+REVIEW_AUDIO_FIXTURE = FIXTURE_DIR / "drone-yell-10s.wav"
+REVIEW_LABEL_FIXTURE = FIXTURE_DIR / "drone-yell-10s.labels.json"
+REVIEW_AUDIO_SHA256 = "efa8b234ee94c014437b7d48fd6f612cd8aed68bb49764d009c5cb97f7cfafa2"
 
 
 def write_pcm_wav(path, sample_rate_hz, samples):
@@ -74,6 +81,55 @@ def fixture_feature_frames():
             }
         )
     return frames
+
+
+class CommittedSoundReviewFixtureTests(unittest.TestCase):
+    def test_committed_fixture_is_reviewed_and_deterministic(self):
+        self.assertEqual(
+            hashlib.sha256(REVIEW_AUDIO_FIXTURE.read_bytes()).hexdigest(),
+            REVIEW_AUDIO_SHA256,
+        )
+        self.assertEqual(
+            validate_fixture_wav(REVIEW_AUDIO_FIXTURE),
+            {
+                "sample_rate_hz": 16000,
+                "channels": 1,
+                "sample_width_bytes": 2,
+                "frame_count": 160000,
+                "duration_s": 10.0,
+            },
+        )
+        expected_labels = {
+            "audio_file": REVIEW_AUDIO_FIXTURE.name,
+            "sample_rate_hz": 16000,
+            "labels": [
+                {"type": "drone", "start_ms": 2250, "end_ms": 10000},
+                {"type": "yell", "start_ms": 4250, "end_ms": 4750},
+            ],
+        }
+        self.assertEqual(json.loads(REVIEW_LABEL_FIXTURE.read_text()), expected_labels)
+        label_bytes = REVIEW_LABEL_FIXTURE.read_bytes()
+
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary)
+            first = build_artifacts(
+                REVIEW_AUDIO_FIXTURE, REVIEW_LABEL_FIXTURE, temporary / "first"
+            )
+            second = build_artifacts(
+                REVIEW_AUDIO_FIXTURE, REVIEW_LABEL_FIXTURE, temporary / "second"
+            )
+
+            self.assertEqual(REVIEW_LABEL_FIXTURE.read_bytes(), label_bytes)
+            first_events = json.loads(Path(first["events_json"]).read_text())
+            event_times = [event["time_ms"] for event in first_events]
+            self.assertEqual(event_times, sorted(event_times))
+            self.assertTrue(all(0 <= time_ms <= 10000 for time_ms in event_times))
+            for name in first:
+                self.assertEqual(
+                    Path(first[name]).read_bytes(),
+                    Path(second[name]).read_bytes(),
+                    name,
+                )
 
 
 class SoundReviewWavTests(unittest.TestCase):

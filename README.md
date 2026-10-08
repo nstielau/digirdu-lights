@@ -1077,6 +1077,66 @@ The original board's rainbow was deployed and visually confirmed on September
   audio app logged all three requested changes: Ember, Aurora, Ripple. This
   establishes the producer's button-to-effect path independently of appearance.
 
+## Human-reviewed sound fixture
+
+`tests/fixtures/audio/drone-yell-10s.wav` is the approved exception to the
+repository's normal rule against committed recordings. It is a ten-second,
+16 kHz, mono, signed 16-bit MacBook Air microphone capture containing quiet,
+a sustained didgeridoo drone and one yell. Its SHA-256 is
+`efa8b234ee94c014437b7d48fd6f612cd8aed68bb49764d009c5cb97f7cfafa2`.
+The accepted take retains some low-frequency room/instrument character; it is
+review evidence, not a hi-fi reference recording.
+
+The authoritative human labels are in
+`tests/fixtures/audio/drone-yell-10s.labels.json`: drone from 2250–10000 ms and
+yell from 4250–4750 ms. Human review is authoritative. Detector output may be
+compared with these ranges but must never rewrite them. For this take the
+detector starts the drone 438 ms late, producing 94.3% interval overlap, and
+does not classify the reviewed yell. Its transient markers are unlabelled
+attack observations, not substitutes for the yell label.
+
+Recheck CoreAudio device indexes immediately before capture because connected
+devices can reorder them:
+
+```sh
+ffmpeg -f avfoundation -list_devices true -i ""
+make record-review AUDIO_INPUT=1
+```
+
+The reviewed take used the MacBook Air microphone at index 1 on the capture
+machine. `AUDIO_INPUT` is uppercase and Make variable names are case-sensitive.
+The recorder writes exactly ten seconds of PCM and atomically replaces
+`REVIEW_AUDIO`, so use a unique ignored path for experiments rather than
+overwriting the committed fixture:
+
+```sh
+make record-review AUDIO_INPUT=1 \
+  REVIEW_AUDIO=.artifacts/samples/review/growl-high-01.wav
+```
+
+After creating a matching human-authored labels file, generate the ignored
+feature, event, comparison, effect and run artifacts with:
+
+```sh
+make sound-review \
+  REVIEW_AUDIO=tests/fixtures/audio/drone-yell-10s.wav \
+  REVIEW_LABELS=tests/fixtures/audio/drone-yell-10s.labels.json
+python3 -m http.server 8765
+```
+
+Then open
+`http://127.0.0.1:8765/.artifacts/sound-review/review.html`. The page keeps the
+audio, waveform, labels, detected events, derived features and virtual LEDs on
+one playhead. It supports play/pause, scrubbing, zoom and replay around a
+selected label; edit labels in the JSON file and regenerate the bundle.
+Everything under `.artifacts/sound-review/` is derived and remains ignored.
+
+This single take verifies deterministic analysis and the human-review plumbing.
+It does not establish generalized yell, growl, rhythm or vocalization accuracy,
+live hardware replay equivalence, culvert RF coverage, or a corpus storage
+policy. Additional exploratory recordings remain local and ignored until that
+policy is explicitly chosen.
+
 
 ## References
 
