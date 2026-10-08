@@ -11,6 +11,7 @@
     .review-library{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
     .review-library label{display:grid;gap:6px;min-width:min(100%,320px)}
     .review-library select{min-height:42px}
+    .review-library option{background:#1b122c;color:#fff}
     .review-selected-recording{margin:0;color:#aebed5;font:700 13px ui-monospace,monospace}
     .review-toolbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:18px 0}
     .review-control{display:grid;gap:6px;min-width:150px}
@@ -20,7 +21,8 @@
     .review-panel h2{margin:0 0 14px;font-size:20px}
     .timeline-viewport{overflow-x:auto;overflow-y:hidden;border:1px solid #46314f;border-radius:5px;background:#080612;cursor:grab;touch-action:pan-y}
     .timeline-viewport[data-panning="true"]{cursor:grabbing;user-select:none}
-    .timeline-track{position:relative;min-height:84px;width:calc(100% * var(--timeline-zoom, 1));min-width:100%;transform-origin:left center;background:repeating-linear-gradient(90deg,#0e1830 0,#0e1830 1px,transparent 1px,transparent 10%)}
+    .timeline-track{position:relative;min-height:234px;width:calc(100% * var(--timeline-zoom, 1));min-width:100%;transform-origin:left center;background:repeating-linear-gradient(90deg,#0e1830 0,#0e1830 1px,transparent 1px,transparent 10%)}
+    .waveform-region{position:relative;height:84px}
     .wave-bar{position:absolute;bottom:12px;width:max(2px,calc(100% / var(--wave-count, 1) - 2px));border-radius:2px 2px 0 0;background:linear-gradient(#ff57bd,#59eeff);opacity:.8}
     .label-overlay-layer{position:absolute;inset:0;z-index:1}
     .label-overlay{position:absolute;top:10px;min-width:6px;height:18px;padding:0 4px;overflow:hidden;border:1px solid #ff57bd;border-radius:3px;background:#ff57bd55;color:#fff;font:10px ui-monospace,monospace;white-space:nowrap;text-align:left}
@@ -29,12 +31,22 @@
     .event-overlay-layer{position:absolute;inset:0;z-index:2;pointer-events:none}
     .event-overlay{position:absolute;top:53px;min-width:6px;padding:2px 4px;transform:translateX(-50%);border:1px solid #ffc857;border-radius:3px;background:#ffc85755;color:#fff;font:10px ui-monospace,monospace;white-space:nowrap;pointer-events:auto}
     .event-overlay[data-active="true"]{background:#ffc857aa;border-color:#fff;box-shadow:0 0 12px #ffc85788}
+    .spectrogram-region{position:relative;height:150px;border-top:1px solid #46314f;background:#070b23}
+    .spectrogram-canvas{display:block;width:100%;height:100%}
+    .spectrogram-axis{position:absolute;inset:5px auto 5px 6px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;color:#fff;font:10px ui-monospace,monospace;text-shadow:0 1px 3px #000}
+    .spectrogram-legend{position:absolute;right:7px;bottom:5px;display:flex;align-items:center;color:#fff;font:10px ui-monospace,monospace;text-shadow:0 1px 3px #000}
+    .spectrogram-legend::before{content:"";display:inline-block;width:72px;height:8px;margin-right:5px;background:linear-gradient(90deg,#070b23,#165d75,#d45b72,#ffcf6a)}
+    .spectrogram-empty{display:grid;height:100%;place-items:center;margin:0;padding:0 18px;color:#aebed5;font:13px ui-monospace,monospace;text-align:center}
     .timeline-viewport[data-track-cursor]{position:relative}
     .track-cursor{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 10px #59eeff;pointer-events:none;z-index:2}
     .track-cursor-label{position:absolute;top:4px;left:6px;white-space:nowrap;color:#fff;font:11px ui-monospace,monospace}
     .review-list{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
     .review-list button{font-size:13px;padding:7px 9px}
     .review-list button[aria-pressed="true"]{border-color:var(--laser-cyan);box-shadow:0 0 12px #59eeff33}
+    #review-events.review-list{display:grid;grid-template-columns:minmax(0,1fr)}
+    #review-events.review-list>li{width:100%;box-sizing:border-box}
+    #review-events.review-list>li>button{width:100%;border-color:#46314f;background:#0b0a15;text-align:left}
+    #review-events.review-list>li.event-active>button{border-color:#ffc857;box-shadow:0 0 12px #ffc85733}
     .review-event-filters{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border:1px solid #46314f;border-radius:5px}
     .review-event-filters[hidden]{display:none}
     .review-event-filters legend{padding:0 5px;color:#aebed5;font-size:12px}
@@ -88,8 +100,8 @@
     </section>
 
     <section class="review-panel" aria-labelledby="waveform-title">
-      <h2 id="waveform-title">Waveform</h2>
-      <div id="review-waveform" class="timeline-viewport" data-zoom="1" data-track-cursor="waveform" data-time-ms="0" aria-label="Audio waveform timeline">
+      <h2 id="waveform-title">Waveform and spectrogram</h2>
+      <div id="review-waveform" class="timeline-viewport" data-zoom="1" data-track-cursor="waveform" data-time-ms="0" aria-label="Audio waveform and log-frequency spectrogram timeline">
         <div class="timeline-track"><span class="track-cursor-label">playhead</span></div>
       </div>
     </section>
