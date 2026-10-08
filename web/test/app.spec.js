@@ -88,6 +88,46 @@ test('missing replay keeps the effect guide usable',async({page})=>{
  await expect(page.getByRole('heading',{name:'Chroma',exact:true})).toBeVisible();
 });
 
+async function routeReviewBundle(page,url='/gesture-review.json'){
+ await page.route(`**${url}`,route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+  duration_ms:1000,
+  audio_url:'/fixture.wav',
+  waveform:[0,.2,.8,.3],
+  labels:[{type:'drone',start_ms:200,end_ms:800}],
+  events:[{type:'yell',time_ms:500,confidence:.9}],
+  features:[{time_ms:500,volume:.8,drone:.7,vocal:.9,transient_strength:.2}],
+  comparison:{},
+  effects:{frames:{}}
+ }}));
+ await page.route('**/fixture.wav',route=>route.abort());
+}
+
+async function dragReviewWaveform(page,waveform,box,fromFraction,toFraction,browserName){
+ const startX=box.x+box.width*fromFraction;
+ const endX=box.x+box.width*toFraction;
+ const clientY=box.y+40;
+ if(browserName!=='webkit'){
+  await page.mouse.move(startX,clientY);
+  await page.mouse.down();
+  await page.mouse.move(endX,clientY);
+  await page.mouse.up();
+  return;
+ }
+ await waveform.evaluate((node,{startX,endX,clientY})=>{
+  const captured=new Set();
+  node.setPointerCapture=pointerId=>captured.add(pointerId);
+  node.hasPointerCapture=pointerId=>captured.has(pointerId);
+  node.releasePointerCapture=pointerId=>captured.delete(pointerId);
+  const dispatch=(type,clientX)=>node.dispatchEvent(new PointerEvent(type,{
+   bubbles:true,cancelable:true,pointerId:17,pointerType:'touch',isPrimary:true,
+   button:type==='pointermove'?-1:0,buttons:type==='pointerup'?0:1,clientX,clientY
+  }));
+  dispatch('pointerdown',startX);
+  dispatch('pointermove',endX);
+  dispatch('pointerup',endX);
+ },{startX,endX,clientY});
+}
+
 test('review page synchronizes all tracks from one playhead',async({page})=>{
  await page.route('**/test-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
   duration_ms:1000,
@@ -111,6 +151,8 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(page.locator('#review-events')).toContainText('yell');
  await expect(page.locator('.event-overlay')).toHaveCount(1);
  await expect(page.locator('.event-overlay')).toHaveAttribute('data-active','true');
+ await page.locator('.event-overlay').click();
+ await expect(page.getByRole('slider',{name:'Position'})).toHaveValue('500');
  await expect(page.locator('#review-features')).toContainText('0.80');
  await expect(page.locator('#review-comparison')).toContainText('yell');
  await expect(page.locator('#review-comparison')).toContainText('50% precision');
@@ -131,6 +173,63 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(labelButton).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('.label-overlay')).toHaveAttribute('data-active','false');
  await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(e=>e.clientWidth));
+});
+
+test('review waveform click seeks and preserves playback state',async({page})=>{
+ await page.addInitScript(()=>{
+  window.reviewCurrentTimeWrites=[];
+  Object.defineProperty(HTMLMediaElement.prototype,'currentTime',{
+   configurable:true,
+   get(){return this.reviewCurrentTimeValue||0;},
+   set(value){this.reviewCurrentTimeValue=value;window.reviewCurrentTimeWrites.push(value);}
+  });
+  HTMLMediaElement.prototype.play=async function(){};
+  HTMLMediaElement.prototype.pause=function(){};
+ });
+ await routeReviewBundle(page);
+ await page.goto('/review.html?data=/gesture-review.json');
+ await page.locator('#review-audio').evaluate(audio=>{
+  Object.defineProperty(audio,'src',{configurable:true,value:'mock://audio'});
+  document.querySelector('#review-play').disabled=false;
+ });
+ await page.getByRole('button',{name:'Play',exact:true}).click();
+ const waveform=page.locator('#review-waveform');
+ const box=await waveform.boundingBox();
+ await waveform.click({position:{x:box.width/2,y:40}});
+ const soughtMs=Number(await page.getByRole('slider',{name:'Position'}).inputValue());
+ expect(soughtMs).toBeGreaterThanOrEqual(495);
+ expect(soughtMs).toBeLessThanOrEqual(505);
+ await expect(page.getByRole('button',{name:'Pause',exact:true})).toBeVisible();
+ const writes=await page.evaluate(()=>window.reviewCurrentTimeWrites);
+ expect(writes).toHaveLength(1);
+ expect(writes[0]).toBeCloseTo(.5,1);
+});
+
+test('review waveform drag pans when zoomed without seeking',async({page,browserName})=>{
+ await routeReviewBundle(page);
+ await page.goto('/review.html?data=/gesture-review.json');
+ const position=page.getByRole('slider',{name:'Position'});
+ await position.fill('400');
+ await position.dispatchEvent('input');
+ const zoom=page.getByRole('slider',{name:'Zoom'});
+ await zoom.fill('4');
+ await zoom.dispatchEvent('input');
+ const waveform=page.locator('#review-waveform');
+ const box=await waveform.boundingBox();
+ await dragReviewWaveform(page,waveform,box,.75,.25,browserName);
+ expect(await waveform.evaluate(node=>node.scrollLeft)).toBeGreaterThan(0);
+ await expect(position).toHaveValue('400');
+});
+
+test('review waveform separates shaky clicks from pans and stays bounded at 1x',async({page,browserName})=>{
+ await routeReviewBundle(page);
+ await page.goto('/review.html?data=/gesture-review.json');
+ const waveform=page.locator('#review-waveform');
+ const box=await waveform.boundingBox();
+ await dragReviewWaveform(page,waveform,box,.25,(box.width*.25+4)/box.width,browserName);
+ expect(Number(await page.getByRole('slider',{name:'Position'}).inputValue())).toBeGreaterThan(250);
+ await dragReviewWaveform(page,waveform,box,.75,.25,browserName);
+ expect(await waveform.evaluate(node=>node.scrollLeft)).toBe(0);
 });
 
 test('review page playback advances displays without repeatedly seeking audio',async({page})=>{

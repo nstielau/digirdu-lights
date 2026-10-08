@@ -9,6 +9,14 @@ const state = {
   replayEndMs: null,
 };
 
+const WAVEFORM_DRAG_THRESHOLD_PX = 5;
+const waveformGesture = {
+  pointerId: null,
+  startClientX: 0,
+  startScrollLeft: 0,
+  dragged: false,
+};
+
 const audio = document.querySelector('#review-audio');
 const play = document.querySelector('#review-play');
 const replay = document.querySelector('#review-replay');
@@ -368,6 +376,55 @@ function setZoom(value) {
   waveform.querySelector('.timeline-track').style.setProperty('--timeline-zoom', state.zoom);
 }
 
+function waveformTrack() {
+  return waveform.querySelector('.timeline-track');
+}
+
+function clearWaveformGesture(pointerId, {release = true} = {}) {
+  if (waveformGesture.pointerId !== pointerId) return;
+  if (release && waveform.hasPointerCapture(pointerId)) {
+    waveform.releasePointerCapture(pointerId);
+  }
+  waveformGesture.pointerId = null;
+  waveformGesture.dragged = false;
+  waveform.dataset.panning = 'false';
+}
+
+function seekWaveformAt(clientX) {
+  const rect = waveformTrack().getBoundingClientRect();
+  if (!rect.width) return;
+  const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  setTime(fraction * state.bundle.duration_ms);
+}
+
+function waveformPointerDown(event) {
+  if (!event.isPrimary || event.button !== 0 || waveformGesture.pointerId !== null) return;
+  if (event.target.closest('.label-overlay,.event-overlay')) return;
+  waveformGesture.pointerId = event.pointerId;
+  waveformGesture.startClientX = event.clientX;
+  waveformGesture.startScrollLeft = waveform.scrollLeft;
+  waveformGesture.dragged = false;
+  waveform.setPointerCapture(event.pointerId);
+}
+
+function waveformPointerMove(event) {
+  if (waveformGesture.pointerId !== event.pointerId) return;
+  const delta = event.clientX - waveformGesture.startClientX;
+  if (!waveformGesture.dragged && Math.abs(delta) > WAVEFORM_DRAG_THRESHOLD_PX) {
+    waveformGesture.dragged = true;
+    waveform.dataset.panning = 'true';
+  }
+  if (!waveformGesture.dragged) return;
+  waveform.scrollLeft = waveformGesture.startScrollLeft - delta;
+  event.preventDefault();
+}
+
+function waveformPointerUp(event) {
+  if (waveformGesture.pointerId !== event.pointerId) return;
+  if (!waveformGesture.dragged) seekWaveformAt(event.clientX);
+  clearWaveformGesture(event.pointerId);
+}
+
 function configureBundle(bundle, sourceUrl) {
   state.bundle = normalizeBundle(bundle);
   state.selectedLabel = null;
@@ -421,6 +478,11 @@ play.addEventListener('click', () => {
   else startPlayback();
 });
 replay.addEventListener('click', replaySelectedLabel);
+waveform.addEventListener('pointerdown', waveformPointerDown);
+waveform.addEventListener('pointermove', waveformPointerMove);
+waveform.addEventListener('pointerup', waveformPointerUp);
+waveform.addEventListener('pointercancel', (event) => clearWaveformGesture(event.pointerId));
+waveform.addEventListener('lostpointercapture', (event) => clearWaveformGesture(event.pointerId, {release: false}));
 
 loadBundle();
 

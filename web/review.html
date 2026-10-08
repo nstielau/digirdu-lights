@@ -14,7 +14,8 @@
     .review-time{font:700 18px ui-monospace,monospace;color:var(--laser-cyan);padding-bottom:9px}
     .review-panel{margin:18px 0;padding:20px;border:1px solid #59365f;border-radius:8px;background:linear-gradient(145deg,#191127,#100e1e);overflow:hidden}
     .review-panel h2{margin:0 0 14px;font-size:20px}
-    .timeline-viewport{overflow:hidden;border:1px solid #46314f;border-radius:5px;background:#080612}
+    .timeline-viewport{overflow-x:auto;overflow-y:hidden;border:1px solid #46314f;border-radius:5px;background:#080612;cursor:grab;touch-action:pan-y}
+    .timeline-viewport[data-panning="true"]{cursor:grabbing;user-select:none}
     .timeline-track{position:relative;min-height:84px;width:calc(100% * var(--timeline-zoom, 1));min-width:100%;transform-origin:left center;background:repeating-linear-gradient(90deg,#0e1830 0,#0e1830 1px,transparent 1px,transparent 10%)}
     .wave-bar{position:absolute;bottom:12px;width:max(2px,calc(100% / var(--wave-count, 1) - 2px));border-radius:2px 2px 0 0;background:linear-gradient(#ff57bd,#59eeff);opacity:.8}
     .label-overlay-layer{position:absolute;inset:0;z-index:1}
@@ -61,7 +62,7 @@
         </label>
         <output id="review-time" class="review-time" for="review-position">0.00 s</output>
       </div>
-      <p class="review-help">Select a human label, then use Replay label to hear the surrounding half-second. Zoom changes the timeline viewport; timestamps stay fixed.</p>
+      <p class="review-help">Click the waveform to seek. Drag a zoomed waveform to pan. Select a human label, then use Replay label to hear the surrounding half-second.</p>
     </section>
 
     <section class="review-panel" aria-labelledby="waveform-title">
