@@ -35,10 +35,11 @@ class SemanticEventDetector:
         self._drone_confidence = 0.0
 
     @staticmethod
-    def _validate_time(time_ms, previous):
+    def _validate_time(time_ms, previous, allow_equal=False):
         if isinstance(time_ms, bool) or not isinstance(time_ms, int):
             raise ValueError("time_ms must be an integer")
-        if previous is not None and time_ms <= previous:
+        if previous is not None and (
+                time_ms < previous or (time_ms == previous and not allow_equal)):
             raise ValueError("time_ms must increase")
 
     @staticmethod
@@ -97,7 +98,7 @@ class SemanticEventDetector:
     def finish(self, time_ms):
         if self._finished:
             return ()
-        self._validate_time(time_ms, self._last_time_ms)
+        self._validate_time(time_ms, self._last_time_ms, allow_equal=True)
         self._last_time_ms = time_ms
         self._finished = True
         if not self._drone_active:

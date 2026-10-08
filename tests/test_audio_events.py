@@ -99,6 +99,17 @@ class AudioEventTests(unittest.TestCase):
         )
         self.assertEqual(detector.finish(300), ())
 
+    def test_finish_allows_the_final_update_timestamp(self):
+        config = DroneEventConfig(start_hold_s=0.10, stop_hold_s=0.20)
+        detector = SemanticEventDetector(config)
+        detector.update(frame(drone=0.8), 0)
+        detector.update(frame(drone=0.8), 100)
+
+        self.assertEqual(
+            detector.finish(100),
+            ({"type": "drone_stop", "time_ms": 100, "confidence": 0.8},),
+        )
+
     def test_invalid_drone_config_is_rejected(self):
         for kwargs in (
             {"on_threshold": 0.2, "off_threshold": 0.2},
