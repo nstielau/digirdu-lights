@@ -51,9 +51,16 @@ def fixture_feature_frames():
                 "calibrating": False,
                 "volume": level,
                 "drone": level,
+                "harmonics": 0.35,
+                "timbre_position": 0.25,
                 "growl": 0.15,
                 "vocal": 0.1,
                 "transient_strength": 0.0,
+                "attack_event": False,
+                "yell_event": False,
+                "attack_age_s": 0.0,
+                "yell_age_s": 0.0,
+                "decay": level,
                 "low_energy": 0.55,
                 "mid_energy": 0.3,
                 "high_energy": 0.15,
@@ -352,9 +359,16 @@ class SoundReviewAnalysisTests(unittest.TestCase):
         current = AudioFeatures()
         current.volume = 0.4
         current.drone = 0.5
+        current.harmonics = 0.35
+        current.timbrePosition = 0.25
         current.growl = 0.6
         current.vocal = 0.7
         current.attack = 0.8
+        current.attackEvent = True
+        current.yellEvent = False
+        current.attackAge = 0.02
+        current.yellAge = 0.0
+        current.decay = 0.9
         current.spectrum = tuple(index / 10 for index in range(8))
         before = dict(vars(current))
         raw = {
@@ -373,9 +387,16 @@ class SoundReviewAnalysisTests(unittest.TestCase):
                 "calibrating",
                 "volume",
                 "drone",
+                "harmonics",
+                "timbre_position",
                 "growl",
                 "vocal",
                 "transient_strength",
+                "attack_event",
+                "yell_event",
+                "attack_age_s",
+                "yell_age_s",
+                "decay",
                 "low_energy",
                 "mid_energy",
                 "high_energy",
@@ -400,6 +421,13 @@ class SoundReviewAnalysisTests(unittest.TestCase):
         self.assertEqual(serialized["low_energy"], 0.5)
         self.assertEqual(serialized["mid_energy"], 0.4)
         self.assertEqual(serialized["high_energy"], 0.1)
+        self.assertEqual(serialized["harmonics"], 0.35)
+        self.assertEqual(serialized["timbre_position"], 0.25)
+        self.assertTrue(serialized["attack_event"])
+        self.assertFalse(serialized["yell_event"])
+        self.assertEqual(serialized["attack_age_s"], 0.02)
+        self.assertEqual(serialized["yell_age_s"], 0.0)
+        self.assertEqual(serialized["decay"], 0.9)
         self.assertEqual(
             serialized["spectrum"], tuple(index / 10 for index in range(8))
         )
@@ -670,6 +698,33 @@ class SoundReviewEffectTests(unittest.TestCase):
         self.assertEqual(outward["source_time_ms"], 0)
         self.assertEqual(opposite["source_time_ms"], 0)
 
+    def test_render_effects_preserves_semantic_event_bloom_and_pulse(self):
+        plain = fixture_feature_frames()
+        with_event = fixture_feature_frames()
+        with_event[5]["transient_strength"] = 1.0
+        with_event[5]["attack_event"] = True
+        with_event[5]["attack_age_s"] = 0.0
+
+        plain_output = render_effects(
+            plain, Config(), fps=20, node_distances_mm=(0,), virtual_wave_speed_mm_s=10000
+        )
+        event_output = render_effects(
+            with_event,
+            Config(),
+            fps=20,
+            node_distances_mm=(0,),
+            virtual_wave_speed_mm_s=10000,
+        )
+
+        plain_frames = plain_output["frames"]["Ember"]["0"]
+        event_frames = event_output["frames"]["Ember"]["0"]
+        self.assertTrue(
+            any(
+                left["pixels_rgb"] != right["pixels_rgb"]
+                for left, right in zip(plain_frames, event_frames)
+            )
+        )
+
     def test_artifacts_are_byte_stable_and_manifest_is_hashed_without_clock_data(
         self,
     ):
@@ -706,6 +761,8 @@ class SoundReviewEffectTests(unittest.TestCase):
         manifest = json.loads(Path(first["run_json"]).read_text())
         self.assertEqual(manifest["random_seed"], 0)
         self.assertNotIn("generated_at", manifest)
+        self.assertEqual(manifest["analysis"]["feature_fps"], 16000 / 1024)
+        self.assertEqual(manifest["effect_engine"]["fps"], 20)
         self.assertEqual(
             set(manifest["source_sha256"]),
             {"audio", "labels"},

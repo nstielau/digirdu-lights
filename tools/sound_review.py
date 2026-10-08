@@ -178,6 +178,8 @@ def serialize_features(features, raw, time_ms):
         raise ValueError("time_ms must be a non-negative integer")
     if not isinstance(features.calibrating, bool) or not isinstance(
         features.active, bool
+    ) or not isinstance(features.attackEvent, bool) or not isinstance(
+        features.yellEvent, bool
     ):
         raise ValueError("Feature state flags must be booleans")
 
@@ -202,9 +204,18 @@ def serialize_features(features, raw, time_ms):
         "calibrating": features.calibrating,
         "volume": _normalized(features.volume, "volume"),
         "drone": _normalized(features.drone, "drone"),
+        "harmonics": _normalized(features.harmonics, "harmonics"),
+        "timbre_position": _normalized(
+            features.timbrePosition, "timbre position"
+        ),
         "growl": _normalized(features.growl, "growl"),
         "vocal": _normalized(features.vocal, "vocal"),
         "transient_strength": _normalized(features.attack, "transient strength"),
+        "attack_event": features.attackEvent,
+        "yell_event": features.yellEvent,
+        "attack_age_s": _finite_nonnegative(features.attackAge, "attack age"),
+        "yell_age_s": _finite_nonnegative(features.yellAge, "yell age"),
+        "decay": _normalized(features.decay, "decay"),
         "low_energy": ratios[0],
         "mid_energy": sum(ratios[1:3]),
         "high_energy": sum(ratios[3:5]),
@@ -525,6 +536,7 @@ def analyze_wav(audio_path, labels_path, config=None, fps=20):
         "events": list(events),
         "comparison": comparison,
         "fps": fps,
+        "feature_fps": config.sample_rate / config.hop_size,
     }
 
 
@@ -590,11 +602,28 @@ def _feature_frame(frame, time_ms):
     result = AudioFeatures()
     result.volume = _normalized(frame.get("volume"), "volume")
     result.drone = _normalized(frame.get("drone"), "drone")
+    result.harmonics = _normalized(frame.get("harmonics", 0.0), "harmonics")
+    result.timbrePosition = _normalized(
+        frame.get("timbre_position", 0.0), "timbre position"
+    )
     result.growl = _normalized(frame.get("growl"), "growl")
     result.vocal = _normalized(frame.get("vocal"), "vocal")
     result.attack = _normalized(
         frame.get("transient_strength"), "transient strength"
     )
+    result.attackEvent = frame.get("attack_event", False)
+    result.yellEvent = frame.get("yell_event", False)
+    if not isinstance(result.attackEvent, bool) or not isinstance(
+        result.yellEvent, bool
+    ):
+        raise ValueError("Feature event flags must be booleans")
+    result.attackAge = _finite_nonnegative(
+        frame.get("attack_age_s", 0.0), "attack age"
+    )
+    result.yellAge = _finite_nonnegative(
+        frame.get("yell_age_s", 0.0), "yell age"
+    )
+    result.decay = _normalized(frame.get("decay", 0.0), "decay")
     spectrum = frame.get("spectrum")
     if not isinstance(spectrum, (list, tuple)) or len(spectrum) != 8:
         raise ValueError("Feature frames must contain eight spectrum levels")
@@ -823,7 +852,8 @@ def manifest_without_wall_clock(
             "fft_size": config.fft_size,
             "hop_size": config.hop_size,
             "window": "hann",
-            "feature_fps": result["fps"],
+            "feature_fps": result["feature_fps"],
+            "render_fps": result["fps"],
             "config": _config_values(config),
             "detector": {
                 "drone_on_threshold": 0.45,
