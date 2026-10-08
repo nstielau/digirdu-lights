@@ -719,6 +719,7 @@ def _event_records_crossed(feature_frames, previous_ms, current_ms):
             records.append(
                 (
                     "attack",
+                    time_ms,
                     _finite_nonnegative(
                         frame.get("attack_age_s", 0.0), "attack age"
                     ),
@@ -732,6 +733,7 @@ def _event_records_crossed(feature_frames, previous_ms, current_ms):
             records.append(
                 (
                     "yell",
+                    time_ms,
                     _finite_nonnegative(
                         frame.get("yell_age_s", 0.0), "yell age"
                     ),
@@ -786,6 +788,8 @@ def render_effects(
 ):
     """Render deterministic eight-pixel views for five audio effects."""
     fps = _positive_finite(fps, "fps")
+    if fps > 1000:
+        raise ValueError("fps must be at most 1000 for millisecond render timestamps")
     virtual_wave_speed_mm_s = _positive_finite(
         virtual_wave_speed_mm_s, "virtual_wave_speed_mm_s"
     )
@@ -815,46 +819,94 @@ def render_effects(
             renderer = CulvertAnimation(_renderer_config(config, effect_id))
             rendered = []
             previous_source_ms = -1
-            pending_attacks = []
-            pending_yells = []
+            previous_render_time_ms = 0.0
+            pending_events = []
+            no_event_overrides = {
+                "attack_event": False,
+                "yell_event": False,
+                "attack_age_s": 0.0,
+                "yell_age_s": 0.0,
+            }
             for time_ms in frame_times:
                 source_target_ms = max(0.0, time_ms - delay_ms)
                 source_time_ms = int(math.floor(source_target_ms))
-                for event_type, age_s, strength in _event_records_crossed(
+                for event_type, event_source_ms, age_s, strength in _event_records_crossed(
                     feature_frames, previous_source_ms, source_time_ms
                 ):
-                    if event_type == "attack":
-                        pending_attacks.append((age_s, strength))
+                    pending_events.append(
+                        (
+                            event_source_ms + delay_ms,
+                            event_source_ms,
+                            event_type,
+                            age_s,
+                            strength,
+                        )
+                    )
+                due_events = []
+                remaining_events = []
+                for event in pending_events:
+                    if event[0] <= time_ms:
+                        due_events.append(event)
                     else:
-                        pending_yells.append((age_s, strength))
-                event_overrides = {
-                    "attack_event": False,
-                    "yell_event": False,
-                    "attack_age_s": 0.0,
-                    "yell_age_s": 0.0,
-                }
-                if pending_attacks:
-                    age_s, strength = pending_attacks.pop(0)
-                    event_overrides.update(
-                        {
-                            "attack_event": True,
-                            "attack_age_s": age_s,
-                            "transient_strength": strength,
-                        }
+                        remaining_events.append(event)
+                pending_events = remaining_events
+                due_events.sort(key=lambda event: event[0])
+
+                render_cursor_ms = previous_render_time_ms
+                pixels = None
+                selected_time_ms = None
+                for (
+                    event_time_ms,
+                    event_source_ms,
+                    event_type,
+                    age_s,
+                    strength,
+                ) in due_events:
+                    if event_time_ms > render_cursor_ms:
+                        base_source_ms = int(
+                            math.floor(max(0.0, event_time_ms - delay_ms))
+                        )
+                        features, selected_time_ms = _sample_feature(
+                            feature_frames, base_source_ms, no_event_overrides
+                        )
+                        pixels = renderer.render(
+                            features, (event_time_ms - render_cursor_ms) / 1000.0
+                        )
+                        render_cursor_ms = event_time_ms
+                    event_overrides = dict(no_event_overrides)
+                    if event_type == "attack":
+                        event_overrides.update(
+                            {
+                                "attack_event": True,
+                                "attack_age_s": age_s,
+                                "transient_strength": strength,
+                            }
+                        )
+                    else:
+                        event_overrides.update(
+                            {
+                                "yell_event": True,
+                                "yell_age_s": age_s,
+                                "vocal": strength,
+                            }
+                        )
+                    features, selected_time_ms = _sample_feature(
+                        feature_frames, event_source_ms, event_overrides
                     )
-                if pending_yells:
-                    age_s, strength = pending_yells.pop(0)
-                    event_overrides.update(
-                        {
-                            "yell_event": True,
-                            "yell_age_s": age_s,
-                            "vocal": strength,
-                        }
+                    pixels = renderer.render(features, 0.0)
+
+                if render_cursor_ms < time_ms:
+                    features, selected_time_ms = _sample_feature(
+                        feature_frames, source_time_ms, no_event_overrides
                     )
-                features, selected_time_ms = _sample_feature(
-                    feature_frames, source_time_ms, event_overrides
-                )
-                pixels = renderer.render(features, 1.0 / fps)
+                    pixels = renderer.render(
+                        features, (time_ms - render_cursor_ms) / 1000.0
+                    )
+                elif pixels is None:
+                    features, selected_time_ms = _sample_feature(
+                        feature_frames, source_time_ms, no_event_overrides
+                    )
+                    pixels = renderer.render(features, 0.0)
                 rendered.append(
                     {
                         "time_ms": time_ms,
@@ -863,6 +915,7 @@ def render_effects(
                     }
                 )
                 previous_source_ms = source_time_ms
+                previous_render_time_ms = float(time_ms)
             by_node[str(node_index)] = rendered
         effects[effect_name] = by_node
 

@@ -14,6 +14,7 @@ import wave
 
 from audio_features import Analyzer, AudioFeatures
 from audio_events import DroneEventConfig
+from animation import CulvertAnimation
 from config import Config
 from tools.sound_review import (
     analyze_wav,
@@ -876,6 +877,73 @@ class SoundReviewEffectTests(unittest.TestCase):
         self.assertEqual(event_frames[-1]["time_ms"], 1500)
         self.assertEqual(event_frames[-1]["source_time_ms"], 1000)
         self.assertNotEqual(plain_frames[-1]["pixels_rgb"], event_frames[-1]["pixels_rgb"])
+
+    def test_render_effects_uses_actual_delta_for_fractional_delayed_tail(self):
+        render_dts = []
+        original_render = CulvertAnimation.render
+
+        def capture_render(renderer, features, dt):
+            render_dts.append(dt)
+            return original_render(renderer, features, dt)
+
+        with patch.object(CulvertAnimation, "render", capture_render):
+            render_effects(
+                fixture_feature_frames(),
+                Config(),
+                fps=20,
+                node_distances_mm=(501,),
+                virtual_wave_speed_mm_s=10000,
+            )
+
+        frames_per_effect = len(render_dts) // 5
+        self.assertEqual(len(render_dts), frames_per_effect * 5)
+        self.assertEqual(
+            render_dts[frames_per_effect - 1 :: frames_per_effect], [0.001] * 5
+        )
+
+    def test_render_effects_drains_all_events_crossed_before_delayed_terminal_frame(self):
+        frames = fixture_feature_frames()
+        for frame in frames:
+            if frame["time_ms"] in (800, 900, 1000):
+                frame.update(
+                    attack_event=True,
+                    yell_event=True,
+                    attack_age_s=0.0,
+                    yell_age_s=0.0,
+                    transient_strength=1.0,
+                    vocal=1.0,
+                )
+
+        delivered = {"attack": 0, "yell": 0}
+        original_render = CulvertAnimation.render
+
+        def capture_render(renderer, features, dt):
+            if features.attackEvent:
+                delivered["attack"] += 1
+            if features.yellEvent:
+                delivered["yell"] += 1
+            return original_render(renderer, features, dt)
+
+        with patch.object(CulvertAnimation, "render", capture_render):
+            render_effects(
+                frames,
+                Config(),
+                fps=2,
+                node_distances_mm=(5000,),
+                virtual_wave_speed_mm_s=10000,
+            )
+
+        self.assertEqual(delivered, {"attack": 15, "yell": 15})
+
+    def test_render_effects_rejects_fps_that_cannot_serialize_millisecond_timeline(self):
+        with self.assertRaisesRegex(ValueError, "at most 1000"):
+            render_effects(
+                fixture_feature_frames(),
+                Config(),
+                fps=1001,
+                node_distances_mm=(0,),
+                virtual_wave_speed_mm_s=10000,
+            )
 
     def test_render_effects_consumes_sample_held_event_only_once(self):
         coarse = fixture_feature_frames()
