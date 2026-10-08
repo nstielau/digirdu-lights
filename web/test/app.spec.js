@@ -208,6 +208,38 @@ test('review event visibility filters known detector groups without changing eva
  await expect(comparison).toHaveText(comparisonText);
 });
 
+test('review event visibility gives unknown types independent controls and preserves view state',async({page,browserName})=>{
+ await page.route('**/unknown-filter-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+  duration_ms:1000,waveform:[0,.5],labels:[{type:'drone',start_ms:100,end_ms:900}],
+  events:[{type:'raspy_burst',time_ms:600}],features:[],
+  comparison:{yell:{true_positive:0,false_positive:0,false_negative:1,precision:0,recall:0,f1:0}},
+  effects:{frames:{}}
+ }}));
+ await page.goto('/review.html?data=/unknown-filter-review.json');
+ const position=page.getByRole('slider',{name:'Position'});
+ await position.fill('400');
+ await position.dispatchEvent('input');
+ const zoom=page.getByRole('slider',{name:'Zoom'});
+ await zoom.fill('4');
+ await zoom.dispatchEvent('input');
+ const waveform=page.locator('#review-waveform');
+ const box=await waveform.boundingBox();
+ await dragReviewWaveform(page,waveform,box,.75,.25,browserName);
+ const scrollLeft=await waveform.evaluate(node=>node.scrollLeft);
+ const comparison=page.locator('#review-comparison');
+ const comparisonText=await comparison.textContent();
+ const unknown=page.getByRole('checkbox',{name:'Raspy burst (1)'});
+ await expect(unknown).toBeChecked();
+ await unknown.uncheck();
+ await expect(page.locator('#review-events')).toContainText('No detected events selected.');
+ await expect(page.locator('.event-overlay')).toHaveCount(0);
+ await expect(position).toHaveValue('400');
+ await expect(waveform).toHaveAttribute('data-zoom','4');
+ expect(await waveform.evaluate(node=>node.scrollLeft)).toBe(scrollLeft);
+ await expect(page.locator('.label-overlay')).toHaveCount(1);
+ await expect(comparison).toHaveText(comparisonText);
+});
+
 test('review waveform click seeks and preserves playback state',async({page})=>{
  await page.addInitScript(()=>{
   window.reviewCurrentTimeWrites=[];

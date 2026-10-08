@@ -210,21 +210,46 @@ function updateEventState(timeMs) {
 }
 
 function eventGroupForType(type) {
-  return KNOWN_EVENT_GROUPS.find((group) => group.types.includes(type)) || null;
+  const knownGroup = KNOWN_EVENT_GROUPS.find((group) => group.types.includes(type));
+  if (knownGroup) return knownGroup;
+  return {
+    id: `unknown:${type}`,
+    label: readableEventType(type),
+    types: [type],
+    enabled: true,
+  };
+}
+
+function readableEventType(type) {
+  const words = String(type || 'unknown').replaceAll('_', ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function availableEventGroups() {
+  const groups = KNOWN_EVENT_GROUPS.map((group) => ({
+    ...group,
+    count: state.bundle.events.filter((event) => group.types.includes(event.type)).length,
+  })).filter((group) => group.count > 0);
+  const unknownGroups = new Map();
+  state.bundle.events.forEach((event) => {
+    if (KNOWN_EVENT_GROUPS.some((group) => group.types.includes(event.type))) return;
+    const group = eventGroupForType(event.type);
+    const existing = unknownGroups.get(group.id);
+    if (existing) existing.count += 1;
+    else unknownGroups.set(group.id, {...group, count: 1});
+  });
+  return [...groups, ...unknownGroups.values()];
 }
 
 function eventIsVisible(event) {
   const group = eventGroupForType(event.type);
-  return !group || state.enabledEventGroups.has(group.id);
+  return state.enabledEventGroups.has(group.id);
 }
 
 function renderEventFilters() {
   eventFilters.replaceChildren();
   state.enabledEventGroups.clear();
-  const groups = KNOWN_EVENT_GROUPS.map((group) => ({
-    ...group,
-    count: state.bundle.events.filter((event) => group.types.includes(event.type)).length,
-  })).filter((group) => group.count > 0);
+  const groups = availableEventGroups();
   eventFilters.hidden = groups.length === 0;
   groups.forEach((group) => {
     const label = document.createElement('label');
