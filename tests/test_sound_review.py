@@ -856,6 +856,27 @@ class SoundReviewEffectTests(unittest.TestCase):
         self.assertEqual(event_frames[-1]["source_time_ms"], 1000)
         self.assertNotEqual(plain_frames[-1]["pixels_rgb"], event_frames[-1]["pixels_rgb"])
 
+    def test_render_effects_delivers_terminal_event_after_node_delay(self):
+        plain = fixture_feature_frames()
+        with_event = fixture_feature_frames()
+        with_event[-1]["transient_strength"] = 1.0
+        with_event[-1]["attack_event"] = True
+        with_event[-1]["attack_age_s"] = 0.0
+        render_kwargs = {
+            "fps": 20,
+            "node_distances_mm": (5000,),
+            "virtual_wave_speed_mm_s": 10000,
+        }
+
+        plain_frames = render_effects(plain, Config(), **render_kwargs)["frames"]["Ember"]["0"]
+        event_frames = render_effects(
+            with_event, Config(), **render_kwargs
+        )["frames"]["Ember"]["0"]
+
+        self.assertEqual(event_frames[-1]["time_ms"], 1500)
+        self.assertEqual(event_frames[-1]["source_time_ms"], 1000)
+        self.assertNotEqual(plain_frames[-1]["pixels_rgb"], event_frames[-1]["pixels_rgb"])
+
     def test_render_effects_consumes_sample_held_event_only_once(self):
         coarse = fixture_feature_frames()
         for frame in coarse:

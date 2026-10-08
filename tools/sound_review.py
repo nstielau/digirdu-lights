@@ -797,10 +797,6 @@ def render_effects(
     feature_frames = _validate_feature_frames(feature_frames)
 
     duration_ms = feature_frames[-1]["time_ms"] if feature_frames else 0
-    frame_count = max(1, int(math.ceil(duration_ms * fps / 1000.0)))
-    frame_times = [round(index * 1000.0 / fps) for index in range(frame_count)]
-    if frame_times[-1] != duration_ms:
-        frame_times.append(duration_ms)
     delays_ms = [
         abs(distance) * 1000.0 / virtual_wave_speed_mm_s for distance in distances
     ]
@@ -808,6 +804,14 @@ def render_effects(
     for effect_id, effect_name in enumerate(EFFECT_NAMES[:5]):
         by_node = {}
         for node_index, delay_ms in enumerate(delays_ms):
+            node_horizon_ms = duration_ms + delay_ms
+            frame_count = max(1, int(math.ceil(node_horizon_ms * fps / 1000.0)))
+            frame_times = [
+                round(index * 1000.0 / fps) for index in range(frame_count)
+            ]
+            terminal_time_ms = math.ceil(node_horizon_ms)
+            if frame_times[-1] != terminal_time_ms:
+                frame_times.append(terminal_time_ms)
             renderer = CulvertAnimation(_renderer_config(config, effect_id))
             rendered = []
             previous_source_ms = -1
