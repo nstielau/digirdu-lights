@@ -547,13 +547,19 @@ def analyze_wav(
     detector = SemanticEventDetector(detector_config)
     features = []
     events = []
+    previous_time_ms = None
     for index, samples in enumerate(hops, 1):
         raw = spectrum.push(samples)
         if raw is None:
             continue
         sample_end = min(index * config.hop_size, info["frame_count"])
         time_ms = round(sample_end * 1000 / config.sample_rate)
-        current = analyzer.update(raw, config.hop_size / config.sample_rate)
+        if previous_time_ms is None:
+            dt_s = config.hop_size / config.sample_rate
+        else:
+            dt_s = (time_ms - previous_time_ms) / 1000
+        current = analyzer.update(raw, dt_s)
+        previous_time_ms = time_ms
         features.append(serialize_features(current, raw, time_ms))
         events.extend(detector.update(current, time_ms))
     events.extend(detector.finish(info["duration_ms"]))

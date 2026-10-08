@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 import wave
 
-from audio_features import AudioFeatures
+from audio_features import Analyzer, AudioFeatures
 from audio_events import DroneEventConfig
 from config import Config
 from tools.sound_review import (
@@ -119,15 +119,27 @@ class SoundReviewWavTests(unittest.TestCase):
         self.assertEqual(hops[-1][:256], array.array("h", range(1, 257)))
         self.assertEqual(hops[-1][256:], array.array("h", [0]) * 768)
 
-        artifacts = build_artifacts(
-            path, labels_path, self.tempdir / "artifacts", config
-        )
+        seen_dts = []
+        original_update = Analyzer.update
+
+        def record_update(analyzer, raw, dt_s):
+            seen_dts.append(dt_s)
+            return original_update(analyzer, raw, dt_s)
+
+        with patch.object(Analyzer, "update", record_update):
+            artifacts = build_artifacts(
+                path, labels_path, self.tempdir / "artifacts", config
+            )
         result = json.loads(Path(artifacts["run_json"]).read_text())
         features = json.loads(Path(artifacts["features_json"]).read_text())
         bundle = json.loads(Path(artifacts["review_json"]).read_text())
 
         self.assertEqual(result["duration_ms"], 10000)
+        self.assertEqual(len(seen_dts), 157)
+        self.assertEqual(seen_dts[0], config.hop_size / config.sample_rate)
+        self.assertEqual(seen_dts[-1], 0.016)
         self.assertEqual(features[-1]["time_ms"], 10000)
+        self.assertNotIn(10048, [frame["time_ms"] for frame in features])
         self.assertEqual(bundle["duration_ms"], 10000)
         self.assertEqual(bundle["audio_url"], "../take.wav")
         self.assertEqual(bundle["features"], features)
