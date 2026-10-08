@@ -31,7 +31,11 @@ LABEL_TYPES = RANGE_LABEL_TYPES | POINT_LABEL_TYPES
 
 
 def read_wav_hops(path, config):
-    """Return validated WAV metadata and unmodified complete PCM hops."""
+    """Return validated metadata and complete in-memory analysis hops.
+
+    The final hop may be zero-padded for FFT analysis; metadata and the source
+    WAV remain based on the original PCM sample count.
+    """
     path = Path(path)
     with path.open("rb") as retained:
         retained_stat = os.fstat(retained.fileno())
@@ -76,16 +80,15 @@ def read_wav_hops(path, config):
     values.frombytes(raw)
     if sys.byteorder != "little":
         values.byteswap()
-    if len(values) % config.hop_size:
-        raise ValueError("PCM length is not an integral hop count")
-
     metadata["duration_ms"] = round(
         metadata["frame_count"] * 1000 / config.sample_rate
     )
-    hops = [
-        array.array("h", values[offset : offset + config.hop_size])
-        for offset in range(0, len(values), config.hop_size)
-    ]
+    hops = []
+    for offset in range(0, len(values), config.hop_size):
+        hop = array.array("h", values[offset : offset + config.hop_size])
+        if len(hop) < config.hop_size:
+            hop.extend([0] * (config.hop_size - len(hop)))
+        hops.append(hop)
     return metadata, hops
 
 
@@ -548,7 +551,8 @@ def analyze_wav(
         raw = spectrum.push(samples)
         if raw is None:
             continue
-        time_ms = round(index * config.hop_size * 1000 / config.sample_rate)
+        sample_end = min(index * config.hop_size, info["frame_count"])
+        time_ms = round(sample_end * 1000 / config.sample_rate)
         current = analyzer.update(raw, config.hop_size / config.sample_rate)
         features.append(serialize_features(current, raw, time_ms))
         events.extend(detector.update(current, time_ms))

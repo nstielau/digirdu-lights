@@ -93,13 +93,44 @@ class SoundReviewWavTests(unittest.TestCase):
         self.assertEqual(hops[0], array.array("h", range(1024)))
         self.assertEqual(hops[1], array.array("h", range(1024, 2048)))
 
-    def test_read_wav_hops_rejects_non_integral_hop_count(self):
-        path = write_pcm_wav(
-            self.tempdir / "take.wav", 16000, array.array("h", range(1025))
+    def test_exact_10_second_wav_pads_only_final_analysis_hop_and_builds_review(self):
+        config = Config()
+        sample_count = 10 * config.sample_rate
+        samples = array.array("h", [0]) * sample_count
+        samples[-256:] = array.array("h", range(1, 257))
+        path = write_pcm_wav(self.tempdir / "take.wav", config.sample_rate, samples)
+        labels_path = self.tempdir / "take.labels.json"
+        labels_path.write_text(
+            json.dumps(
+                {
+                    "audio_file": path.name,
+                    "sample_rate_hz": config.sample_rate,
+                    "labels": [],
+                }
+            )
         )
 
-        with self.assertRaisesRegex(ValueError, "integral hop count"):
-            read_wav_hops(path, Config())
+        info, hops = read_wav_hops(path, config)
+
+        self.assertEqual(info["frame_count"], 160000)
+        self.assertEqual(info["duration_ms"], 10000)
+        self.assertEqual(len(hops), 157)
+        self.assertEqual(len(hops[-1]), config.hop_size)
+        self.assertEqual(hops[-1][:256], array.array("h", range(1, 257)))
+        self.assertEqual(hops[-1][256:], array.array("h", [0]) * 768)
+
+        artifacts = build_artifacts(
+            path, labels_path, self.tempdir / "artifacts", config
+        )
+        result = json.loads(Path(artifacts["run_json"]).read_text())
+        features = json.loads(Path(artifacts["features_json"]).read_text())
+        bundle = json.loads(Path(artifacts["review_json"]).read_text())
+
+        self.assertEqual(result["duration_ms"], 10000)
+        self.assertEqual(features[-1]["time_ms"], 10000)
+        self.assertEqual(bundle["duration_ms"], 10000)
+        self.assertEqual(bundle["audio_url"], "../take.wav")
+        self.assertEqual(bundle["features"], features)
 
     def test_read_wav_hops_rejects_invalid_wav_format(self):
         path = write_pcm_wav(
