@@ -85,9 +85,12 @@ record-review: setup
 
 sound-review: $(VENV)/.dev-ready
 	$(PY) tools/sound_review.py --audio '$(REVIEW_AUDIO)' --labels '$(REVIEW_LABELS)' --output-dir '.artifacts/sound-review'
+	$(PY) tools/review_library.py --catalog review/recordings/catalog.json --output-dir '.artifacts/sound-review/recordings'
 	cp web/review.html .artifacts/sound-review/review.html
 	cp web/review-page.js .artifacts/sound-review/review-page.js
 	cp web/review-mode.mjs .artifacts/sound-review/review-mode.mjs
+	cp web/review-local.js .artifacts/sound-review/review-local.js
+	cp web/spectrogram.mjs .artifacts/sound-review/spectrogram.mjs
 	cp web/styles.css .artifacts/sound-review/styles.css
 
 review-library: $(VENV)/.dev-ready

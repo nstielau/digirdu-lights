@@ -1106,9 +1106,13 @@ public Hosting, and the review controls remain hidden until authorization
 succeeds. The dropdown switches between recordings and resets the playhead,
 selected label, zoom, pan, replay bounds, and event filters.
 
-The waveform is a normalized peak-amplitude preview, not a display of
-wavelength or frequency range. Each bar summarizes one 1024-sample hop, about
-64 ms at 16 kHz. A spectrogram is not currently shown.
+The waveform is a normalized peak-amplitude preview; each bar summarizes one
+1024-sample hop, about 64 ms at 16 kHz. Directly beneath it, the aligned
+spectrogram shows 64 logarithmic frequency bands from 31.25 Hz to 8 kHz. Its
+dark-blue-to-yellow colors use a fixed -90 to 0 dBFS range, so intensity remains
+comparable when switching recordings. The spectrogram, waveform, labels and
+detector markers share one playhead, zoom and horizontal pan. Detected events
+are listed one per line.
 
 Recheck CoreAudio device indexes immediately before capture because connected
 devices can reorder them:
@@ -1136,16 +1140,18 @@ feature, event, comparison, effect and run artifacts with:
 make sound-review \
   REVIEW_AUDIO=review/recordings/drone-yell-10s.wav \
   REVIEW_LABELS=review/recordings/drone-yell-10s.labels.json
-python3 -m http.server 8765
+python3 -m http.server 8765 --directory .artifacts/sound-review
 ```
 
 Then open
-`http://127.0.0.1:8765/.artifacts/sound-review/review.html`. The page keeps the
+`http://127.0.0.1:8765/review.html?catalog=/recordings/catalog.json`. The local
+catalog dropdown contains every approved recording from
+`review/recordings/catalog.json`. The page keeps the
 audio, waveform, labels, detected events, derived features and virtual LEDs on
 one playhead. It supports play/pause, scrubbing, zoom and replay around a
-selected label. Local `?data=` loading is accepted only on `localhost` and
-`127.0.0.1`; production always uses the authenticated catalog. Edit labels in
-the JSON file and regenerate the bundle.
+selected label. Local `?catalog=` and single-bundle `?data=` loading are
+accepted only on `localhost` and `127.0.0.1`; production always uses the
+authenticated catalog. Edit labels in the JSON file and regenerate the bundle.
 Everything under `.artifacts/sound-review/` is derived and remains ignored.
 
 To add an approved recording, put its WAV and matching labels JSON in
