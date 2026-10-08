@@ -4,9 +4,11 @@ import argparse
 import math
 import os
 from pathlib import Path
+import select
 import subprocess
 import sys
 import tempfile
+import time
 import wave
 
 
@@ -15,6 +17,7 @@ DEFAULT_CAPTURE_PAD_S = 1.25
 DEFAULT_SAMPLE_RATE_HZ = 16000
 DEFAULT_CHANNELS = 1
 SAMPLE_WIDTH_BYTES = 2
+STREAM_MIN_TIMEOUT_S = 5.0
 STREAM_WAIT_TIMEOUT_S = 5.0
 
 
@@ -36,6 +39,21 @@ def _nonnegative_finite_float(value):
     if not math.isfinite(parsed) or parsed < 0:
         raise argparse.ArgumentTypeError("must be finite and at least 0")
     return parsed
+
+
+def _positive_int(value):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def _require_positive_int(value, name):
+    if type(value) is not int or value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
 
 
 def build_ffmpeg_command(input_device, output, duration_s, sample_rate_hz, channels):
@@ -97,6 +115,9 @@ def validate_wav(
     duration_tolerance_s=0.25,
 ):
     """Validate a WAV file and return its basic audio metadata."""
+    _require_positive_int(expected_rate, "expected_rate")
+    _require_positive_int(expected_channels, "expected_channels")
+    _require_positive_int(expected_width, "expected_width")
     if expected_duration_s is not None:
         try:
             valid_expected_duration = (
@@ -172,8 +193,10 @@ def _parser():
         default=DEFAULT_CAPTURE_PAD_S,
         help="extra capture time to compensate for CoreAudio startup latency",
     )
-    parser.add_argument("--sample-rate", type=int, default=DEFAULT_SAMPLE_RATE_HZ)
-    parser.add_argument("--channels", type=int, default=DEFAULT_CHANNELS)
+    parser.add_argument(
+        "--sample-rate", type=_positive_int, default=DEFAULT_SAMPLE_RATE_HZ
+    )
+    parser.add_argument("--channels", type=_positive_int, default=DEFAULT_CHANNELS)
     return parser
 
 
@@ -210,37 +233,52 @@ def _close_stream_stdout(process):
             process.stdout = None
 
 
-def _finish_stream(process, terminate):
-    if terminate:
+def _read_stderr(stderr_file):
+    stderr_file.seek(0)
+    return stderr_file.read()
+
+
+def _finish_stream(process, stderr_file, terminate):
+    was_running = process.poll() is None
+    if terminate and was_running:
         process.terminate()
     _close_stream_stdout(process)
     try:
-        _, stderr = process.communicate(timeout=STREAM_WAIT_TIMEOUT_S)
+        process.wait(timeout=STREAM_WAIT_TIMEOUT_S)
     except subprocess.TimeoutExpired as exc:
         try:
             process.kill()
         except OSError:
             pass
         try:
-            _, stderr = process.communicate()
-        except OSError as kill_exc:
-            diagnostic = _stderr_text(exc.stderr)
+            process.wait()
+        except (OSError, subprocess.TimeoutExpired) as kill_exc:
+            stderr = _read_stderr(stderr_file)
+            diagnostic = _stderr_text(stderr) or _stderr_text(exc.stderr)
             if diagnostic:
                 diagnostic = f": {diagnostic}"
             raise OSError(
                 f"ffmpeg did not terminate after timeout{diagnostic}: {kill_exc}"
             ) from kill_exc
-        diagnostic = _stderr_text(exc.stderr) or _stderr_text(stderr)
+        stderr = _read_stderr(stderr_file)
+        diagnostic = _stderr_text(stderr) or _stderr_text(exc.stderr)
         if diagnostic:
             diagnostic = f": {diagnostic}"
         raise OSError(f"ffmpeg did not terminate after timeout{diagnostic}") from exc
-    return stderr
+    stderr = _read_stderr(stderr_file)
+    return stderr, was_running
 
 
-def _read_requested_pcm(process, byte_count):
+def _read_requested_pcm(process, byte_count, deadline):
     pcm = bytearray()
     while len(pcm) < byte_count:
         remaining = byte_count - len(pcm)
+        timeout = deadline - time.monotonic()
+        if timeout <= 0:
+            raise TimeoutError("ffmpeg PCM capture timed out before the requested length")
+        ready, _, _ = select.select([process.stdout], [], [], timeout)
+        if not ready:
+            raise TimeoutError("ffmpeg PCM capture timed out before the requested length")
         chunk = process.stdout.read(remaining)
         if not chunk:
             break
@@ -251,6 +289,7 @@ def _read_requested_pcm(process, byte_count):
 def _record(args):
     output = Path(args.output)
     temporary_name = None
+    stderr_file = None
 
     try:
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -260,24 +299,36 @@ def _record(args):
             dir=str(output.parent),
         )
         os.close(descriptor)
-        os.unlink(temporary_name)
+        capture_duration_s = args.duration + args.capture_pad_s
+        capture_deadline = time.monotonic() + max(
+            capture_duration_s, STREAM_MIN_TIMEOUT_S
+        )
+        stderr_file = tempfile.TemporaryFile()
         process = subprocess.Popen(
             build_ffmpeg_stream_command(
                 args.input,
-                args.duration + args.capture_pad_s,
+                capture_duration_s,
                 args.sample_rate,
                 args.channels,
             ),
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=stderr_file,
         )
         requested_frame_count = round(args.duration * args.sample_rate)
         requested_byte_count = (
             requested_frame_count * args.channels * SAMPLE_WIDTH_BYTES
         )
-        pcm = _read_requested_pcm(process, requested_byte_count)
+        try:
+            pcm = _read_requested_pcm(process, requested_byte_count, capture_deadline)
+        except TimeoutError as exc:
+            stderr, _ = _finish_stream(process, stderr_file, terminate=True)
+            diagnostic = _stderr_text(stderr)
+            message = str(exc)
+            if diagnostic:
+                message = f"{message}: {diagnostic}"
+            raise ValueError(message) from exc
         if len(pcm) != requested_byte_count:
-            stderr = _finish_stream(process, terminate=False)
+            stderr, _ = _finish_stream(process, stderr_file, terminate=False)
             diagnostic = _stderr_text(stderr)
             message = (
                 "ffmpeg stream ended before the requested PCM length "
@@ -287,9 +338,9 @@ def _record(args):
                 message = f"{message}: {diagnostic}"
             raise ValueError(message)
 
-        stderr = _finish_stream(process, terminate=True)
+        stderr, was_running = _finish_stream(process, stderr_file, terminate=True)
         returncode = process.returncode
-        if not isinstance(returncode, int) or returncode > 0:
+        if not isinstance(returncode, int) or (not was_running and returncode != 0):
             message = f"ffmpeg exited with status {returncode}"
             diagnostic = _stderr_text(stderr)
             if diagnostic:
@@ -309,12 +360,12 @@ def _record(args):
         )
         os.replace(temporary_name, output)
         return 0
-    except subprocess.CalledProcessError as exc:
-        return exc.returncode or 1
     except (OSError, ValueError) as exc:
         print(f"recording failed: {exc}", file=sys.stderr)
         return 1
     finally:
+        if stderr_file is not None:
+            stderr_file.close()
         if temporary_name is not None:
             try:
                 os.unlink(temporary_name)

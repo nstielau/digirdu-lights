@@ -31,33 +31,51 @@ class RecordingBytesIO(io.BytesIO):
 
 
 class FakeStreamProcess:
-    def __init__(self, stdout=b"", stderr=b"", returncode=0):
+    def __init__(self, stdout=b"", stderr=b"", returncode=0, running=True):
         self.stdout = RecordingBytesIO(stdout)
-        self.stderr = io.BytesIO(stderr)
+        self.stderr_bytes = stderr
         self.returncode = returncode
+        self.running = running
         self.terminated = False
         self.killed = False
-        self.communicate_calls = []
+        self.wait_calls = []
+
+    def poll(self):
+        return None if self.running else self.returncode
 
     def terminate(self):
         self.terminated = True
+        self.running = False
 
     def kill(self):
         self.killed = True
+        self.running = False
 
-    def communicate(self, timeout=None):
-        self.communicate_calls.append(timeout)
-        return b"", self.stderr.read()
-
+    def wait(self, timeout=None):
+        self.wait_calls.append(timeout)
+        self.running = False
+        return self.returncode
 
 class TimeoutStreamProcess(FakeStreamProcess):
-    def communicate(self, timeout=None):
-        self.communicate_calls.append(timeout)
+    def wait(self, timeout=None):
+        self.wait_calls.append(timeout)
         if timeout is not None:
             raise subprocess.TimeoutExpired(
-                "ffmpeg", timeout, stderr=b"ffmpeg did not stop"
+                "ffmpeg", timeout, stderr=self.stderr_bytes
             )
-        return b"", self.stderr.read()
+        self.running = False
+        return self.returncode
+
+
+def fake_popen(process, commands=None):
+    def launch(command, stdout, stderr):
+        if commands is not None:
+            commands.append(command)
+        stderr.write(process.stderr_bytes)
+        stderr.flush()
+        return process
+
+    return launch
 
 
 def read_wav_pcm(path):
@@ -143,6 +161,24 @@ class WavValidationTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         record_fixture.validate_wav(path, **kwargs)
 
+    def test_validate_wav_rejects_nonpositive_expected_audio_integers(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "fixture.wav"
+            write_wav(path, duration_s=1.0)
+
+            cases = (
+                ("expected_rate", 0),
+                ("expected_rate", -1),
+                ("expected_channels", 0),
+                ("expected_channels", -1),
+                ("expected_width", 0),
+                ("expected_width", -1),
+            )
+            for name, value in cases:
+                with self.subTest(name=name, value=value):
+                    with self.assertRaisesRegex(ValueError, "positive integer"):
+                        record_fixture.validate_wav(path, **{name: value})
+
 
 class FfmpegCommandTests(unittest.TestCase):
     def test_build_ffmpeg_command_has_expected_avfoundation_shape(self):
@@ -198,6 +234,15 @@ class FfmpegCommandTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def setUp(self):
+        self.select_patcher = patch.object(
+            record_fixture.select,
+            "select",
+            side_effect=lambda readable, _, __, ___: (readable, [], []),
+        )
+        self.select_mock = self.select_patcher.start()
+        self.addCleanup(self.select_patcher.stop)
+
     def test_duration_cli_rejects_nonfinite_and_nonpositive_values(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / "fixture.wav"
@@ -225,6 +270,26 @@ class CliTests(unittest.TestCase):
                         self.assertEqual(exc.code, 2)
                     else:
                         self.fail("invalid capture pad was accepted")
+
+    def test_sample_rate_and_channels_cli_reject_nonpositive_values(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "fixture.wav"
+            for option in ("--sample-rate", "--channels"):
+                for raw in ("0", "-1"):
+                    with self.subTest(option=option, raw=raw), redirect_stderr(io.StringIO()):
+                        try:
+                            with patch.object(
+                                record_fixture.subprocess,
+                                "Popen",
+                                side_effect=AssertionError("capture should not launch"),
+                            ):
+                                record_fixture.main(
+                                    ["--output", str(output), option, raw]
+                                )
+                        except SystemExit as exc:
+                            self.assertEqual(exc.code, 2)
+                        else:
+                            self.fail("invalid audio format integer was accepted")
 
     def test_list_inputs_does_not_create_output(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -291,10 +356,12 @@ class CliTests(unittest.TestCase):
             self.assertEqual(pcm, requested_pcm)
             self.assertTrue(process.terminated)
             self.assertEqual(stdout.read_sizes, [len(requested_pcm)])
-            self.assertEqual(popen.call_args.kwargs, {
-                "stdout": record_fixture.subprocess.PIPE,
-                "stderr": record_fixture.subprocess.PIPE,
-            })
+            self.assertIs(
+                popen.call_args.kwargs["stdout"], record_fixture.subprocess.PIPE
+            )
+            self.assertIsNot(
+                popen.call_args.kwargs["stderr"], record_fixture.subprocess.PIPE
+            )
 
     def test_short_stream_preserves_existing_output_and_reports_stderr(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -304,7 +371,7 @@ class CliTests(unittest.TestCase):
             process = FakeStreamProcess(b"\0" * (16000 * 2 - 2), b"input stopped early")
             stderr = io.StringIO()
 
-            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+            with patch.object(record_fixture.subprocess, "Popen", side_effect=fake_popen(process)), \
                     redirect_stderr(stderr):
                 result = record_fixture.main(
                     ["--output", str(output), "--duration", "1"]
@@ -322,11 +389,14 @@ class CliTests(unittest.TestCase):
             output = root / "fixture.wav"
             output.write_bytes(b"keep this recording")
             process = FakeStreamProcess(
-                b"\0" * (16000 * 2), b"ffmpeg rejected the input", returncode=1
+                b"\0" * (16000 * 2),
+                b"ffmpeg rejected the input",
+                returncode=1,
+                running=False,
             )
             stderr = io.StringIO()
 
-            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+            with patch.object(record_fixture.subprocess, "Popen", side_effect=fake_popen(process)), \
                     redirect_stderr(stderr):
                 result = record_fixture.main(
                     ["--output", str(output), "--duration", "1"]
@@ -337,16 +407,61 @@ class CliTests(unittest.TestCase):
             self.assertIn("ffmpeg rejected the input", stderr.getvalue())
             self.assertEqual(output.read_bytes(), b"keep this recording")
             self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+            self.assertFalse(process.terminated)
+
+    def test_intentional_termination_accepts_positive_ffmpeg_exit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "fixture.wav"
+            process = FakeStreamProcess(
+                b"\0" * (16000 * 2), returncode=255, running=True
+            )
+
+            with patch.object(record_fixture.subprocess, "Popen", return_value=process):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 0)
+            self.assertTrue(process.terminated)
+            self.assertEqual(
+                record_fixture.validate_wav(output, expected_duration_s=1.0)["frame_count"],
+                16000,
+            )
+
+    def test_stalled_stream_times_out_and_terminates_without_replacing_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            process = FakeStreamProcess(b"", running=True)
+            stderr = io.StringIO()
+
+            with patch.object(record_fixture.subprocess, "Popen", side_effect=fake_popen(process)), \
+                    patch.object(record_fixture.select, "select", return_value=([], [], [])) as select_mock, \
+                    redirect_stderr(stderr):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 1)
+            self.assertIn("timed out", stderr.getvalue())
+            self.assertTrue(process.terminated)
+            self.assertTrue(process.wait_calls)
+            self.assertTrue(select_mock.called)
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(list(root.glob(f".{output.name}.*")), [])
 
     def test_termination_timeout_kills_stream_and_preserves_existing_output(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             output = root / "fixture.wav"
             output.write_bytes(b"keep this recording")
-            process = TimeoutStreamProcess(b"\0" * (16000 * 2))
+            process = TimeoutStreamProcess(
+                b"\0" * (16000 * 2), b"ffmpeg did not stop"
+            )
             stderr = io.StringIO()
 
-            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+            with patch.object(record_fixture.subprocess, "Popen", side_effect=fake_popen(process)), \
                     redirect_stderr(stderr):
                 result = record_fixture.main(
                     ["--output", str(output), "--duration", "1"]
@@ -409,7 +524,7 @@ class CliTests(unittest.TestCase):
             def popen_ffmpeg(command, stdout, stderr):
                 commands.append(command)
                 self.assertIs(stdout, record_fixture.subprocess.PIPE)
-                self.assertIs(stderr, record_fixture.subprocess.PIPE)
+                self.assertIsNot(stderr, record_fixture.subprocess.PIPE)
                 return process
 
             with patch.object(record_fixture.subprocess, "Popen", side_effect=popen_ffmpeg):
@@ -429,6 +544,27 @@ class CliTests(unittest.TestCase):
             self.assertEqual(len(commands), 1)
             self.assertEqual(commands[0][7], ":2")
             self.assertEqual(commands[0][-1], "pipe:1")
+
+    def test_record_keeps_mkstemp_path_until_atomic_cleanup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "fixture.wav"
+            unlink_calls = []
+            real_unlink = record_fixture.os.unlink
+            process = FakeStreamProcess(b"\0" * (16000 * 2))
+
+            def unlink(path):
+                unlink_calls.append(path)
+                return real_unlink(path)
+
+            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+                    patch.object(record_fixture.tempfile, "TemporaryFile", return_value=io.BytesIO()), \
+                    patch.object(record_fixture.os, "unlink", side_effect=unlink):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(len(unlink_calls), 1)
 
     def test_record_default_capture_pad_extends_ffmpeg_stream_duration(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -470,7 +606,7 @@ class CliTests(unittest.TestCase):
             stderr = io.StringIO()
             process = FakeStreamProcess(b"\0" * (16000 * 2))
 
-            with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
+            with patch.object(record_fixture.subprocess, "Popen", side_effect=fake_popen(process)), \
                     patch.object(record_fixture, "validate_wav", side_effect=ValueError("invalid WAV file")), \
                     redirect_stderr(stderr):
                 result = record_fixture.main(["--output", str(output), "--duration", "1"])
@@ -498,6 +634,7 @@ class CliTests(unittest.TestCase):
 
             with patch.object(record_fixture.subprocess, "Popen", return_value=process), \
                     patch.object(record_fixture, "validate_wav", side_effect=ValueError("invalid WAV file")), \
+                    patch.object(record_fixture.tempfile, "TemporaryFile", return_value=io.BytesIO()), \
                     patch.object(record_fixture.os, "unlink", side_effect=unlink), \
                     redirect_stderr(io.StringIO()) as stderr:
                 result = record_fixture.main(["--output", str(output), "--duration", "1"])
@@ -505,7 +642,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertIn("invalid WAV file", stderr.getvalue())
             self.assertEqual(output.read_bytes(), b"keep this recording")
-            self.assertEqual(len(unlink_calls), 2)
+            self.assertEqual(len(unlink_calls), 1)
 
 
 if __name__ == "__main__":
