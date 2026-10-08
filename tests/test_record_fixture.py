@@ -163,6 +163,17 @@ class CliTests(unittest.TestCase):
         self.assertIn("ffmpeg", stderr.getvalue())
         self.assertIn("not found", stderr.getvalue())
 
+    def test_list_inputs_launch_oserror_returns_nonzero_with_diagnostic(self):
+        stderr = io.StringIO()
+        launch_error = OSError("cannot execute ffmpeg")
+        with patch.object(record_fixture.subprocess, "run", side_effect=launch_error), \
+                redirect_stderr(stderr):
+            result = record_fixture.main(["--list-inputs"])
+
+        self.assertEqual(result, 1)
+        self.assertIn("ffmpeg", stderr.getvalue())
+        self.assertIn("cannot execute ffmpeg", stderr.getvalue())
+
     def test_successful_record_replaces_output_atomically_after_validation(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -207,6 +218,59 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result, 2)
             self.assertEqual(output.read_bytes(), b"keep this recording")
             self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+
+    def test_invalid_wav_preserves_existing_output_and_removes_temp_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            stderr = io.StringIO()
+
+            def run_ffmpeg(command, check):
+                self.assertTrue(check)
+                Path(command[-1]).write_bytes(b"not a wav")
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch.object(record_fixture.subprocess, "run", side_effect=run_ffmpeg), \
+                    redirect_stderr(stderr):
+                result = record_fixture.main(["--output", str(output), "--duration", "1"])
+
+            self.assertEqual(result, 1)
+            self.assertIn("invalid WAV file", stderr.getvalue())
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+
+    def test_cleanup_oserror_does_not_replace_invalid_wav_error(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            temporary_names = []
+            unlink_calls = []
+            real_unlink = record_fixture.os.unlink
+
+            def run_ffmpeg(command, check):
+                self.assertTrue(check)
+                temporary_names.append(command[-1])
+                Path(command[-1]).write_bytes(b"not a wav")
+                return subprocess.CompletedProcess(command, 0)
+
+            def unlink(path):
+                unlink_calls.append(path)
+                if len(unlink_calls) == 1:
+                    return real_unlink(path)
+                raise OSError("cannot remove temporary file")
+
+            with patch.object(record_fixture.subprocess, "run", side_effect=run_ffmpeg), \
+                    patch.object(record_fixture.os, "unlink", side_effect=unlink), \
+                    redirect_stderr(io.StringIO()) as stderr:
+                result = record_fixture.main(["--output", str(output), "--duration", "1"])
+
+            self.assertEqual(result, 1)
+            self.assertIn("invalid WAV file", stderr.getvalue())
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(len(unlink_calls), 2)
+            real_unlink(temporary_names[0])
 
 
 if __name__ == "__main__":

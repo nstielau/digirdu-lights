@@ -105,8 +105,12 @@ def _list_inputs():
             ["ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
             check=False,
         )
-    except FileNotFoundError as exc:
-        print(f"ffmpeg not found: {exc}", file=sys.stderr)
+    except OSError as exc:
+        if isinstance(exc, FileNotFoundError):
+            message = "ffmpeg not found"
+        else:
+            message = "unable to launch ffmpeg"
+        print(f"{message}: {exc}", file=sys.stderr)
         return 1
     return result.returncode
 
@@ -152,7 +156,7 @@ def _record(args):
         if temporary_name is not None:
             try:
                 os.unlink(temporary_name)
-            except FileNotFoundError:
+            except OSError:
                 pass
 
 
