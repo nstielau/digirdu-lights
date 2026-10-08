@@ -14,6 +14,8 @@ DEFAULT_DURATION_S = 10.0
 DEFAULT_CAPTURE_PAD_S = 1.25
 DEFAULT_SAMPLE_RATE_HZ = 16000
 DEFAULT_CHANNELS = 1
+SAMPLE_WIDTH_BYTES = 2
+STREAM_WAIT_TIMEOUT_S = 5.0
 
 
 def _positive_finite_float(value):
@@ -56,6 +58,33 @@ def build_ffmpeg_command(input_device, output, duration_s, sample_rate_hz, chann
         "-sample_fmt",
         "s16",
         str(output),
+    ]
+
+
+def build_ffmpeg_stream_command(
+    input_device, capture_duration_s, sample_rate_hz, channels
+):
+    """Build an avfoundation command that streams raw signed 16-bit PCM."""
+    return [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "avfoundation",
+        "-i",
+        f":{input_device}",
+        "-t",
+        str(capture_duration_s),
+        "-ar",
+        str(sample_rate_hz),
+        "-ac",
+        str(channels),
+        "-sample_fmt",
+        "s16",
+        "-f",
+        "s16le",
+        "pipe:1",
     ]
 
 
@@ -164,6 +193,61 @@ def _list_inputs():
     return result.returncode
 
 
+def _stderr_text(stderr):
+    if not stderr:
+        return ""
+    if isinstance(stderr, bytes):
+        return stderr.decode("utf-8", errors="replace").strip()
+    return str(stderr).strip()
+
+
+def _close_stream_stdout(process):
+    stdout = getattr(process, "stdout", None)
+    if stdout is not None:
+        try:
+            stdout.close()
+        finally:
+            process.stdout = None
+
+
+def _finish_stream(process, terminate):
+    if terminate:
+        process.terminate()
+    _close_stream_stdout(process)
+    try:
+        _, stderr = process.communicate(timeout=STREAM_WAIT_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        try:
+            process.kill()
+        except OSError:
+            pass
+        try:
+            _, stderr = process.communicate()
+        except OSError as kill_exc:
+            diagnostic = _stderr_text(exc.stderr)
+            if diagnostic:
+                diagnostic = f": {diagnostic}"
+            raise OSError(
+                f"ffmpeg did not terminate after timeout{diagnostic}: {kill_exc}"
+            ) from kill_exc
+        diagnostic = _stderr_text(exc.stderr) or _stderr_text(stderr)
+        if diagnostic:
+            diagnostic = f": {diagnostic}"
+        raise OSError(f"ffmpeg did not terminate after timeout{diagnostic}") from exc
+    return stderr
+
+
+def _read_requested_pcm(process, byte_count):
+    pcm = bytearray()
+    while len(pcm) < byte_count:
+        remaining = byte_count - len(pcm)
+        chunk = process.stdout.read(remaining)
+        if not chunk:
+            break
+        pcm.extend(chunk[:remaining])
+    return bytes(pcm)
+
+
 def _record(args):
     output = Path(args.output)
     temporary_name = None
@@ -177,21 +261,43 @@ def _record(args):
         )
         os.close(descriptor)
         os.unlink(temporary_name)
-        subprocess.run(
-            build_ffmpeg_command(
+        process = subprocess.Popen(
+            build_ffmpeg_stream_command(
                 args.input,
-                temporary_name,
                 args.duration + args.capture_pad_s,
                 args.sample_rate,
                 args.channels,
             ),
-            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
+        requested_frame_count = round(args.duration * args.sample_rate)
+        requested_byte_count = (
+            requested_frame_count * args.channels * SAMPLE_WIDTH_BYTES
+        )
+        pcm = _read_requested_pcm(process, requested_byte_count)
+        if len(pcm) != requested_byte_count:
+            stderr = _finish_stream(process, terminate=False)
+            diagnostic = _stderr_text(stderr)
+            message = (
+                "ffmpeg stream ended before the requested PCM length "
+                f"({len(pcm)} of {requested_byte_count} bytes)"
+            )
+            if diagnostic:
+                message = f"{message}: {diagnostic}"
+            raise ValueError(message)
+
+        _finish_stream(process, terminate=True)
+        with wave.open(temporary_name, "wb") as wav:
+            wav.setnchannels(args.channels)
+            wav.setsampwidth(SAMPLE_WIDTH_BYTES)
+            wav.setframerate(args.sample_rate)
+            wav.writeframes(pcm)
         validate_wav(
             temporary_name,
             expected_rate=args.sample_rate,
             expected_channels=args.channels,
-            expected_width=2,
+            expected_width=SAMPLE_WIDTH_BYTES,
             expected_duration_s=args.duration,
         )
         os.replace(temporary_name, output)
