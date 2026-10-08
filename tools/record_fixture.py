@@ -267,6 +267,8 @@ def _close_stream_stdout(process):
     if stdout is not None:
         try:
             stdout.close()
+        except (OSError, ValueError):
+            pass
         finally:
             process.stdout = None
 
@@ -276,34 +278,88 @@ def _read_stderr(stderr_file):
     return stderr_file.read()
 
 
+def _read_stderr_best_effort(stderr_file):
+    try:
+        return _read_stderr(stderr_file)
+    except (OSError, ValueError):
+        return b""
+
+
+def _cleanup_stream_process(process):
+    """Best-effort terminate, wait, and reap a stream process."""
+    if process is None:
+        return
+
+    try:
+        try:
+            was_running = process.poll() is None
+        except (OSError, ValueError):
+            was_running = True
+        if was_running:
+            try:
+                process.terminate()
+            except (OSError, ValueError):
+                pass
+    finally:
+        _close_stream_stdout(process)
+        try:
+            process.wait(timeout=STREAM_WAIT_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            try:
+                process.kill()
+            except (OSError, ValueError):
+                pass
+            try:
+                process.wait()
+            except (OSError, ValueError, subprocess.TimeoutExpired):
+                pass
+        except (OSError, ValueError):
+            try:
+                process.wait()
+            except (OSError, ValueError, subprocess.TimeoutExpired):
+                pass
+
+
 def _finish_stream(process, stderr_file, terminate):
-    was_running = process.poll() is None
+    try:
+        was_running = process.poll() is None
+    except (OSError, ValueError):
+        was_running = True
     if terminate and was_running:
-        process.terminate()
+        try:
+            process.terminate()
+        except (OSError, ValueError):
+            pass
     _close_stream_stdout(process)
     try:
         process.wait(timeout=STREAM_WAIT_TIMEOUT_S)
     except subprocess.TimeoutExpired as exc:
         try:
             process.kill()
-        except OSError:
+        except (OSError, ValueError):
             pass
         try:
             process.wait()
-        except (OSError, subprocess.TimeoutExpired) as kill_exc:
-            stderr = _read_stderr(stderr_file)
+        except (OSError, ValueError, subprocess.TimeoutExpired) as kill_exc:
+            stderr = _read_stderr_best_effort(stderr_file)
             diagnostic = _stderr_text(stderr) or _stderr_text(exc.stderr)
             if diagnostic:
                 diagnostic = f": {diagnostic}"
             raise OSError(
                 f"ffmpeg did not terminate after timeout{diagnostic}: {kill_exc}"
             ) from kill_exc
-        stderr = _read_stderr(stderr_file)
+        stderr = _read_stderr_best_effort(stderr_file)
         diagnostic = _stderr_text(stderr) or _stderr_text(exc.stderr)
         if diagnostic:
             diagnostic = f": {diagnostic}"
         raise OSError(f"ffmpeg did not terminate after timeout{diagnostic}") from exc
-    stderr = _read_stderr(stderr_file)
+    except (OSError, ValueError) as exc:
+        stderr = _read_stderr_best_effort(stderr_file)
+        diagnostic = _stderr_text(stderr)
+        if diagnostic:
+            diagnostic = f": {diagnostic}"
+        raise OSError(f"ffmpeg wait failed{diagnostic}: {exc}") from exc
+    stderr = _read_stderr_best_effort(stderr_file)
     return stderr, was_running
 
 
@@ -338,6 +394,8 @@ def _record(args):
     descriptor = None
     temporary_name = None
     stderr_file = None
+    process = None
+    process_reaped = False
     replaced = False
 
     try:
@@ -378,14 +436,21 @@ def _record(args):
         try:
             pcm = _read_requested_pcm(process, requested_byte_count, capture_deadline)
         except TimeoutError as exc:
-            stderr, _ = _finish_stream(process, stderr_file, terminate=True)
+            _cleanup_stream_process(process)
+            process_reaped = True
+            stderr = _read_stderr_best_effort(stderr_file)
             diagnostic = _stderr_text(stderr)
             message = str(exc)
             if diagnostic:
                 message = f"{message}: {diagnostic}"
             raise ValueError(message) from exc
+        except (OSError, ValueError):
+            _cleanup_stream_process(process)
+            process_reaped = True
+            raise
         if len(pcm) != requested_byte_count:
             stderr, _ = _finish_stream(process, stderr_file, terminate=False)
+            process_reaped = True
             diagnostic = _stderr_text(stderr)
             message = (
                 "ffmpeg stream ended before the requested PCM length "
@@ -396,6 +461,7 @@ def _record(args):
             raise ValueError(message)
 
         stderr, was_running = _finish_stream(process, stderr_file, terminate=True)
+        process_reaped = True
         returncode = process.returncode
         if not isinstance(returncode, int) or (not was_running and returncode != 0):
             message = f"ffmpeg exited with status {returncode}"
@@ -425,8 +491,13 @@ def _record(args):
         print(f"recording failed: {exc}", file=sys.stderr)
         return 1
     finally:
+        if process is not None and not process_reaped:
+            _cleanup_stream_process(process)
         if stderr_file is not None:
-            stderr_file.close()
+            try:
+                stderr_file.close()
+            except (OSError, ValueError):
+                pass
         if temporary_file is not None:
             try:
                 temporary_file.close()
