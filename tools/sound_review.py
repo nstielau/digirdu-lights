@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 import wave
 
-from audio_events import SemanticEventDetector
+from audio_events import DroneEventConfig, SemanticEventDetector
 from audio_features import Analyzer, AudioFeatures
 from audio_spectrum import Spectrum
 from animation import CulvertAnimation
@@ -492,7 +492,18 @@ def compare_drone(label, events, duration_ms):
     }
 
 
-def analyze_wav(audio_path, labels_path, config=None, fps=20):
+def _serialize_detector_config(detector_config):
+    return {
+        "drone_on_threshold": detector_config.on_threshold,
+        "drone_off_threshold": detector_config.off_threshold,
+        "drone_start_hold_s": detector_config.start_hold_s,
+        "drone_stop_hold_s": detector_config.stop_hold_s,
+    }
+
+
+def analyze_wav(
+    audio_path, labels_path, config=None, fps=20, detector_config=None
+):
     """Run a complete WAV through the same FFT and analyzer as the producer."""
     if (
         isinstance(fps, bool)
@@ -502,6 +513,7 @@ def analyze_wav(audio_path, labels_path, config=None, fps=20):
     ):
         raise ValueError("fps must be a positive finite number")
     config = config or Config()
+    detector_config = detector_config or DroneEventConfig()
     info, hops = read_wav_hops(audio_path, config)
     labels = load_labels(labels_path, info["duration_ms"], config.sample_rate)
     if labels["audio_file"] != Path(audio_path).name:
@@ -509,7 +521,7 @@ def analyze_wav(audio_path, labels_path, config=None, fps=20):
 
     spectrum = Spectrum(config)
     analyzer = Analyzer(config)
-    detector = SemanticEventDetector()
+    detector = SemanticEventDetector(detector_config)
     features = []
     events = []
     for index, samples in enumerate(hops, 1):
@@ -537,6 +549,7 @@ def analyze_wav(audio_path, labels_path, config=None, fps=20):
         "comparison": comparison,
         "fps": fps,
         "feature_fps": config.sample_rate / config.hop_size,
+        "detector_config": _serialize_detector_config(detector.config),
     }
 
 
@@ -658,7 +671,41 @@ def _validate_feature_frames(feature_frames):
     return feature_frames
 
 
-def _sample_feature(feature_frames, target_ms):
+def _event_records_crossed(feature_frames, previous_ms, current_ms):
+    records = []
+    for frame in feature_frames:
+        time_ms = frame["time_ms"]
+        if time_ms <= previous_ms:
+            continue
+        if time_ms > current_ms:
+            break
+        if frame.get("attack_event", False):
+            records.append(
+                (
+                    "attack",
+                    _finite_nonnegative(
+                        frame.get("attack_age_s", 0.0), "attack age"
+                    ),
+                    _normalized(
+                        frame.get("transient_strength", 0.0),
+                        "transient strength",
+                    ),
+                )
+            )
+        if frame.get("yell_event", False):
+            records.append(
+                (
+                    "yell",
+                    _finite_nonnegative(
+                        frame.get("yell_age_s", 0.0), "yell age"
+                    ),
+                    _normalized(frame.get("vocal", 0.0), "vocal"),
+                )
+            )
+    return records
+
+
+def _sample_feature(feature_frames, target_ms, event_overrides=None):
     """Return the newest frame no later than target_ms, or a silent frame."""
     selected = None
     for frame in feature_frames:
@@ -666,20 +713,26 @@ def _sample_feature(feature_frames, target_ms):
             break
         selected = frame
     if selected is None:
-        return _feature_frame(
-            {
-                "volume": 0.0,
-                "drone": 0.0,
-                "growl": 0.0,
-                "vocal": 0.0,
-                "transient_strength": 0.0,
-                "spectrum": (0.0,) * 8,
-                "active": False,
-                "calibrating": False,
-            },
-            0,
-        ), None
-    return _feature_frame(selected, selected["time_ms"]), selected["time_ms"]
+        selected = {
+            "volume": 0.0,
+            "drone": 0.0,
+            "growl": 0.0,
+            "vocal": 0.0,
+            "transient_strength": 0.0,
+            "spectrum": (0.0,) * 8,
+            "active": False,
+            "calibrating": False,
+        }
+        selected_time_ms = None
+    else:
+        selected = dict(selected)
+        selected_time_ms = selected["time_ms"]
+    if event_overrides is not None:
+        selected.update(event_overrides)
+    return _feature_frame(
+        selected,
+        selected_time_ms if selected_time_ms is not None else 0,
+    ), selected_time_ms
 
 
 def _renderer_config(config, effect_id):
@@ -719,11 +772,45 @@ def render_effects(
         for node_index, delay_ms in enumerate(delays_ms):
             renderer = CulvertAnimation(_renderer_config(config, effect_id))
             rendered = []
+            previous_source_ms = -1
+            pending_attacks = []
+            pending_yells = []
             for time_ms in frame_times:
                 source_target_ms = max(0.0, time_ms - delay_ms)
                 source_time_ms = int(math.floor(source_target_ms))
+                for event_type, age_s, strength in _event_records_crossed(
+                    feature_frames, previous_source_ms, source_time_ms
+                ):
+                    if event_type == "attack":
+                        pending_attacks.append((age_s, strength))
+                    else:
+                        pending_yells.append((age_s, strength))
+                event_overrides = {
+                    "attack_event": False,
+                    "yell_event": False,
+                    "attack_age_s": 0.0,
+                    "yell_age_s": 0.0,
+                }
+                if pending_attacks:
+                    age_s, strength = pending_attacks.pop(0)
+                    event_overrides.update(
+                        {
+                            "attack_event": True,
+                            "attack_age_s": age_s,
+                            "transient_strength": strength,
+                        }
+                    )
+                if pending_yells:
+                    age_s, strength = pending_yells.pop(0)
+                    event_overrides.update(
+                        {
+                            "yell_event": True,
+                            "yell_age_s": age_s,
+                            "vocal": strength,
+                        }
+                    )
                 features, selected_time_ms = _sample_feature(
-                    feature_frames, source_time_ms
+                    feature_frames, source_time_ms, event_overrides
                 )
                 pixels = renderer.render(features, 1.0 / fps)
                 rendered.append(
@@ -733,6 +820,7 @@ def render_effects(
                         "pixels_rgb": group_pixels(pixels),
                     }
                 )
+                previous_source_ms = source_time_ms
             by_node[str(node_index)] = rendered
         effects[effect_name] = by_node
 
@@ -855,12 +943,7 @@ def manifest_without_wall_clock(
             "feature_fps": result["feature_fps"],
             "render_fps": result["fps"],
             "config": _config_values(config),
-            "detector": {
-                "drone_on_threshold": 0.45,
-                "drone_off_threshold": 0.25,
-                "drone_start_hold_s": 0.12,
-                "drone_stop_hold_s": 0.30,
-            },
+            "detector": result["detector_config"],
         },
         "effect_engine": {
             "version": 1,
@@ -882,13 +965,21 @@ def manifest_without_wall_clock(
     return manifest
 
 
-def build_artifacts(audio_path, labels_path, output_dir, config=None):
+def build_artifacts(
+    audio_path, labels_path, output_dir, config=None, detector_config=None
+):
     """Analyze a WAV and write deterministic feature, event, effect, and run JSON."""
     config = config or Config()
     node_distances_mm = (-5000, 0, 5000)
     virtual_wave_speed_mm_s = 10000
     fps = 20
-    result = analyze_wav(audio_path, labels_path, config, fps=fps)
+    result = analyze_wav(
+        audio_path,
+        labels_path,
+        config,
+        fps=fps,
+        detector_config=detector_config,
+    )
     result["effects"] = render_effects(
         result["features"],
         config,

@@ -12,6 +12,7 @@ from unittest.mock import patch
 import wave
 
 from audio_features import AudioFeatures
+from audio_events import DroneEventConfig
 from config import Config
 from tools.sound_review import (
     analyze_wav,
@@ -725,6 +726,66 @@ class SoundReviewEffectTests(unittest.TestCase):
             )
         )
 
+    def test_render_effects_consumes_sample_held_event_only_once(self):
+        coarse = fixture_feature_frames()
+        for frame in coarse:
+            frame.update(
+                volume=0.0,
+                drone=0.0,
+                harmonics=0.0,
+                timbre_position=0.0,
+                growl=0.0,
+                vocal=0.0,
+                transient_strength=0.0,
+                decay=0.0,
+                spectrum=(0.0,) * 8,
+                active=False,
+            )
+        coarse[5]["transient_strength"] = 0.8
+        coarse[5]["attack_event"] = True
+        fine = fixture_feature_frames()
+        for frame in fine:
+            frame.update(
+                volume=0.0,
+                drone=0.0,
+                harmonics=0.0,
+                timbre_position=0.0,
+                growl=0.0,
+                vocal=0.0,
+                transient_strength=0.0,
+                decay=0.0,
+                spectrum=(0.0,) * 8,
+                active=False,
+            )
+        fine[5]["transient_strength"] = 0.8
+        fine[5]["attack_event"] = True
+        event_frame = dict(fine[5])
+        event_frame["time_ms"] = 501
+        event_frame["attack_event"] = False
+        event_frame["transient_strength"] = 0.0
+        fine.insert(6, event_frame)
+
+        coarse_output = render_effects(
+            coarse,
+            Config(),
+            fps=20,
+            node_distances_mm=(0,),
+            virtual_wave_speed_mm_s=10000,
+        )
+        fine_output = render_effects(
+            fine,
+            Config(),
+            fps=20,
+            node_distances_mm=(0,),
+            virtual_wave_speed_mm_s=10000,
+        )
+
+        coarse_frames = coarse_output["frames"]["Ember"]["0"]
+        fine_frames = fine_output["frames"]["Ember"]["0"]
+        for left, right in zip(coarse_frames, fine_frames):
+            if left["time_ms"] >= 550:
+                self.assertEqual(left["pixels_rgb"], right["pixels_rgb"])
+
     def test_artifacts_are_byte_stable_and_manifest_is_hashed_without_clock_data(
         self,
     ):
@@ -745,13 +806,31 @@ class SoundReviewEffectTests(unittest.TestCase):
             )
         )
         output_dir = self.tempdir / "artifacts"
+        detector_config = DroneEventConfig(
+            on_threshold=0.71,
+            off_threshold=0.19,
+            start_hold_s=0.17,
+            stop_hold_s=0.41,
+        )
 
-        first = build_artifacts(audio_path, labels_path, output_dir, config)
+        first = build_artifacts(
+            audio_path,
+            labels_path,
+            output_dir,
+            config,
+            detector_config=detector_config,
+        )
         first_bytes = {
             name: Path(path).read_bytes()
             for name, path in first.items()
         }
-        second = build_artifacts(audio_path, labels_path, output_dir, config)
+        second = build_artifacts(
+            audio_path,
+            labels_path,
+            output_dir,
+            config,
+            detector_config=detector_config,
+        )
         second_bytes = {
             name: Path(path).read_bytes()
             for name, path in second.items()
@@ -763,6 +842,15 @@ class SoundReviewEffectTests(unittest.TestCase):
         self.assertNotIn("generated_at", manifest)
         self.assertEqual(manifest["analysis"]["feature_fps"], 16000 / 1024)
         self.assertEqual(manifest["effect_engine"]["fps"], 20)
+        self.assertEqual(
+            manifest["analysis"]["detector"],
+            {
+                "drone_on_threshold": 0.71,
+                "drone_off_threshold": 0.19,
+                "drone_start_hold_s": 0.17,
+                "drone_stop_hold_s": 0.41,
+            },
+        )
         self.assertEqual(
             set(manifest["source_sha256"]),
             {"audio", "labels"},
