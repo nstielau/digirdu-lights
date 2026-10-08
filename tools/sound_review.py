@@ -216,6 +216,159 @@ def serialize_features(features, raw, time_ms):
     return result
 
 
+def _metric_timestamp(row, field):
+    value = row.get(field)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ValueError(f"{field} must be a finite non-negative number")
+    return value
+
+
+def _metric_tolerance(value):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ValueError("tolerance_ms must be a finite non-negative number")
+    return value
+
+
+def compare_labels(labels, events, tolerance_ms=250):
+    """Compare discrete human labels and detected events one-to-one."""
+    tolerance_ms = _metric_tolerance(tolerance_ms)
+    ignored_label_types = frozenset(("drone",))
+    ignored_event_types = frozenset(("drone_start", "drone_stop"))
+    expected_types = {
+        row["type"] for row in labels if row["type"] not in ignored_label_types
+    }
+    detected_types = {
+        row["type"] for row in events if row["type"] not in ignored_event_types
+    }
+    report = {}
+
+    for event_type in sorted(expected_types | detected_types):
+        expected = sorted(
+            (
+                row
+                for row in labels
+                if row["type"] == event_type
+                and row["type"] not in ignored_label_types
+            ),
+            key=lambda row: _metric_timestamp(row, "start_ms"),
+        )
+        available = sorted(
+            (
+                row
+                for row in events
+                if row["type"] == event_type
+                and row["type"] not in ignored_event_types
+            ),
+            key=lambda row: _metric_timestamp(row, "time_ms"),
+        )
+        unmatched_events = list(available)
+        unmatched_labels = []
+        timing_errors = []
+        for label in expected:
+            label_start = _metric_timestamp(label, "start_ms")
+            label_end = _metric_timestamp(
+                {"end_ms": label.get("end_ms", label_start)}, "end_ms"
+            )
+            index = next(
+                (
+                    index
+                    for index, event in enumerate(unmatched_events)
+                    if label_start - tolerance_ms
+                    <= _metric_timestamp(event, "time_ms")
+                    <= label_end + tolerance_ms
+                ),
+                None,
+            )
+            if index is None:
+                unmatched_labels.append(dict(label))
+                continue
+            event = unmatched_events.pop(index)
+            timing_errors.append(_metric_timestamp(event, "time_ms") - label_start)
+
+        true_positive = len(timing_errors)
+        false_positive = len(unmatched_events)
+        false_negative = len(unmatched_labels)
+        precision = true_positive / (true_positive + false_positive) if (
+            true_positive + false_positive
+        ) else 0.0
+        recall = true_positive / (true_positive + false_negative) if (
+            true_positive + false_negative
+        ) else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (
+            precision + recall
+        ) else 0.0
+        report[event_type] = {
+            "true_positive": true_positive,
+            "false_positive": false_positive,
+            "false_negative": false_negative,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "timing_error_ms": timing_errors,
+            "absolute_timing_error_ms": [abs(value) for value in timing_errors],
+            "unmatched_labels": unmatched_labels,
+            "unmatched_events": [dict(row) for row in unmatched_events],
+        }
+    return report
+
+
+def compare_drone(label, events, duration_ms):
+    """Compare a human drone interval with its detected start and stop bounds."""
+    duration_ms = _metric_timestamp({"duration_ms": duration_ms}, "duration_ms")
+    label_start = _metric_timestamp(label, "start_ms")
+    label_end = _metric_timestamp(
+        {"end_ms": label.get("end_ms", label_start)}, "end_ms"
+    )
+    if label_end < label_start:
+        raise ValueError("Drone label end must not precede its start")
+
+    starts = sorted(
+        _metric_timestamp(row, "time_ms")
+        for row in events
+        if row["type"] == "drone_start"
+    )
+    stops = sorted(
+        _metric_timestamp(row, "time_ms")
+        for row in events
+        if row["type"] == "drone_stop"
+    )
+    detected_start = max(0, min(duration_ms, starts[0])) if starts else None
+    detected_stop = max(0, min(duration_ms, stops[-1])) if stops else None
+    active_start = detected_start if detected_start is not None else duration_ms
+    active_stop = detected_stop if detected_stop is not None else active_start
+    detected_duration = max(0, active_stop - active_start)
+    expected_duration = label_end - label_start
+    intersection = max(
+        0,
+        min(label_end, active_stop) - max(label_start, active_start),
+    )
+    intersection = min(intersection, expected_duration, detected_duration)
+    union = expected_duration + detected_duration - intersection
+    false_active = detected_duration - intersection
+    false_inactive = expected_duration - intersection
+    return {
+        "start_error_ms": (
+            detected_start - label_start if detected_start is not None else None
+        ),
+        "stop_error_ms": (
+            detected_stop - label_end if detected_stop is not None else None
+        ),
+        "intersection_over_union": intersection / union if union else 0.0,
+        "false_active_ms": false_active,
+        "false_inactive_ms": false_inactive,
+    }
+
+
 def analyze_wav(audio_path, labels_path, config=None, fps=20):
     """Run a complete WAV through the same FFT and analyzer as the producer."""
     if (
@@ -245,10 +398,17 @@ def analyze_wav(audio_path, labels_path, config=None, fps=20):
         features.append(serialize_features(current, raw, time_ms))
         events.extend(detector.update(current, time_ms))
     events.extend(detector.finish(info["duration_ms"]))
+    comparison = compare_labels(labels["labels"], events)
+    drone_labels = [row for row in labels["labels"] if row["type"] == "drone"]
+    if drone_labels:
+        comparison["drone"] = compare_drone(
+            drone_labels[0], events, info["duration_ms"]
+        )
     return {
         "info": info,
         "labels": labels,
         "features": features,
         "events": list(events),
+        "comparison": comparison,
         "fps": fps,
     }

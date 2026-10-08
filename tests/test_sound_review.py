@@ -15,6 +15,8 @@ from audio_features import AudioFeatures
 from config import Config
 from tools.sound_review import (
     analyze_wav,
+    compare_drone,
+    compare_labels,
     load_labels,
     read_wav_hops,
     serialize_features,
@@ -383,6 +385,106 @@ class SoundReviewAnalysisTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             serialize_features(current, raw, 64)
+
+
+class SoundReviewMetricTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.tempdir = Path(self.temporary.name)
+
+    def test_compare_events_reports_one_match_one_false_positive_and_one_miss(self):
+        labels = [
+            {"type": "yell", "start_ms": 1000, "end_ms": 1200},
+            {"type": "yell", "start_ms": 3000, "end_ms": 3200},
+        ]
+        detected = [
+            {"type": "yell", "time_ms": 1100, "confidence": 0.9},
+            {"type": "yell", "time_ms": 5000, "confidence": 0.7},
+        ]
+
+        report = compare_labels(labels, detected, tolerance_ms=250)
+
+        self.assertEqual(report["yell"]["true_positive"], 1)
+        self.assertEqual(report["yell"]["false_positive"], 1)
+        self.assertEqual(report["yell"]["false_negative"], 1)
+        self.assertAlmostEqual(report["yell"]["precision"], 0.5)
+        self.assertAlmostEqual(report["yell"]["recall"], 0.5)
+        self.assertAlmostEqual(report["yell"]["f1"], 0.5)
+        self.assertEqual(report["yell"]["timing_error_ms"], [100])
+        self.assertEqual(report["yell"]["absolute_timing_error_ms"], [100])
+
+    def test_compare_labels_matches_each_detection_only_once(self):
+        labels = [
+            {"type": "beat", "start_ms": 1000, "end_ms": 1000},
+            {"type": "beat", "start_ms": 2000, "end_ms": 2000},
+        ]
+        detected = [
+            {"type": "beat", "time_ms": 1050},
+            {"type": "beat", "time_ms": 2050},
+            {"type": "beat", "time_ms": 2100},
+        ]
+
+        report = compare_labels(labels, detected, tolerance_ms=100)
+
+        self.assertEqual(report["beat"]["true_positive"], 2)
+        self.assertEqual(report["beat"]["false_positive"], 1)
+        self.assertEqual(report["beat"]["false_negative"], 0)
+        self.assertEqual(report["beat"]["unmatched_labels"], [])
+        self.assertEqual(report["beat"]["unmatched_events"], [{"type": "beat", "time_ms": 2100}])
+
+    def test_compare_drone_reports_bounds_and_time_errors(self):
+        report = compare_drone(
+            {"start_ms": 2000, "end_ms": 8000},
+            [
+                {"type": "drone_start", "time_ms": 2200},
+                {"type": "drone_stop", "time_ms": 7600},
+            ],
+            duration_ms=10000,
+        )
+
+        self.assertEqual(report["start_error_ms"], 200)
+        self.assertEqual(report["stop_error_ms"], -400)
+        self.assertAlmostEqual(report["intersection_over_union"], 5400 / 6000)
+        self.assertEqual(report["false_active_ms"], 0)
+        self.assertEqual(report["false_inactive_ms"], 600)
+
+    def test_compare_drone_reports_missing_bounds_without_dividing_by_zero(self):
+        label = {"start_ms": 2000, "end_ms": 8000}
+
+        for events, expected_start, expected_stop in (
+            ([], None, None),
+            ([{"type": "drone_start", "time_ms": 2200}], 200, None),
+            ([{"type": "drone_stop", "time_ms": 7600}], None, -400),
+        ):
+            with self.subTest(events=events):
+                report = compare_drone(label, events, duration_ms=10000)
+                self.assertEqual(report["start_error_ms"], expected_start)
+                self.assertEqual(report["stop_error_ms"], expected_stop)
+                self.assertEqual(report["intersection_over_union"], 0.0)
+                self.assertEqual(report["false_active_ms"], 0)
+                self.assertEqual(report["false_inactive_ms"], 6000)
+
+    def test_analyze_wav_adds_comparison_without_mutating_labels(self):
+        config = Config()
+        audio_path = write_pcm_wav(
+            self.tempdir / "take.wav",
+            config.sample_rate,
+            array.array("h", [0]) * config.hop_size,
+        )
+        labels_path = audio_path.with_suffix(".labels.json")
+        original = {
+            "audio_file": audio_path.name,
+            "sample_rate_hz": config.sample_rate,
+            "labels": [],
+        }
+        labels_path.write_text(json.dumps(original))
+
+        result = analyze_wav(audio_path, labels_path, config)
+
+        self.assertIn("comparison", result)
+        self.assertEqual(result["labels"]["labels"], [])
+        self.assertEqual(json.loads(labels_path.read_text()), original)
 
 
 if __name__ == "__main__":
