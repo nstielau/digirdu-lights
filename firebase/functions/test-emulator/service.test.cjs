@@ -60,8 +60,12 @@ test('download requires assigned compatible bundle and exact file',async()=>{
  await db.doc('devices/'+id).update({paused:true});await assert.rejects(svc.artifact(id,token,m.sha256,'effects.py'),e=>e.status===404);
 });
 test('browser authentication, App Check and admin role all required',async()=>{
+ assert.deepEqual(await svc.authorizeAdmin(admin),{uid:'owner',email});
  for(const bad of [{},{...admin,app:null},{...admin,auth:{...admin.auth,token:{...admin.auth.token,email_verified:false}}},
-  {...admin,auth:{...admin.auth,token:{...admin.auth.token,email:'other@example.test'}}}])await assert.rejects(svc.overview(bad));
+  {...admin,auth:{...admin.auth,token:{...admin.auth.token,email:'other@example.test'}}}]){
+  await assert.rejects(svc.authorizeAdmin(bad));
+  await assert.rejects(svc.overview(bad));
+ }
 });
 test('pin rollback issues a newer sequence and retry is deduplicated',async()=>{
  await db.doc('releases/1.0.0').set({approved:true,manifest:manifest('1.0.0')});

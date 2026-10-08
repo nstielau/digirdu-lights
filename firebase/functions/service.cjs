@@ -117,6 +117,6 @@ function createService(db,now=()=>Date.now()) {
       return {ok:true};
     });
   }
-  return {authenticate,checkIn,artifact,overview,change};
+  return {authenticate,checkIn,artifact,authorizeAdmin:admin,overview,change};
 }
 module.exports={createService,idOK};
