@@ -133,6 +133,35 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(e=>e.clientWidth));
 });
 
+test('review page playback advances displays without repeatedly seeking audio',async({page})=>{
+ await page.addInitScript(()=>{
+  window.reviewCurrentTimeWrites=[];
+  Object.defineProperty(HTMLMediaElement.prototype,'currentTime',{
+   configurable:true,
+   get(){return this.reviewCurrentTimeValue||0;},
+   set(value){this.reviewCurrentTimeValue=value;window.reviewCurrentTimeWrites.push(value);}
+  });
+  HTMLMediaElement.prototype.play=async function(){};
+  HTMLMediaElement.prototype.pause=function(){};
+ });
+ await page.route('**/playback-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+  duration_ms:1000,waveform:[0,.5],labels:[],events:[],
+  features:[{time_ms:250,volume:.5,drone:.4,vocal:.3,transient_strength:.2}],effects:{frames:{}}
+ }}));
+ await page.goto('/review.html?data=/playback-review.json');
+ await page.locator('#review-audio').evaluate(audio=>{
+  Object.defineProperty(audio,'src',{configurable:true,value:'mock://audio'});
+  document.querySelector('#review-play').disabled=false;
+ });
+ await page.getByRole('button',{name:'Play',exact:true}).click();
+ await page.locator('#review-audio').evaluate(audio=>{
+  audio.reviewCurrentTimeValue=.25;
+  audio.dispatchEvent(new Event('timeupdate'));
+ });
+ await expect(page.locator('#review-time')).toHaveText('0.25 s');
+ expect(await page.evaluate(()=>window.reviewCurrentTimeWrites)).toEqual([]);
+});
+
 test('review page reports missing bundle instead of showing empty tracks',async({page})=>{
  await page.route('**/missing-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({status:503,body:'unavailable'}));
  await page.goto('/review.html?data=/missing-review.json');

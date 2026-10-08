@@ -314,10 +314,12 @@ function formatMs(value) {
   return `${(value / 1000).toFixed(2)} s`;
 }
 
-function setTime(timeMs) {
+function setTime(timeMs, {seekAudio = true} = {}) {
   if (!state.bundle) return;
   state.timeMs = clampTime(timeMs);
-  if (Number.isFinite(audio.duration) || audio.src) audio.currentTime = state.timeMs / 1000;
+  if (seekAudio && (Number.isFinite(audio.duration) || audio.src)) {
+    audio.currentTime = state.timeMs / 1000;
+  }
   position.value = String(Math.round(state.timeMs));
   timeOutput.textContent = formatMs(state.timeMs);
   waveform.dataset.timeMs = String(Math.round(state.timeMs));
@@ -404,7 +406,7 @@ async function loadBundle() {
 }
 
 audio.addEventListener('timeupdate', () => {
-  if (state.playing) setTime(audio.currentTime * 1000);
+  if (state.playing) setTime(audio.currentTime * 1000, {seekAudio: false});
 });
 audio.addEventListener('ended', () => stopPlayback());
 audio.addEventListener('error', () => {
