@@ -1,11 +1,15 @@
 import io
 import math
+import os
 import subprocess
 import tempfile
+import threading
+import time
 import unittest
 import wave
 from pathlib import Path
 from contextlib import redirect_stderr
+from select import select as system_select
 from unittest.mock import patch
 
 from tools import record_fixture
@@ -65,6 +69,12 @@ class TimeoutStreamProcess(FakeStreamProcess):
             )
         self.running = False
         return self.returncode
+
+
+class PipeStreamProcess(FakeStreamProcess):
+    def __init__(self, read_fd):
+        super().__init__(running=True)
+        self.stdout = os.fdopen(read_fd, "rb")
 
 
 def fake_popen(process, commands=None):
@@ -448,6 +458,54 @@ class CliTests(unittest.TestCase):
             self.assertTrue(process.terminated)
             self.assertTrue(process.wait_calls)
             self.assertTrue(select_mock.called)
+            self.assertEqual(output.read_bytes(), b"keep this recording")
+            self.assertEqual(list(root.glob(f".{output.name}.*")), [])
+
+    def test_partial_readable_pipe_times_out_and_cleans_up(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = root / "fixture.wav"
+            output.write_bytes(b"keep this recording")
+            read_fd, write_fd = os.pipe()
+            os.write(write_fd, b"\0")
+            process = PipeStreamProcess(read_fd)
+            writer_done = threading.Event()
+
+            def close_writer_later():
+                try:
+                    time.sleep(0.15)
+                finally:
+                    try:
+                        os.close(write_fd)
+                    except OSError:
+                        pass
+                    writer_done.set()
+
+            writer = threading.Thread(target=close_writer_later, daemon=True)
+            writer.start()
+            stderr = io.StringIO()
+            started = time.monotonic()
+            with patch.object(record_fixture.subprocess, "Popen", side_effect=fake_popen(process)), \
+                    patch.object(record_fixture.select, "select", side_effect=system_select), \
+                    patch.object(record_fixture, "STREAM_MIN_TIMEOUT_S", 0.02), \
+                    redirect_stderr(stderr):
+                result = record_fixture.main(
+                    [
+                        "--output",
+                        str(output),
+                        "--duration",
+                        "0.001",
+                        "--capture-pad-s",
+                        "0",
+                    ]
+                )
+            elapsed = time.monotonic() - started
+            writer_done.wait(1.0)
+
+            self.assertEqual(result, 1)
+            self.assertIn("timed out", stderr.getvalue())
+            self.assertLess(elapsed, 0.1)
+            self.assertTrue(process.terminated)
             self.assertEqual(output.read_bytes(), b"keep this recording")
             self.assertEqual(list(root.glob(f".{output.name}.*")), [])
 

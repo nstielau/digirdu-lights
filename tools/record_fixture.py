@@ -269,6 +269,14 @@ def _finish_stream(process, stderr_file, terminate):
     return stderr, was_running
 
 
+def _read_stdout_chunk(process, remaining):
+    try:
+        file_descriptor = process.stdout.fileno()
+    except (AttributeError, OSError, ValueError):
+        return process.stdout.read(remaining)
+    return os.read(file_descriptor, remaining)
+
+
 def _read_requested_pcm(process, byte_count, deadline):
     pcm = bytearray()
     while len(pcm) < byte_count:
@@ -279,7 +287,7 @@ def _read_requested_pcm(process, byte_count, deadline):
         ready, _, _ = select.select([process.stdout], [], [], timeout)
         if not ready:
             raise TimeoutError("ffmpeg PCM capture timed out before the requested length")
-        chunk = process.stdout.read(remaining)
+        chunk = _read_stdout_chunk(process, remaining)
         if not chunk:
             break
         pcm.extend(chunk[:remaining])
