@@ -1,6 +1,7 @@
 """Record and validate a mono WAV fixture from a Mac audio input."""
 
 import argparse
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -13,6 +14,26 @@ DEFAULT_DURATION_S = 10.0
 DEFAULT_CAPTURE_PAD_S = 1.25
 DEFAULT_SAMPLE_RATE_HZ = 16000
 DEFAULT_CHANNELS = 1
+
+
+def _positive_finite_float(value):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a finite float greater than 0") from exc
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be finite and greater than 0")
+    return parsed
+
+
+def _nonnegative_finite_float(value):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a finite float at least 0") from exc
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError("must be finite and at least 0")
+    return parsed
 
 
 def build_ffmpeg_command(input_device, output, duration_s, sample_rate_hz, channels):
@@ -47,6 +68,25 @@ def validate_wav(
     duration_tolerance_s=0.25,
 ):
     """Validate a WAV file and return its basic audio metadata."""
+    if expected_duration_s is not None:
+        try:
+            valid_expected_duration = (
+                math.isfinite(expected_duration_s) and expected_duration_s > 0
+            )
+        except (TypeError, ValueError, OverflowError):
+            valid_expected_duration = False
+        if not valid_expected_duration:
+            raise ValueError("expected_duration_s must be finite and greater than 0")
+
+    try:
+        valid_duration_tolerance = (
+            math.isfinite(duration_tolerance_s) and duration_tolerance_s >= 0
+        )
+    except (TypeError, ValueError, OverflowError):
+        valid_duration_tolerance = False
+    if not valid_duration_tolerance:
+        raise ValueError("duration_tolerance_s must be finite and at least 0")
+
     try:
         with wave.open(str(path), "rb") as wav:
             sample_rate_hz = wav.getframerate()
@@ -94,10 +134,12 @@ def _parser():
     parser.add_argument("--list-inputs", action="store_true")
     parser.add_argument("--input", default="0")
     parser.add_argument("--output")
-    parser.add_argument("--duration", type=float, default=DEFAULT_DURATION_S)
+    parser.add_argument(
+        "--duration", type=_positive_finite_float, default=DEFAULT_DURATION_S
+    )
     parser.add_argument(
         "--capture-pad-s",
-        type=float,
+        type=_nonnegative_finite_float,
         default=DEFAULT_CAPTURE_PAD_S,
         help="extra capture time to compensate for CoreAudio startup latency",
     )

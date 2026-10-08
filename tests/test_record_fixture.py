@@ -1,4 +1,5 @@
 import io
+import math
 import subprocess
 import tempfile
 import unittest
@@ -77,6 +78,24 @@ class WavValidationTests(unittest.TestCase):
             self.assertEqual(metadata["frame_count"], 16000)
             self.assertEqual(metadata["duration_s"], 1.0)
 
+    def test_validate_wav_rejects_invalid_duration_constraints(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "fixture.wav"
+            write_wav(path, duration_s=1.0)
+
+            cases = (
+                {"expected_duration_s": math.nan},
+                {"expected_duration_s": math.inf},
+                {"expected_duration_s": -1.0},
+                {"duration_tolerance_s": math.nan},
+                {"duration_tolerance_s": math.inf},
+                {"duration_tolerance_s": -1.0},
+            )
+            for kwargs in cases:
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(ValueError):
+                        record_fixture.validate_wav(path, **kwargs)
+
 
 class FfmpegCommandTests(unittest.TestCase):
     def test_build_ffmpeg_command_has_expected_avfoundation_shape(self):
@@ -109,6 +128,34 @@ class FfmpegCommandTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_duration_cli_rejects_nonfinite_and_nonpositive_values(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "fixture.wav"
+            for raw in ("nan", "inf", "-inf", "0", "-1"):
+                with self.subTest(raw=raw), redirect_stderr(io.StringIO()):
+                    try:
+                        record_fixture.main(
+                            ["--output", str(output), "--duration", raw]
+                        )
+                    except SystemExit as exc:
+                        self.assertEqual(exc.code, 2)
+                    else:
+                        self.fail("invalid duration was accepted")
+
+    def test_capture_pad_cli_rejects_nonfinite_and_negative_values(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "fixture.wav"
+            for raw in ("nan", "inf", "-inf", "-1"):
+                with self.subTest(raw=raw), redirect_stderr(io.StringIO()):
+                    try:
+                        record_fixture.main(
+                            ["--output", str(output), "--capture-pad-s", raw]
+                        )
+                    except SystemExit as exc:
+                        self.assertEqual(exc.code, 2)
+                    else:
+                        self.fail("invalid capture pad was accepted")
+
     def test_list_inputs_does_not_create_output(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / "should-not-exist.wav"
