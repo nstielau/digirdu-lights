@@ -106,15 +106,16 @@ def build_ffmpeg_stream_command(
     ]
 
 
-def validate_wav(
-    path,
+def _validate_wav_handle(
+    wav_file,
+    label,
     expected_rate=DEFAULT_SAMPLE_RATE_HZ,
     expected_channels=DEFAULT_CHANNELS,
     expected_width=2,
     expected_duration_s=DEFAULT_DURATION_S,
     duration_tolerance_s=0.25,
 ):
-    """Validate a WAV file and return its basic audio metadata."""
+    """Validate a WAV file handle and return its basic audio metadata."""
     _require_positive_int(expected_rate, "expected_rate")
     _require_positive_int(expected_channels, "expected_channels")
     _require_positive_int(expected_width, "expected_width")
@@ -138,18 +139,19 @@ def validate_wav(
         raise ValueError("duration_tolerance_s must be finite and at least 0")
 
     try:
-        with wave.open(str(path), "rb") as wav:
+        wav_file.seek(0)
+        with wave.open(wav_file, "rb") as wav:
             sample_rate_hz = wav.getframerate()
             channels = wav.getnchannels()
             sample_width_bytes = wav.getsampwidth()
             frame_count = wav.getnframes()
             audio = wav.readframes(frame_count)
     except (EOFError, OSError, wave.Error) as exc:
-        raise ValueError(f"invalid WAV file: {path}") from exc
+        raise ValueError(f"invalid WAV file: {label}") from exc
 
     expected_bytes = frame_count * channels * sample_width_bytes
     if len(audio) != expected_bytes:
-        raise ValueError(f"truncated WAV file: {path}")
+        raise ValueError(f"truncated WAV file: {label}")
     if sample_rate_hz != expected_rate:
         raise ValueError(
             f"unexpected sample rate: {sample_rate_hz} != {expected_rate}"
@@ -177,6 +179,42 @@ def validate_wav(
         "frame_count": frame_count,
         "duration_s": duration_s,
     }
+
+
+def validate_wav(
+    path,
+    expected_rate=DEFAULT_SAMPLE_RATE_HZ,
+    expected_channels=DEFAULT_CHANNELS,
+    expected_width=2,
+    expected_duration_s=DEFAULT_DURATION_S,
+    duration_tolerance_s=0.25,
+    _file=None,
+):
+    """Validate a WAV file and return its basic audio metadata."""
+    if _file is not None:
+        return _validate_wav_handle(
+            _file,
+            path,
+            expected_rate=expected_rate,
+            expected_channels=expected_channels,
+            expected_width=expected_width,
+            expected_duration_s=expected_duration_s,
+            duration_tolerance_s=duration_tolerance_s,
+        )
+
+    try:
+        with open(path, "rb") as wav_file:
+            return _validate_wav_handle(
+                wav_file,
+                path,
+                expected_rate=expected_rate,
+                expected_channels=expected_channels,
+                expected_width=expected_width,
+                expected_duration_s=expected_duration_s,
+                duration_tolerance_s=duration_tolerance_s,
+            )
+    except OSError as exc:
+        raise ValueError(f"invalid WAV file: {path}") from exc
 
 
 def _parser():
@@ -296,8 +334,11 @@ def _read_requested_pcm(process, byte_count, deadline):
 
 def _record(args):
     output = Path(args.output)
+    temporary_file = None
+    descriptor = None
     temporary_name = None
     stderr_file = None
+    replaced = False
 
     try:
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -306,7 +347,15 @@ def _record(args):
             suffix=output.suffix or ".wav",
             dir=str(output.parent),
         )
-        os.close(descriptor)
+        try:
+            temporary_file = os.fdopen(descriptor, "w+b")
+        except OSError:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            raise
+        descriptor = None
         capture_duration_s = args.duration + args.capture_pad_s
         capture_deadline = time.monotonic() + max(
             capture_duration_s, STREAM_MIN_TIMEOUT_S
@@ -354,19 +403,23 @@ def _record(args):
             if diagnostic:
                 message = f"{message}: {diagnostic}"
             raise ValueError(message)
-        with wave.open(temporary_name, "wb") as wav:
+        with wave.open(temporary_file, "wb") as wav:
             wav.setnchannels(args.channels)
             wav.setsampwidth(SAMPLE_WIDTH_BYTES)
             wav.setframerate(args.sample_rate)
             wav.writeframes(pcm)
+        temporary_file.flush()
+        os.fsync(temporary_file.fileno())
         validate_wav(
             temporary_name,
             expected_rate=args.sample_rate,
             expected_channels=args.channels,
             expected_width=SAMPLE_WIDTH_BYTES,
             expected_duration_s=args.duration,
+            _file=temporary_file,
         )
         os.replace(temporary_name, output)
+        replaced = True
         return 0
     except (OSError, ValueError) as exc:
         print(f"recording failed: {exc}", file=sys.stderr)
@@ -374,7 +427,17 @@ def _record(args):
     finally:
         if stderr_file is not None:
             stderr_file.close()
-        if temporary_name is not None:
+        if temporary_file is not None:
+            try:
+                temporary_file.close()
+            except OSError:
+                pass
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if temporary_name is not None and not replaced:
             try:
                 os.unlink(temporary_name)
             except OSError:

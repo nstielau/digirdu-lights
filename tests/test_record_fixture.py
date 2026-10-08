@@ -603,7 +603,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(commands[0][7], ":2")
             self.assertEqual(commands[0][-1], "pipe:1")
 
-    def test_record_keeps_mkstemp_path_until_atomic_cleanup(self):
+    def test_record_does_not_unlink_mkstemp_path_after_replace(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / "fixture.wav"
             unlink_calls = []
@@ -622,7 +622,8 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(result, 0)
-            self.assertEqual(len(unlink_calls), 1)
+            self.assertTrue(output.exists())
+            self.assertEqual(unlink_calls, [])
 
     def test_record_default_capture_pad_extends_ffmpeg_stream_duration(self):
         with tempfile.TemporaryDirectory() as folder:
