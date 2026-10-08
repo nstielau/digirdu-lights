@@ -126,7 +126,7 @@ web-build:
 web-test-emulator:
 	JAVA_HOME='$(JAVA_HOME)' $(NPM) run test:emulator
 
-web-test:
+web-test: review-library
 	$(NPM) test
 	$(NPM) --prefix firebase/functions test
 	$(NPM) run test:browser

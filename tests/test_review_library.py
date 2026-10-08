@@ -3,6 +3,7 @@
 import array
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -91,6 +92,13 @@ class ReviewLibraryTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_web_test_rebuilds_review_library_before_deployment(self):
+        root = Path(__file__).parent.parent
+        makefile = (root / "Makefile").read_text()
+        target = re.search(r"^web-test:([^\n]*)$", makefile, re.MULTILINE)
+        self.assertIsNotNone(target)
+        self.assertIn("review-library", target.group(1).split())
 
     def test_build_is_ordered_deterministic_and_removes_stale_entries(self):
         output = self.root / "review-data"
