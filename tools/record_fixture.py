@@ -13,7 +13,10 @@ import wave
 
 
 DEFAULT_DURATION_S = 10.0
-DEFAULT_CAPTURE_PAD_S = 1.25
+# CoreAudio/AVFoundation can spend more than a second opening a microphone on
+# the first capture. Keep enough source duration beyond the requested fixture
+# so the exact-byte reader is not starved by that startup latency.
+DEFAULT_CAPTURE_PAD_S = 2.5
 DEFAULT_SAMPLE_RATE_HZ = 16000
 DEFAULT_CHANNELS = 1
 SAMPLE_WIDTH_BYTES = 2
@@ -429,9 +432,6 @@ def _record(args):
             raise
         descriptor = None
         capture_duration_s = args.duration + args.capture_pad_s
-        capture_deadline = time.monotonic() + max(
-            capture_duration_s, STREAM_MIN_TIMEOUT_S
-        )
         stderr_file = tempfile.TemporaryFile()
         process = subprocess.Popen(
             build_ffmpeg_stream_command(
@@ -442,6 +442,13 @@ def _record(args):
             ),
             stdout=subprocess.PIPE,
             stderr=stderr_file,
+        )
+        # Start the read deadline after ffmpeg has been launched.  AVFoundation
+        # may spend several seconds opening the selected microphone before the
+        # first PCM bytes are available; that startup latency must not consume
+        # the budget needed to collect the requested audio.
+        capture_deadline = time.monotonic() + max(
+            capture_duration_s + STREAM_MIN_TIMEOUT_S, STREAM_MIN_TIMEOUT_S
         )
         requested_frame_count = round(args.duration * args.sample_rate)
         requested_byte_count = (

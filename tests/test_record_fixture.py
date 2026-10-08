@@ -844,7 +844,7 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(result, 0)
             self.assertEqual(len(commands), 1)
-            self.assertEqual(commands[0][commands[0].index("-t") + 1], "2.25")
+            self.assertEqual(commands[0][commands[0].index("-t") + 1], "3.5")
 
     def test_failed_record_preserves_existing_output_and_removes_temp_file(self):
         with tempfile.TemporaryDirectory() as folder:
