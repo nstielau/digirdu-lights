@@ -86,6 +86,12 @@ class AudioEventTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             detector.update(frame(), 99)
 
+    def test_negative_initial_timestamps_are_rejected(self):
+        with self.assertRaises(ValueError):
+            SemanticEventDetector().update(frame(), -1)
+        with self.assertRaises(ValueError):
+            SemanticEventDetector().finish(-1)
+
     def test_finish_closes_active_drone_once(self):
         config = DroneEventConfig(start_hold_s=0.10, stop_hold_s=0.20)
         detector = SemanticEventDetector(config)

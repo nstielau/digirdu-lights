@@ -3,6 +3,7 @@
 import array
 import json
 import math
+import os
 import sys
 from pathlib import Path
 import wave
@@ -14,23 +15,49 @@ from config import Config
 from tools.record_fixture import validate_wav
 
 
-LABEL_TYPES = frozenset(("drone", "yell", "beat", "transient"))
+RANGE_LABEL_TYPES = frozenset(("drone", "yell"))
+POINT_LABEL_TYPES = frozenset(("beat", "transient"))
+LABEL_TYPES = RANGE_LABEL_TYPES | POINT_LABEL_TYPES
 
 
 def read_wav_hops(path, config):
     """Return validated WAV metadata and unmodified complete PCM hops."""
-    validated = validate_wav(
-        path, expected_rate=config.sample_rate, expected_duration_s=None
-    )
-    metadata = {
-        "sample_rate_hz": validated["sample_rate_hz"],
-        "channels": validated["channels"],
-        "sample_width_bytes": validated["sample_width_bytes"],
-        "frame_count": validated["frame_count"],
-    }
+    path = Path(path)
+    with path.open("rb") as retained:
+        retained_stat = os.fstat(retained.fileno())
+        validated = validate_wav(
+            path, expected_rate=config.sample_rate, expected_duration_s=None
+        )
+        try:
+            current_stat = path.stat()
+        except OSError as exc:
+            raise ValueError("WAV file changed during validation") from exc
+        if not os.path.samestat(retained_stat, current_stat):
+            raise ValueError("WAV file changed during validation")
 
-    with wave.open(str(path), "rb") as source:
-        raw = source.readframes(metadata["frame_count"])
+        validated_metadata = {
+            name: validated[name]
+            for name in (
+                "sample_rate_hz",
+                "channels",
+                "sample_width_bytes",
+                "frame_count",
+            )
+        }
+        retained.seek(0)
+        try:
+            with wave.open(retained, "rb") as source:
+                metadata = {
+                    "sample_rate_hz": source.getframerate(),
+                    "channels": source.getnchannels(),
+                    "sample_width_bytes": source.getsampwidth(),
+                    "frame_count": source.getnframes(),
+                }
+                if metadata != validated_metadata:
+                    raise ValueError("WAV metadata changed during validation")
+                raw = source.readframes(metadata["frame_count"])
+        except (EOFError, OSError, wave.Error) as exc:
+            raise ValueError("WAV file changed during validation") from exc
 
     expected_bytes = metadata["frame_count"] * 2
     if len(raw) != expected_bytes:
@@ -104,6 +131,12 @@ def load_labels(path, duration_ms, sample_rate_hz):
             raise ValueError("Label timestamps must be integers")
         if start < 0 or end < start or end > duration_ms:
             raise ValueError("Label is outside audio duration")
+        if label["type"] in RANGE_LABEL_TYPES and (
+            "end_ms" not in label or end <= start
+        ):
+            raise ValueError("Range labels require a positive duration")
+        if label["type"] in POINT_LABEL_TYPES and end != start:
+            raise ValueError("Point labels cannot have a duration")
         labels.append({"type": label["type"], "start_ms": start, "end_ms": end})
 
     return {
@@ -185,6 +218,13 @@ def serialize_features(features, raw, time_ms):
 
 def analyze_wav(audio_path, labels_path, config=None, fps=20):
     """Run a complete WAV through the same FFT and analyzer as the producer."""
+    if (
+        isinstance(fps, bool)
+        or not isinstance(fps, (int, float))
+        or not math.isfinite(fps)
+        or fps <= 0
+    ):
+        raise ValueError("fps must be a positive finite number")
     config = config or Config()
     info, hops = read_wav_hops(audio_path, config)
     labels = load_labels(labels_path, info["duration_ms"], config.sample_rate)

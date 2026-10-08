@@ -38,6 +38,8 @@ class SemanticEventDetector:
     def _validate_time(time_ms, previous, allow_equal=False):
         if isinstance(time_ms, bool) or not isinstance(time_ms, int):
             raise ValueError("time_ms must be an integer")
+        if time_ms < 0:
+            raise ValueError("time_ms must be non-negative")
         if previous is not None and (
                 time_ms < previous or (time_ms == previous and not allow_equal)):
             raise ValueError("time_ms must increase")
