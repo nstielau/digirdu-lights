@@ -828,10 +828,12 @@ def render_effects(
                 "yell_age_s": 0.0,
             }
             for time_ms in frame_times:
-                source_target_ms = max(0.0, time_ms - delay_ms)
-                source_time_ms = int(math.floor(source_target_ms))
+                if time_ms < delay_ms:
+                    source_cursor_ms = -1
+                else:
+                    source_cursor_ms = int(math.floor(time_ms - delay_ms))
                 for event_type, event_source_ms, age_s, strength in _event_records_crossed(
-                    feature_frames, previous_source_ms, source_time_ms
+                    feature_frames, previous_source_ms, source_cursor_ms
                 ):
                     pending_events.append(
                         (
@@ -855,6 +857,15 @@ def render_effects(
                 render_cursor_ms = previous_render_time_ms
                 pixels = None
                 selected_time_ms = None
+                if render_cursor_ms < delay_ms <= time_ms:
+                    features, selected_time_ms = _sample_feature(
+                        feature_frames, -1, no_event_overrides
+                    )
+                    pixels = renderer.render(
+                        features, (delay_ms - render_cursor_ms) / 1000.0
+                    )
+                    render_cursor_ms = delay_ms
+
                 for (
                     event_time_ms,
                     event_source_ms,
@@ -863,9 +874,12 @@ def render_effects(
                     strength,
                 ) in due_events:
                     if event_time_ms > render_cursor_ms:
-                        base_source_ms = int(
-                            math.floor(max(0.0, event_time_ms - delay_ms))
-                        )
+                        if render_cursor_ms < delay_ms:
+                            base_source_ms = -1
+                        else:
+                            base_source_ms = int(
+                                math.floor(render_cursor_ms - delay_ms)
+                            )
                         features, selected_time_ms = _sample_feature(
                             feature_frames, base_source_ms, no_event_overrides
                         )
@@ -897,14 +911,18 @@ def render_effects(
 
                 if render_cursor_ms < time_ms:
                     features, selected_time_ms = _sample_feature(
-                        feature_frames, source_time_ms, no_event_overrides
+                        feature_frames, source_cursor_ms, no_event_overrides
                     )
                     pixels = renderer.render(
                         features, (time_ms - render_cursor_ms) / 1000.0
                     )
-                elif pixels is None:
+                elif pixels is None or (
+                    render_cursor_ms == time_ms
+                    and source_cursor_ms >= 0
+                    and not due_events
+                ):
                     features, selected_time_ms = _sample_feature(
-                        feature_frames, source_time_ms, no_event_overrides
+                        feature_frames, source_cursor_ms, no_event_overrides
                     )
                     pixels = renderer.render(features, 0.0)
                 rendered.append(
@@ -914,7 +932,7 @@ def render_effects(
                         "pixels_rgb": group_pixels(pixels),
                     }
                 )
-                previous_source_ms = source_time_ms
+                previous_source_ms = source_cursor_ms
                 previous_render_time_ms = float(time_ms)
             by_node[str(node_index)] = rendered
         effects[effect_name] = by_node

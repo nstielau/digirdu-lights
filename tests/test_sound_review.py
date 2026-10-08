@@ -808,6 +808,28 @@ class SoundReviewEffectTests(unittest.TestCase):
         self.assertEqual(outward["source_time_ms"], 0)
         self.assertEqual(opposite["source_time_ms"], 0)
 
+    def test_render_effects_keeps_delayed_node_neutral_before_causal_delay(self):
+        frames = fixture_feature_frames()
+        frames[0].update(
+            attack_event=True,
+            attack_age_s=0.0,
+            transient_strength=1.0,
+        )
+        rendered = render_effects(
+            frames,
+            Config(),
+            fps=2,
+            node_distances_mm=(5000,),
+            virtual_wave_speed_mm_s=10000,
+        )["frames"]["Ember"]["0"]
+
+        self.assertEqual(rendered[0]["time_ms"], 0)
+        self.assertIsNone(rendered[0]["source_time_ms"])
+        self.assertEqual(rendered[0]["pixels_rgb"], [[0, 0, 0]] * 8)
+        self.assertEqual(rendered[1]["time_ms"], 500)
+        self.assertEqual(rendered[1]["source_time_ms"], 0)
+        self.assertNotEqual(rendered[1]["pixels_rgb"], [[0, 0, 0]] * 8)
+
     def test_render_effects_preserves_semantic_event_bloom_and_pulse(self):
         plain = fixture_feature_frames()
         with_event = fixture_feature_frames()
