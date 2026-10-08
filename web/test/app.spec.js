@@ -87,3 +87,51 @@ test('missing replay keeps the effect guide usable',async({page})=>{
  await expect(page.getByRole('button',{name:'Play replay'})).toBeDisabled();
  await expect(page.getByRole('heading',{name:'Chroma',exact:true})).toBeVisible();
 });
+
+test('review page synchronizes all tracks from one playhead',async({page})=>{
+ await page.route('**/test-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+  duration_ms:1000,
+  audio_url:'/fixture.wav',
+  waveform:[0,.2,.8,.3],
+  labels:[{type:'drone',start_ms:0,end_ms:1000}],
+  events:[{type:'yell',time_ms:500,confidence:.9}],
+  features:[{time_ms:500,volume:.8,drone:.7,vocal:.9,transient_strength:.2}],
+  effects:{node_distances_mm:[0],frames:{Spectrum:{'0':[
+   {time_ms:500,pixels_rgb:Array.from({length:8},()=>[1,2,3])}
+  ]}}}
+ }}));
+ await page.route('**/fixture.wav',route=>route.abort());
+ await page.goto('/review.html?data=/test-review.json');
+ await expect(page.getByRole('slider',{name:'Position'})).toHaveAttribute('max','1000');
+ await page.getByRole('slider',{name:'Position'}).fill('500');
+ await page.getByRole('slider',{name:'Position'}).dispatchEvent('input');
+ await expect(page.locator('#review-time')).toHaveText('0.50 s');
+ await expect(page.locator('[data-track-cursor="waveform"]')).toHaveAttribute('data-time-ms','500');
+ await expect(page.locator('#review-events')).toContainText('yell');
+ await expect(page.locator('#review-features')).toContainText('0.80');
+ await expect(page.locator('#review-led')).toHaveAttribute('data-time-ms','500');
+ await page.getByRole('button',{name:/drone label/i}).click();
+ await expect(page.locator('#review-selected-label')).toContainText('drone');
+ await page.getByRole('button',{name:'Replay label'}).click();
+ await expect(page.getByRole('slider',{name:'Position'})).toHaveValue('0');
+ await page.getByRole('slider',{name:'Zoom'}).fill('4');
+ await page.getByRole('slider',{name:'Zoom'}).dispatchEvent('input');
+ await expect(page.locator('#review-waveform')).toHaveAttribute('data-zoom','4');
+ await expect(page.locator('#review-time')).toHaveText('0.00 s');
+ await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(e=>e.clientWidth));
+});
+
+test('review page reports missing bundle instead of showing empty tracks',async({page})=>{
+ await page.route('**/missing-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({status:503,body:'unavailable'}));
+ await page.goto('/review.html?data=/missing-review.json');
+ await expect(page.locator('#review-status')).toContainText('could not load');
+});
+
+test('review page reports audio failures after loading a bundle',async({page})=>{
+ await page.route('**/audio-error-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+  duration_ms:1000,audio_url:'/broken.wav',waveform:[],labels:[],events:[],features:[],effects:{frames:{}}
+ }}));
+ await page.route('**/broken.wav',route=>route.fulfill({status:404,body:'missing'}));
+ await page.goto('/review.html?data=/audio-error-review.json');
+ await expect(page.locator('#review-status')).toContainText(/audio/i);
+});

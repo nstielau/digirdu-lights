@@ -1,0 +1,310 @@
+const DEFAULT_DATA_URL = './review.json';
+
+const state = {
+  bundle: null,
+  timeMs: 0,
+  playing: false,
+  selectedLabel: null,
+  zoom: 1,
+  replayEndMs: null,
+};
+
+const audio = document.querySelector('#review-audio');
+const play = document.querySelector('#review-play');
+const replay = document.querySelector('#review-replay');
+const position = document.querySelector('#review-position');
+const zoom = document.querySelector('#review-zoom');
+const timeOutput = document.querySelector('#review-time');
+const status = document.querySelector('#review-status');
+const waveform = document.querySelector('#review-waveform');
+const labels = document.querySelector('#review-labels');
+const events = document.querySelector('#review-events');
+const features = document.querySelector('#review-features');
+const led = document.querySelector('#review-led');
+const selectedLabel = document.querySelector('#review-selected-label');
+
+function setStatus(message, isError = false) {
+  status.textContent = message;
+  status.dataset.state = isError ? 'error' : 'ready';
+}
+
+function finiteNumber(value, name) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`${name} must be a finite number`);
+  }
+  return value;
+}
+
+function normalizeRows(value, name) {
+  if (Array.isArray(value)) return value;
+  if (value && Array.isArray(value[name])) return value[name];
+  return [];
+}
+
+function normalizeBundle(bundle) {
+  if (!bundle || typeof bundle !== 'object') throw new Error('Review bundle must be an object');
+  const durationMs = finiteNumber(bundle.duration_ms, 'duration_ms');
+  if (durationMs <= 0) throw new Error('duration_ms must be positive');
+  if (bundle.audio_url !== undefined && typeof bundle.audio_url !== 'string') {
+    throw new Error('audio_url must be a string');
+  }
+  return {
+    ...bundle,
+    duration_ms: durationMs,
+    waveform: Array.isArray(bundle.waveform) ? bundle.waveform : [],
+    labels: normalizeRows(bundle.labels, 'labels'),
+    events: normalizeRows(bundle.events, 'events'),
+    features: normalizeRows(bundle.features, 'features'),
+    effects: bundle.effects && typeof bundle.effects === 'object' ? bundle.effects : {frames: {}},
+  };
+}
+
+function clampTime(timeMs) {
+  return Math.max(0, Math.min(state.bundle.duration_ms, finiteNumber(timeMs, 'time_ms')));
+}
+
+function rowTime(row) {
+  return Number.isFinite(row?.time_ms) ? row.time_ms : row?.start_ms;
+}
+
+function rowEnd(row) {
+  return Number.isFinite(row?.end_ms) ? row.end_ms : rowTime(row);
+}
+
+function nearestRow(rows, timeMs) {
+  if (!rows.length) return null;
+  return rows.reduce((best, row) => {
+    if (!best) return row;
+    return Math.abs(rowTime(row) - timeMs) < Math.abs(rowTime(best) - timeMs) ? row : best;
+  }, null);
+}
+
+function percentAt(timeMs) {
+  return state.bundle.duration_ms ? timeMs / state.bundle.duration_ms * 100 : 0;
+}
+
+function renderWaveform() {
+  const track = waveform.querySelector('.timeline-track');
+  track.replaceChildren();
+  track.style.setProperty('--wave-count', String(Math.max(1, state.bundle.waveform.length)));
+  state.bundle.waveform.forEach((sample, index) => {
+    const bar = document.createElement('span');
+    const magnitude = Math.max(0, Math.min(1, Math.abs(Number(sample) || 0)));
+    bar.className = 'wave-bar';
+    bar.style.left = `${index / Math.max(1, state.bundle.waveform.length) * 100}%`;
+    bar.style.height = `${Math.max(4, magnitude * 70)}px`;
+    track.append(bar);
+  });
+  const cursor = document.createElement('span');
+  cursor.className = 'track-cursor';
+  track.append(cursor);
+}
+
+function renderLabels() {
+  labels.replaceChildren();
+  if (!state.bundle.labels.length) {
+    labels.append(emptyMessage('No human labels in this bundle.'));
+    return;
+  }
+  state.bundle.labels.forEach((label, index) => {
+    const button = document.createElement('button');
+    const end = rowEnd(label);
+    button.type = 'button';
+    button.textContent = `${label.type} · ${formatMs(rowTime(label))}${end !== rowTime(label) ? `–${formatMs(end)}` : ''}`;
+    button.setAttribute('aria-label', `${label.type} label at ${formatMs(rowTime(label))}`);
+    button.setAttribute('aria-pressed', state.selectedLabel === index ? 'true' : 'false');
+    button.addEventListener('click', () => {
+      state.selectedLabel = index;
+      renderLabels();
+      selectedLabel.textContent = `Selected: ${button.textContent}`;
+      replay.disabled = false;
+      setTime(rowTime(label));
+    });
+    labels.append(button);
+  });
+}
+
+function renderEvents(timeMs) {
+  events.replaceChildren();
+  if (!state.bundle.events.length) {
+    events.append(emptyMessage('No detected events in this bundle.'));
+    return;
+  }
+  state.bundle.events.forEach((event) => {
+    const item = document.createElement('li');
+    const active = timeMs >= rowTime(event) && timeMs <= rowEnd(event);
+    item.textContent = `${event.type} · ${formatMs(rowTime(event))}${event.confidence === undefined ? '' : ` · ${(event.confidence * 100).toFixed(0)}%`}`;
+    item.dataset.active = active ? 'true' : 'false';
+    item.className = active ? 'event-active' : '';
+    events.append(item);
+  });
+}
+
+function renderFeatureCursor(timeMs) {
+  const feature = nearestRow(state.bundle.features, timeMs);
+  features.dataset.timeMs = String(feature?.time_ms ?? timeMs);
+  features.replaceChildren();
+  if (!feature) {
+    features.append(emptyMessage('No derived features in this bundle.'));
+    return;
+  }
+  const values = [
+    ['time', formatMs(feature.time_ms)],
+    ['volume', feature.volume],
+    ['drone', feature.drone],
+    ['vocal', feature.vocal],
+    ['transient', feature.transient_strength],
+  ];
+  values.forEach(([name, value]) => {
+    const term = document.createElement('div');
+    const title = document.createElement('dt');
+    const detail = document.createElement('dd');
+    title.textContent = name;
+    detail.textContent = typeof value === 'number' ? value.toFixed(2) : String(value);
+    term.append(title, detail);
+    features.append(term);
+  });
+}
+
+function effectFrames() {
+  const effectNames = state.bundle.effects.effects || Object.keys(state.bundle.effects.frames || {});
+  const effect = effectNames[0];
+  const nodes = state.bundle.effects.frames?.[effect] || {};
+  const node = nodes['0'] || nodes[0] || [];
+  return Array.isArray(node) ? node : [];
+}
+
+function renderLedFrame(timeMs) {
+  const frame = nearestRow(effectFrames(), timeMs);
+  led.dataset.timeMs = String(frame?.time_ms ?? timeMs);
+  led.replaceChildren();
+  const pixels = frame?.pixels_rgb || [];
+  for (let index = 0; index < 8; index += 1) {
+    const pixel = document.createElement('span');
+    const rgb = pixels[index] || [0, 0, 0];
+    const channels = rgb.map((value) => Math.max(0, Math.min(255, Number(value) || 0)));
+    pixel.className = 'led-pixel';
+    pixel.style.backgroundColor = `rgb(${channels.join(',')})`;
+    pixel.setAttribute('aria-label', `LED ${index + 1}: RGB ${channels.join(', ')}`);
+    led.append(pixel);
+  }
+}
+
+function emptyMessage(message) {
+  const item = document.createElement('li');
+  item.className = 'review-empty';
+  item.textContent = message;
+  return item;
+}
+
+function formatMs(value) {
+  return `${(value / 1000).toFixed(2)} s`;
+}
+
+function setTime(timeMs) {
+  if (!state.bundle) return;
+  state.timeMs = clampTime(timeMs);
+  if (Number.isFinite(audio.duration) || audio.src) audio.currentTime = state.timeMs / 1000;
+  position.value = String(Math.round(state.timeMs));
+  timeOutput.textContent = formatMs(state.timeMs);
+  waveform.dataset.timeMs = String(Math.round(state.timeMs));
+  const cursor = waveform.querySelector('.track-cursor');
+  if (cursor) {
+    cursor.dataset.timeMs = String(Math.round(state.timeMs));
+    cursor.style.left = `${percentAt(state.timeMs)}%`;
+  }
+  renderFeatureCursor(state.timeMs);
+  renderEvents(state.timeMs);
+  renderLedFrame(state.timeMs);
+  if (state.replayEndMs !== null && state.timeMs >= state.replayEndMs) stopPlayback();
+}
+
+function stopPlayback() {
+  audio.pause();
+  state.playing = false;
+  state.replayEndMs = null;
+  play.textContent = 'Play';
+}
+
+async function startPlayback() {
+  state.playing = true;
+  play.textContent = 'Pause';
+  try {
+    await audio.play();
+  } catch (error) {
+    stopPlayback();
+    setStatus(`Audio could not play: ${error.message || 'playback was rejected'}`, true);
+  }
+}
+
+async function replaySelectedLabel() {
+  if (state.selectedLabel === null) return;
+  const label = state.bundle.labels[state.selectedLabel];
+  const start = Math.max(0, rowTime(label) - 500);
+  state.replayEndMs = Math.min(state.bundle.duration_ms, rowEnd(label) + 500);
+  setTime(start);
+  await startPlayback();
+}
+
+function setZoom(value) {
+  state.zoom = Math.max(1, Math.min(8, Number(value)));
+  waveform.dataset.zoom = String(state.zoom);
+  waveform.querySelector('.timeline-track').style.setProperty('--timeline-zoom', state.zoom);
+}
+
+function configureBundle(bundle, sourceUrl) {
+  state.bundle = normalizeBundle(bundle);
+  state.selectedLabel = null;
+  position.max = String(Math.round(state.bundle.duration_ms));
+  position.disabled = false;
+  zoom.disabled = false;
+  play.disabled = !state.bundle.audio_url;
+  replay.disabled = true;
+  renderWaveform();
+  renderLabels();
+  setZoom(zoom.value);
+  setTime(0);
+  if (state.bundle.audio_url) {
+    audio.src = new URL(state.bundle.audio_url, sourceUrl).href;
+  } else {
+    setStatus('Review loaded; this bundle has no audio URL.');
+  }
+  if (state.bundle.audio_url) setStatus('Review loaded.');
+}
+
+async function loadBundle() {
+  const query = new URLSearchParams(window.location.search);
+  const dataUrl = query.get('data') || DEFAULT_DATA_URL;
+  try {
+    const response = await fetch(dataUrl, {cache: 'no-store'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    configureBundle(await response.json(), response.url);
+  } catch (error) {
+    play.disabled = true;
+    replay.disabled = true;
+    position.disabled = true;
+    zoom.disabled = true;
+    setStatus(`Review could not load: ${error.message || 'invalid bundle'}`, true);
+  }
+}
+
+audio.addEventListener('timeupdate', () => {
+  if (state.playing) setTime(audio.currentTime * 1000);
+});
+audio.addEventListener('ended', () => stopPlayback());
+audio.addEventListener('error', () => {
+  setStatus('Audio could not load for this review.', true);
+  play.disabled = true;
+  stopPlayback();
+});
+position.addEventListener('input', () => setTime(Number(position.value)));
+zoom.addEventListener('input', () => setZoom(zoom.value));
+play.addEventListener('click', () => {
+  if (state.playing) stopPlayback();
+  else startPlayback();
+});
+replay.addEventListener('click', replaySelectedLabel);
+
+loadBundle();
+
+export {setTime, state};
