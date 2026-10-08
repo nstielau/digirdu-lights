@@ -175,6 +175,39 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(e=>e.clientWidth));
 });
 
+test('review event visibility filters known detector groups without changing evaluation',async({page})=>{
+ await page.route('**/filter-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+  duration_ms:1000,waveform:[0,.5],
+  labels:[{type:'drone',start_ms:100,end_ms:900}],
+  events:[
+   {type:'transient',time_ms:100},{type:'yell',time_ms:300},
+   {type:'drone_start',time_ms:200},{type:'drone_stop',time_ms:800}
+  ],
+  features:[],comparison:{drone:{intersection_over_union:.7,false_active_ms:100,false_inactive_ms:200}},
+  effects:{frames:{}}
+ }}));
+ await page.goto('/review.html?data=/filter-review.json');
+ const transient=page.getByRole('checkbox',{name:'Transient (1)'});
+ const yell=page.getByRole('checkbox',{name:'Yell (1)'});
+ const drone=page.getByRole('checkbox',{name:'Drone boundaries (2)'});
+ await expect(transient).not.toBeChecked();
+ await expect(yell).toBeChecked();
+ await expect(drone).toBeChecked();
+ await expect(page.locator('#review-events li')).toHaveCount(3);
+ await expect(page.locator('.event-overlay')).toHaveCount(3);
+ await expect(page.locator('.label-overlay')).toHaveCount(1);
+ const comparison=page.locator('#review-comparison');
+ const comparisonText=await comparison.textContent();
+ await transient.check();
+ await drone.uncheck();
+ await expect(page.locator('#review-events')).toContainText('transient');
+ await expect(page.locator('#review-events')).toContainText('yell');
+ await expect(page.locator('#review-events')).not.toContainText('drone_start');
+ await expect(page.locator('.event-overlay')).toHaveCount(2);
+ await expect(page.locator('.label-overlay')).toHaveCount(1);
+ await expect(comparison).toHaveText(comparisonText);
+});
+
 test('review waveform click seeks and preserves playback state',async({page})=>{
  await page.addInitScript(()=>{
   window.reviewCurrentTimeWrites=[];

@@ -7,7 +7,14 @@ const state = {
   selectedLabel: null,
   zoom: 1,
   replayEndMs: null,
+  enabledEventGroups: new Set(),
 };
+
+const KNOWN_EVENT_GROUPS = [
+  {id: 'transient', label: 'Transient', types: ['transient'], enabled: false},
+  {id: 'yell', label: 'Yell', types: ['yell'], enabled: true},
+  {id: 'drone-boundaries', label: 'Drone boundaries', types: ['drone_start', 'drone_stop'], enabled: true},
+];
 
 const WAVEFORM_DRAG_THRESHOLD_PX = 5;
 const waveformGesture = {
@@ -27,6 +34,7 @@ const status = document.querySelector('#review-status');
 const waveform = document.querySelector('#review-waveform');
 const labels = document.querySelector('#review-labels');
 const events = document.querySelector('#review-events');
+const eventFilters = document.querySelector('#review-event-filters');
 const features = document.querySelector('#review-features');
 const comparison = document.querySelector('#review-comparison');
 const led = document.querySelector('#review-led');
@@ -201,10 +209,44 @@ function updateEventState(timeMs) {
   });
 }
 
+function eventGroupForType(type) {
+  return KNOWN_EVENT_GROUPS.find((group) => group.types.includes(type)) || null;
+}
+
+function eventIsVisible(event) {
+  const group = eventGroupForType(event.type);
+  return !group || state.enabledEventGroups.has(group.id);
+}
+
+function renderEventFilters() {
+  eventFilters.replaceChildren();
+  state.enabledEventGroups.clear();
+  const groups = KNOWN_EVENT_GROUPS.map((group) => ({
+    ...group,
+    count: state.bundle.events.filter((event) => group.types.includes(event.type)).length,
+  })).filter((group) => group.count > 0);
+  eventFilters.hidden = groups.length === 0;
+  groups.forEach((group) => {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = group.enabled;
+    if (group.enabled) state.enabledEventGroups.add(group.id);
+    input.addEventListener('change', () => {
+      if (input.checked) state.enabledEventGroups.add(group.id);
+      else state.enabledEventGroups.delete(group.id);
+      renderEvents(state.timeMs);
+    });
+    label.append(input, `${group.label} (${group.count})`);
+    eventFilters.append(label);
+  });
+}
+
 function renderEventOverlays() {
   const layer = waveform.querySelector('.event-overlay-layer');
   layer.replaceChildren();
   state.bundle.events.forEach((event, index) => {
+    if (!eventIsVisible(event)) return;
     const marker = document.createElement('button');
     const timeMs = rowTime(event);
     marker.type = 'button';
@@ -225,7 +267,15 @@ function renderEvents(timeMs) {
     renderEventOverlays();
     return;
   }
-  state.bundle.events.forEach((event, index) => {
+  const visibleEvents = state.bundle.events
+    .map((event, index) => ({event, index}))
+    .filter(({event}) => eventIsVisible(event));
+  if (!visibleEvents.length) {
+    events.append(emptyMessage('No detected events selected.'));
+    renderEventOverlays();
+    return;
+  }
+  visibleEvents.forEach(({event, index}) => {
     const item = document.createElement('li');
     const active = timeMs >= rowTime(event) && timeMs <= rowEnd(event);
     item.textContent = `${event.type} · ${formatMs(rowTime(event))}${event.confidence === undefined ? '' : ` · ${(event.confidence * 100).toFixed(0)}%`}`;
@@ -435,6 +485,7 @@ function configureBundle(bundle, sourceUrl) {
   replay.disabled = true;
   renderWaveform();
   renderLabels();
+  renderEventFilters();
   renderComparison();
   setZoom(zoom.value);
   setTime(0);
