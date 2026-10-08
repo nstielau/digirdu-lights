@@ -66,6 +66,7 @@ class SoundReviewWavTests(unittest.TestCase):
     def test_load_labels_rejects_invalid_types_and_timestamps(self):
         invalid_labels = (
             {"type": "unknown", "start_ms": 100, "end_ms": 200},
+            {"type": [], "start_ms": 100, "end_ms": 200},
             {"type": "drone", "start_ms": 100.5, "end_ms": 200},
             {"type": "drone", "start_ms": True, "end_ms": 200},
             {"type": "drone", "start_ms": -1, "end_ms": 200},

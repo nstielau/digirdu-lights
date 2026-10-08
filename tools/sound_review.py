@@ -96,7 +96,7 @@ def load_labels(path, duration_ms, sample_rate_hz):
             "end_ms",
         }:
             raise ValueError("Label has invalid fields")
-        if label["type"] not in LABEL_TYPES:
+        if not isinstance(label["type"], str) or label["type"] not in LABEL_TYPES:
             raise ValueError("Unknown label type")
         start = label["start_ms"]
         end = label.get("end_ms", start)
