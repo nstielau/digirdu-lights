@@ -206,6 +206,26 @@ class CliTests(unittest.TestCase):
             self.assertEqual(Path(commands[0][-1]).parent, root)
             self.assertNotEqual(Path(commands[0][-1]), output)
 
+    def test_record_default_capture_pad_extends_ffmpeg_duration(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "fixture.wav"
+            commands = []
+
+            def run_ffmpeg(command, check):
+                self.assertTrue(check)
+                commands.append(command)
+                write_wav(Path(command[-1]), duration_s=1.0)
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch.object(record_fixture.subprocess, "run", side_effect=run_ffmpeg):
+                result = record_fixture.main(
+                    ["--output", str(output), "--duration", "1"]
+                )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(len(commands), 1)
+            self.assertEqual(commands[0][commands[0].index("-t") + 1], "2.25")
+
     def test_failed_record_preserves_existing_output_and_removes_temp_file(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

@@ -10,6 +10,7 @@ import wave
 
 
 DEFAULT_DURATION_S = 10.0
+DEFAULT_CAPTURE_PAD_S = 1.25
 DEFAULT_SAMPLE_RATE_HZ = 16000
 DEFAULT_CHANNELS = 1
 
@@ -94,6 +95,12 @@ def _parser():
     parser.add_argument("--input", default="0")
     parser.add_argument("--output")
     parser.add_argument("--duration", type=float, default=DEFAULT_DURATION_S)
+    parser.add_argument(
+        "--capture-pad-s",
+        type=float,
+        default=DEFAULT_CAPTURE_PAD_S,
+        help="extra capture time to compensate for CoreAudio startup latency",
+    )
     parser.add_argument("--sample-rate", type=int, default=DEFAULT_SAMPLE_RATE_HZ)
     parser.add_argument("--channels", type=int, default=DEFAULT_CHANNELS)
     return parser
@@ -132,7 +139,7 @@ def _record(args):
             build_ffmpeg_command(
                 args.input,
                 temporary_name,
-                args.duration,
+                args.duration + args.capture_pad_s,
                 args.sample_rate,
                 args.channels,
             ),
