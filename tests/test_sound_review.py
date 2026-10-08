@@ -433,6 +433,23 @@ class SoundReviewMetricTests(unittest.TestCase):
         self.assertEqual(report["beat"]["unmatched_labels"], [])
         self.assertEqual(report["beat"]["unmatched_events"], [{"type": "beat", "time_ms": 2100}])
 
+    def test_compare_labels_maximizes_matches_for_overlapping_ranges(self):
+        labels = [
+            {"type": "yell", "start_ms": 1000, "end_ms": 3000},
+            {"type": "yell", "start_ms": 2000, "end_ms": 2050},
+        ]
+        detected = [
+            {"type": "yell", "time_ms": 1800},
+            {"type": "yell", "time_ms": 2500},
+        ]
+
+        report = compare_labels(labels, detected, tolerance_ms=250)
+
+        self.assertEqual(report["yell"]["true_positive"], 2)
+        self.assertEqual(report["yell"]["false_positive"], 0)
+        self.assertEqual(report["yell"]["false_negative"], 0)
+        self.assertEqual(report["yell"]["timing_error_ms"], [1500, -200])
+
     def test_compare_drone_reports_bounds_and_time_errors(self):
         report = compare_drone(
             {"start_ms": 2000, "end_ms": 8000},
@@ -449,6 +466,53 @@ class SoundReviewMetricTests(unittest.TestCase):
         self.assertEqual(report["false_active_ms"], 0)
         self.assertEqual(report["false_inactive_ms"], 600)
 
+    def test_compare_drone_scores_disjoint_detected_spans_as_a_union(self):
+        report = compare_drone(
+            {"start_ms": 2000, "end_ms": 8000},
+            [
+                {"type": "drone_start", "time_ms": 1000},
+                {"type": "drone_stop", "time_ms": 3000},
+                {"type": "drone_start", "time_ms": 5000},
+                {"type": "drone_stop", "time_ms": 6000},
+            ],
+            duration_ms=10000,
+        )
+
+        self.assertEqual(report["start_error_ms"], -1000)
+        self.assertEqual(report["stop_error_ms"], -2000)
+        self.assertAlmostEqual(report["intersection_over_union"], 2 / 7)
+        self.assertEqual(report["false_active_ms"], 1000)
+        self.assertEqual(report["false_inactive_ms"], 4000)
+
+    def test_compare_drone_accepts_repeated_human_spans_without_changing_report_shape(self):
+        report = compare_drone(
+            [
+                {"start_ms": 1000, "end_ms": 2000},
+                {"start_ms": 4000, "end_ms": 5000},
+            ],
+            [
+                {"type": "drone_start", "time_ms": 1000},
+                {"type": "drone_stop", "time_ms": 2000},
+                {"type": "drone_start", "time_ms": 4000},
+                {"type": "drone_stop", "time_ms": 5000},
+            ],
+            duration_ms=10000,
+        )
+
+        self.assertEqual(
+            set(report),
+            {
+                "start_error_ms",
+                "stop_error_ms",
+                "intersection_over_union",
+                "false_active_ms",
+                "false_inactive_ms",
+            },
+        )
+        self.assertEqual(report["intersection_over_union"], 1.0)
+        self.assertEqual(report["false_active_ms"], 0)
+        self.assertEqual(report["false_inactive_ms"], 0)
+
     def test_compare_drone_reports_missing_bounds_without_dividing_by_zero(self):
         label = {"start_ms": 2000, "end_ms": 8000}
 
@@ -464,6 +528,39 @@ class SoundReviewMetricTests(unittest.TestCase):
                 self.assertEqual(report["intersection_over_union"], 0.0)
                 self.assertEqual(report["false_active_ms"], 0)
                 self.assertEqual(report["false_inactive_ms"], 6000)
+
+    def test_compare_drone_rejects_zero_length_and_out_of_range_labels(self):
+        invalid_labels = (
+            {"start_ms": 2000, "end_ms": 2000},
+            {"start_ms": 8000, "end_ms": 7000},
+            {"start_ms": 0, "end_ms": 10001},
+        )
+        for label in invalid_labels:
+            with self.subTest(label=label):
+                with self.assertRaises(ValueError):
+                    compare_drone(label, [], duration_ms=10000)
+
+        with self.assertRaises(ValueError):
+            compare_drone(
+                {"start_ms": 1000, "end_ms": 2000},
+                [
+                    {"type": "drone_start", "time_ms": 1500},
+                    {"type": "drone_stop", "time_ms": 1500},
+                ],
+                duration_ms=10000,
+            )
+
+    def test_metrics_reject_extreme_finite_values_before_arithmetic(self):
+        with self.assertRaises(ValueError):
+            compare_drone(
+                {"start_ms": 0, "end_ms": 1e308}, [], duration_ms=1e308
+            )
+        with self.assertRaises(ValueError):
+            compare_labels(
+                [{"type": "beat", "start_ms": 0, "end_ms": 0}],
+                [],
+                tolerance_ms=1e308,
+            )
 
     def test_analyze_wav_adds_comparison_without_mutating_labels(self):
         config = Config()

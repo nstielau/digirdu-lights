@@ -216,27 +216,33 @@ def serialize_features(features, raw, time_ms):
     return result
 
 
-def _metric_timestamp(row, field):
-    value = row.get(field)
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value < 0
-    ):
+_MAX_METRIC_MS = 1_000_000_000_000
+
+
+def _metric_number(value, field):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a finite non-negative number")
+    if value < 0 or value > _MAX_METRIC_MS:
+        raise ValueError(
+            f"{field} must be between 0 and {_MAX_METRIC_MS} milliseconds"
+        )
+    try:
+        finite = math.isfinite(value)
+    except OverflowError as exc:
+        raise ValueError(f"{field} must be a finite non-negative number") from exc
+    if not finite:
         raise ValueError(f"{field} must be a finite non-negative number")
     return value
 
 
+def _metric_timestamp(row, field):
+    if not isinstance(row, dict):
+        raise ValueError("Metric records must be objects")
+    return _metric_number(row.get(field), field)
+
+
 def _metric_tolerance(value):
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value < 0
-    ):
-        raise ValueError("tolerance_ms must be a finite non-negative number")
-    return value
+    return _metric_number(value, "tolerance_ms")
 
 
 def compare_labels(labels, events, tolerance_ms=250):
@@ -271,31 +277,66 @@ def compare_labels(labels, events, tolerance_ms=250):
             ),
             key=lambda row: _metric_timestamp(row, "time_ms"),
         )
-        unmatched_events = list(available)
-        unmatched_labels = []
-        timing_errors = []
+        label_starts = []
+        candidates = []
+        event_times = [
+            _metric_timestamp(event, "time_ms") for event in available
+        ]
         for label in expected:
             label_start = _metric_timestamp(label, "start_ms")
             label_end = _metric_timestamp(
                 {"end_ms": label.get("end_ms", label_start)}, "end_ms"
             )
-            index = next(
-                (
-                    index
-                    for index, event in enumerate(unmatched_events)
+            if label_end < label_start:
+                raise ValueError("Label end must not precede its start")
+            label_starts.append(label_start)
+            candidates.append(
+                [
+                    event_index
+                    for event_index, event_time in enumerate(event_times)
                     if label_start - tolerance_ms
-                    <= _metric_timestamp(event, "time_ms")
+                    <= event_time
                     <= label_end + tolerance_ms
-                ),
-                None,
+                ]
             )
-            if index is None:
-                unmatched_labels.append(dict(label))
-                continue
-            event = unmatched_events.pop(index)
-            timing_errors.append(_metric_timestamp(event, "time_ms") - label_start)
 
-        true_positive = len(timing_errors)
+        event_to_label = [None] * len(available)
+
+        def assign(label_index, seen_events):
+            for event_index in candidates[label_index]:
+                if seen_events[event_index]:
+                    continue
+                seen_events[event_index] = True
+                previous_label = event_to_label[event_index]
+                if previous_label is None or assign(previous_label, seen_events):
+                    event_to_label[event_index] = label_index
+                    return True
+            return False
+
+        for label_index in range(len(expected)):
+            assign(label_index, [False] * len(available))
+
+        label_to_event = [None] * len(expected)
+        for event_index, label_index in enumerate(event_to_label):
+            if label_index is not None:
+                label_to_event[label_index] = event_index
+
+        unmatched_labels = [
+            dict(label)
+            for label_index, label in enumerate(expected)
+            if label_to_event[label_index] is None
+        ]
+        unmatched_events = [
+            dict(event)
+            for event_index, event in enumerate(available)
+            if event_to_label[event_index] is None
+        ]
+        timing_errors = [
+            event_times[event_index] - label_starts[label_index]
+            for label_index, event_index in enumerate(label_to_event)
+            if event_index is not None
+        ]
+        true_positive = len(expected) - len(unmatched_labels)
         false_positive = len(unmatched_events)
         false_negative = len(unmatched_labels)
         precision = true_positive / (true_positive + false_positive) if (
@@ -317,55 +358,122 @@ def compare_labels(labels, events, tolerance_ms=250):
             "timing_error_ms": timing_errors,
             "absolute_timing_error_ms": [abs(value) for value in timing_errors],
             "unmatched_labels": unmatched_labels,
-            "unmatched_events": [dict(row) for row in unmatched_events],
+            "unmatched_events": unmatched_events,
         }
     return report
 
 
-def compare_drone(label, events, duration_ms):
-    """Compare a human drone interval with its detected start and stop bounds."""
-    duration_ms = _metric_timestamp({"duration_ms": duration_ms}, "duration_ms")
-    label_start = _metric_timestamp(label, "start_ms")
-    label_end = _metric_timestamp(
-        {"end_ms": label.get("end_ms", label_start)}, "end_ms"
-    )
-    if label_end < label_start:
-        raise ValueError("Drone label end must not precede its start")
+def _merge_intervals(intervals):
+    merged = []
+    for start, stop in sorted(intervals):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], stop))
+        else:
+            merged.append((start, stop))
+    return merged
 
-    starts = sorted(
-        _metric_timestamp(row, "time_ms")
-        for row in events
-        if row["type"] == "drone_start"
+
+def _interval_intersection(left, right):
+    left_index = 0
+    right_index = 0
+    total = 0
+    while left_index < len(left) and right_index < len(right):
+        start = max(left[left_index][0], right[right_index][0])
+        stop = min(left[left_index][1], right[right_index][1])
+        total += max(0, stop - start)
+        if left[left_index][1] <= right[right_index][1]:
+            left_index += 1
+        else:
+            right_index += 1
+    return total
+
+
+def _drone_label_spans(label, duration_ms):
+    if isinstance(label, dict):
+        labels = (label,)
+    elif isinstance(label, (list, tuple)):
+        labels = tuple(label)
+    else:
+        raise ValueError("Drone label must be an object or array of objects")
+
+    spans = []
+    for row in labels:
+        if not isinstance(row, dict):
+            raise ValueError("Drone labels must be objects")
+        start = _metric_timestamp(row, "start_ms")
+        stop = _metric_timestamp(row, "end_ms")
+        if stop <= start:
+            raise ValueError("Drone labels must have positive duration")
+        if stop > duration_ms:
+            raise ValueError("Drone label is outside audio duration")
+        spans.append((start, stop))
+    if not spans:
+        raise ValueError("At least one drone label is required")
+    return _merge_intervals(spans)
+
+
+def _detected_drone_spans(events, duration_ms):
+    records = []
+    starts = []
+    stops = []
+    for index, row in enumerate(events):
+        event_type = row["type"]
+        if event_type not in ("drone_start", "drone_stop"):
+            continue
+        time_ms = _metric_timestamp(row, "time_ms")
+        records.append(
+            (
+                time_ms,
+                index,
+                event_type,
+            )
+        )
+        if event_type == "drone_start":
+            starts.append(time_ms)
+        else:
+            stops.append(time_ms)
+
+    active_start = None
+    spans = []
+    for time_ms, _index, event_type in sorted(records):
+        time_ms = max(0, min(duration_ms, time_ms))
+        if event_type == "drone_start":
+            if active_start is None:
+                active_start = time_ms
+            continue
+        if active_start is not None:
+            if time_ms <= active_start:
+                raise ValueError("Detected drone intervals must have positive duration")
+            spans.append((active_start, time_ms))
+            active_start = None
+    return (
+        _merge_intervals(spans),
+        max(0, min(duration_ms, min(starts))) if starts else None,
+        max(0, min(duration_ms, max(stops))) if stops else None,
     )
-    stops = sorted(
-        _metric_timestamp(row, "time_ms")
-        for row in events
-        if row["type"] == "drone_stop"
+
+
+def compare_drone(label, events, duration_ms):
+    """Compare one or more human drone intervals with detected spans."""
+    duration_ms = _metric_number(duration_ms, "duration_ms")
+    expected = _drone_label_spans(label, duration_ms)
+    detected, detected_start, detected_stop = _detected_drone_spans(
+        events, duration_ms
     )
-    detected_start = max(0, min(duration_ms, starts[0])) if starts else None
-    detected_stop = max(0, min(duration_ms, stops[-1])) if stops else None
-    active_start = detected_start if detected_start is not None else duration_ms
-    active_stop = detected_stop if detected_stop is not None else active_start
-    detected_duration = max(0, active_stop - active_start)
-    expected_duration = label_end - label_start
-    intersection = max(
-        0,
-        min(label_end, active_stop) - max(label_start, active_start),
-    )
-    intersection = min(intersection, expected_duration, detected_duration)
+    expected_duration = sum(stop - start for start, stop in expected)
+    detected_duration = sum(stop - start for start, stop in detected)
+    intersection = _interval_intersection(expected, detected)
     union = expected_duration + detected_duration - intersection
-    false_active = detected_duration - intersection
-    false_inactive = expected_duration - intersection
     return {
         "start_error_ms": (
-            detected_start - label_start if detected_start is not None else None
+            detected_start - expected[0][0] if detected_start is not None else None
         ),
         "stop_error_ms": (
-            detected_stop - label_end if detected_stop is not None else None
+            detected_stop - expected[-1][1] if detected_stop is not None else None
         ),
         "intersection_over_union": intersection / union if union else 0.0,
-        "false_active_ms": false_active,
-        "false_inactive_ms": false_inactive,
+        "false_active_ms": detected_duration - intersection,
+        "false_inactive_ms": expected_duration - intersection,
     }
 
 
@@ -402,7 +510,9 @@ def analyze_wav(audio_path, labels_path, config=None, fps=20):
     drone_labels = [row for row in labels["labels"] if row["type"] == "drone"]
     if drone_labels:
         comparison["drone"] = compare_drone(
-            drone_labels[0], events, info["duration_ms"]
+            drone_labels[0] if len(drone_labels) == 1 else drone_labels,
+            events,
+            info["duration_ms"],
         )
     return {
         "info": info,
