@@ -107,6 +107,53 @@ async function routeHostedReviews(page){
  await page.route('**/test-api/review-recording',route=>route.fulfill({json:hostedReview(route.request().postDataJSON().id)}));
 }
 
+test('local review library lists both recordings and switches adjacent audio',async({page})=>{
+ let ignoredDataRequests=0;
+ await page.route('**/ignored.json',route=>{
+  if(route.request().resourceType()==='document')return route.continue();
+  ignoredDataRequests+=1;return route.abort();
+ });
+ await page.route('**/local-review-data/catalog.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:hostedCatalog}));
+ for(const entry of hostedCatalog.recordings){
+  await page.route(`**/local-review-data/${entry.id}/bundle.json`,route=>route.fulfill({json:hostedReview(entry.id).bundle}));
+  await page.route(`**/local-review-data/${entry.id}/audio.wav`,route=>route.fulfill({contentType:'audio/wav',body:Buffer.from(reviewAudioBase64,'base64')}));
+ }
+ await page.goto('/review.html?catalog=/local-review-data/catalog.json&data=/ignored.json');
+ const recording=page.getByRole('combobox',{name:'Recording'});
+ await expect(recording.locator('option')).toHaveText(['Generated drone/yell fixture','High yell 01']);
+ await expect(recording).toHaveValue('drone-yell-10s');
+ await expect(page.locator('#review-selected-recording')).toContainText('Generated drone/yell fixture');
+ await expect(page.locator('#review-audio')).toHaveAttribute('src',/\/local-review-data\/drone-yell-10s\/audio\.wav$/);
+ const position=page.getByRole('slider',{name:'Position'});
+ await position.fill('500');await position.dispatchEvent('input');
+ await recording.selectOption('high-yell-01');
+ await expect(page.locator('#review-selected-recording')).toContainText('High yell 01');
+ await expect(position).toHaveValue('0');
+ await expect(page.locator('#review-audio')).toHaveAttribute('src',/\/local-review-data\/high-yell-01\/audio\.wav$/);
+ expect(ignoredDataRequests).toBe(0);
+});
+
+test('local review library reports catalog failures without hiding controls',async({page})=>{
+ await page.route('**/local-review-data/catalog.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({status:503,body:'unavailable'}));
+ await page.goto('/review.html?catalog=/local-review-data/catalog.json');
+ await expect(page.locator('#review-protected')).toBeVisible();
+ await expect(page.locator('#review-status')).toContainText('Local recording catalog could not load');
+});
+
+test('local review library exposes retry after audio failure',async({page})=>{
+ let bundleRequests=0;
+ const entry=hostedCatalog.recordings[0];
+ await page.route('**/local-review-data/catalog.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{schema_version:1,recordings:[entry]}}));
+ await page.route(`**/local-review-data/${entry.id}/bundle.json`,route=>{bundleRequests+=1;return route.fulfill({json:hostedReview(entry.id).bundle});});
+ await page.route(`**/local-review-data/${entry.id}/audio.wav`,route=>route.fulfill({status:503,body:'unavailable'}));
+ await page.goto('/review.html?catalog=/local-review-data/catalog.json');
+ await expect(page.locator('#review-status')).toContainText('Audio could not load');
+ const retry=page.getByRole('button',{name:'Retry recording'});
+ await expect(retry).toBeVisible();
+ await retry.click();
+ await expect.poll(()=>bundleRequests).toBeGreaterThan(1);
+});
+
 test('hosted review signs in, switches recordings, resets view state, and clears on sign-out',async({page})=>{
  await page.addInitScript(()=>{
   window.reviewObjectUrls={created:[],revoked:[]};
@@ -262,6 +309,50 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(labelButton).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('.label-overlay')).toHaveAttribute('data-active','false');
  await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(e=>e.clientWidth));
+});
+
+test('virtual consumer offers five synchronized effects in a responsive 4x8 rail',async({page})=>{
+ const effectFrames=Object.fromEntries(
+  ['Spectrum','Ember','Aurora','Ripple','Chroma'].map((name,effectIndex)=>[
+   name,
+   {'0':[{time_ms:500,pixels_rgb:Array.from({length:32},(_,pixelIndex)=>[
+    effectIndex*40+pixelIndex,
+    effectIndex*20+pixelIndex,
+    effectIndex*10+pixelIndex,
+   ])}]},
+  ])
+ );
+ await page.route('**/virtual-consumer-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+  duration_ms:1000,waveform:[0,.5],labels:[],events:[],features:[],comparison:{},
+  effects:{effects:['Spectrum','Ember','Aurora','Ripple','Chroma'],frames:effectFrames}
+ }}));
+ await page.goto('/review.html?data=/virtual-consumer-review.json');
+ await expect(page.getByRole('heading',{name:'Sound Analysis',exact:true})).toBeVisible();
+ const effect=page.getByRole('combobox',{name:'Effect'});
+ await expect(effect.locator('option')).toHaveText(['Spectrum','Ember','Aurora','Ripple','Chroma']);
+ await expect(page.locator('#review-led .led-pixel')).toHaveCount(32);
+ const position=page.getByRole('slider',{name:'Position'});
+ await position.fill('500');
+ await position.dispatchEvent('input');
+ const spectrumColor=await page.locator('#review-led .led-pixel').first().evaluate(node=>node.style.backgroundColor);
+ await effect.selectOption('Chroma');
+ await expect(position).toHaveValue('500');
+ await expect(page.locator('#review-led')).toHaveAttribute('data-effect','Chroma');
+ await expect(page.locator('#review-led')).toHaveAttribute('aria-label',/Chroma.*0\.50 s/);
+ await expect.poll(()=>page.locator('#review-led .led-pixel').first().evaluate(node=>node.style.backgroundColor)).not.toBe(spectrumColor);
+ const columns=await page.locator('#review-led').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
+ expect(columns).toBe(4);
+ const railPosition=await page.locator('.review-consumer-rail').evaluate(node=>getComputedStyle(node).position);
+ expect(railPosition).toBe(page.viewportSize().width<=700?'static':'sticky');
+ await expect(page.locator('body')).toHaveJSProperty('scrollWidth',await page.locator('body').evaluate(node=>node.clientWidth));
+});
+
+test('virtual consumer stays complete and disabled without effect frames',async({page})=>{
+ await routeReviewBundle(page,'/empty-effects-review.json');
+ await page.goto('/review.html?data=/empty-effects-review.json');
+ await expect(page.getByRole('combobox',{name:'Effect'})).toBeDisabled();
+ await expect(page.locator('#review-led .led-pixel')).toHaveCount(32);
+ await expect(page.locator('#review-led .led-pixel').first()).toHaveCSS('background-color','rgb(0, 0, 0)');
 });
 
 test('review event visibility filters known detector groups without changing evaluation',async({page})=>{

@@ -1140,13 +1140,29 @@ python3 -m http.server 8765
 ```
 
 Then open
-`http://127.0.0.1:8765/.artifacts/sound-review/review.html`. The page keeps the
+`http://127.0.0.1:8765/.artifacts/sound-review/review.html?data=review.json`. The page keeps the
 audio, waveform, labels, detected events, derived features and virtual LEDs on
 one playhead. It supports play/pause, scrubbing, zoom and replay around a
 selected label. Local `?data=` loading is accepted only on `localhost` and
 `127.0.0.1`; production always uses the authenticated catalog. Edit labels in
 the JSON file and regenerate the bundle.
 Everything under `.artifacts/sound-review/` is derived and remains ignored.
+
+To browse and play both approved recordings through the local Recording
+selector, generate the protected review-library staging and serve the repository
+root:
+
+```sh
+make review-library
+python3 -m http.server 8765
+```
+
+Then open
+`http://127.0.0.1:8765/web/review.html?catalog=/firebase/functions/review-data/catalog.json`.
+Local `?catalog=` loading is also restricted to loopback hosts. It reads the
+ignored generated bundles and WAVs directly from
+`firebase/functions/review-data/`; those recordings are not copied into the
+public web build or Firebase Hosting.
 
 To add an approved recording, put its WAV and matching labels JSON in
 `review/recordings/`, add the ordered entry to `catalog.json`, and run:

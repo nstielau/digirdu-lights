@@ -17,13 +17,14 @@ from audio_features import Analyzer, AudioFeatures
 from audio_events import DroneEventConfig
 from animation import CulvertAnimation
 from config import Config
+from effects import FEATHERWING_PORTRAIT
 from tools.sound_review import (
     analyze_wav,
     build_artifacts,
     compare_drone,
     compare_labels,
-    group_pixels,
     load_labels,
+    portrait_pixels,
     read_wav_hops,
     render_effects,
     serialize_features,
@@ -838,15 +839,24 @@ class SoundReviewEffectTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.tempdir = Path(self.temporary.name)
 
-    def test_group_pixels_converts_grb_and_averages_equal_groups(self):
-        grb = bytes((10, 20, 30, 30, 40, 50, 50, 60, 70, 70, 80, 90))
+    def test_portrait_pixels_converts_grb_and_reorders_physical_pixels(self):
+        grb = bytearray(96)
+        for physical in range(32):
+            offset = physical * 3
+            grb[offset : offset + 3] = bytes(
+                (physical, physical + 32, physical + 64)
+            )
 
-        self.assertEqual(
-            group_pixels(grb, groups=2),
-            [[30, 20, 40], [70, 60, 80]],
-        )
+        pixels = portrait_pixels(grb)
 
-    def test_render_effects_groups_renderer_output_for_three_nodes(self):
+        self.assertEqual(len(pixels), 32)
+        for logical, physical in enumerate(FEATHERWING_PORTRAIT):
+            self.assertEqual(
+                pixels[logical],
+                [physical + 32, physical, physical + 64],
+            )
+
+    def test_render_effects_serializes_portrait_frames_for_three_nodes(self):
         effects = render_effects(
             fixture_feature_frames(),
             Config(),
@@ -860,8 +870,13 @@ class SoundReviewEffectTests(unittest.TestCase):
             set(effects["effects"]),
             {"Spectrum", "Ember", "Aurora", "Ripple", "Chroma"},
         )
+        self.assertEqual(effects["pixel_count"], 32)
         self.assertEqual(
-            len(effects["frames"]["Spectrum"]["0"][0]["pixels_rgb"]), 8
+            effects["pixel_layout"],
+            {"columns": 4, "rows": 8, "order": "row-major-portrait"},
+        )
+        self.assertEqual(
+            len(effects["frames"]["Spectrum"]["0"][0]["pixels_rgb"]), 32
         )
         self.assertTrue(
             all(
@@ -906,10 +921,10 @@ class SoundReviewEffectTests(unittest.TestCase):
 
         self.assertEqual(rendered[0]["time_ms"], 0)
         self.assertIsNone(rendered[0]["source_time_ms"])
-        self.assertEqual(rendered[0]["pixels_rgb"], [[0, 0, 0]] * 8)
+        self.assertEqual(rendered[0]["pixels_rgb"], [[0, 0, 0]] * 32)
         self.assertEqual(rendered[1]["time_ms"], 500)
         self.assertEqual(rendered[1]["source_time_ms"], 0)
-        self.assertNotEqual(rendered[1]["pixels_rgb"], [[0, 0, 0]] * 8)
+        self.assertNotEqual(rendered[1]["pixels_rgb"], [[0, 0, 0]] * 32)
 
     def test_render_effects_preserves_semantic_event_bloom_and_pulse(self):
         plain = fixture_feature_frames()

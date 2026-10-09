@@ -21,7 +21,7 @@ from audio_features import Analyzer, AudioFeatures
 from audio_spectrum import Spectrum
 from animation import CulvertAnimation
 from config import Config
-from effects import EFFECT_NAMES
+from effects import EFFECT_NAMES, FEATHERWING_PORTRAIT
 from tools.record_fixture import validate_wav
 
 
@@ -610,38 +610,20 @@ def _finite_number(value, name):
     return value
 
 
-def group_pixels(grb_bytes, groups=8):
-    """Convert equally sized GRB renderer groups to averaged RGB pixels."""
-    if (
-        isinstance(groups, bool)
-        or not isinstance(groups, int)
-        or groups <= 0
-    ):
-        raise ValueError("groups must be a positive integer")
+def portrait_pixels(grb_bytes, mapping=FEATHERWING_PORTRAIT):
+    """Convert one physical-order GRB wing to logical portrait RGB pixels."""
     if not isinstance(grb_bytes, (bytes, bytearray, memoryview)):
         raise ValueError("grb_bytes must be a byte sequence")
-    if len(grb_bytes) == 0 or len(grb_bytes) % 3:
-        raise ValueError("Renderer output must contain complete RGB pixels")
-    pixel_count = len(grb_bytes) // 3
-    if pixel_count < groups or pixel_count % groups:
-        raise ValueError("Renderer pixels must divide evenly into groups")
-
-    pixels = [
-        grb_bytes[offset : offset + 3]
-        for offset in range(0, len(grb_bytes), 3)
+    if len(grb_bytes) != len(mapping) * 3:
+        raise ValueError("Renderer output must contain one complete 32-pixel wing")
+    return [
+        [
+            grb_bytes[physical * 3 + 1],
+            grb_bytes[physical * 3],
+            grb_bytes[physical * 3 + 2],
+        ]
+        for physical in mapping
     ]
-    width = pixel_count // groups
-    result = []
-    for group in range(groups):
-        members = pixels[group * width : (group + 1) * width]
-        result.append(
-            [
-                round(sum(pixel[1] for pixel in members) / len(members)),
-                round(sum(pixel[0] for pixel in members) / len(members)),
-                round(sum(pixel[2] for pixel in members) / len(members)),
-            ]
-        )
-    return result
 
 
 def _feature_frame(frame, time_ms):
@@ -786,7 +768,7 @@ def render_effects(
     node_distances_mm=(-5000, 0, 5000),
     virtual_wave_speed_mm_s=10000,
 ):
-    """Render deterministic eight-pixel views for five audio effects."""
+    """Render deterministic portrait-wing views for five audio effects."""
     fps = _positive_finite(fps, "fps")
     if fps > 1000:
         raise ValueError("fps must be at most 1000 for millisecond render timestamps")
@@ -929,7 +911,7 @@ def render_effects(
                     {
                         "time_ms": time_ms,
                         "source_time_ms": selected_time_ms,
-                        "pixels_rgb": group_pixels(pixels),
+                        "pixels_rgb": portrait_pixels(pixels),
                     }
                 )
                 previous_source_ms = source_cursor_ms
@@ -942,6 +924,12 @@ def render_effects(
         "node_distances_mm": distances,
         "virtual_wave_speed_mm_s": virtual_wave_speed_mm_s,
         "pixel_channel_order": "rgb",
+        "pixel_count": 32,
+        "pixel_layout": {
+            "columns": 4,
+            "rows": 8,
+            "order": "row-major-portrait",
+        },
         "effects": list(EFFECT_NAMES[:5]),
         "frames": effects,
     }
@@ -1065,7 +1053,12 @@ def manifest_without_wall_clock(
             "fps": fps,
             "node_distances_mm": list(node_distances_mm),
             "virtual_wave_speed_mm_s": virtual_wave_speed_mm_s,
-            "pixel_groups": 8,
+            "pixel_count": 32,
+            "pixel_layout": {
+                "columns": 4,
+                "rows": 8,
+                "order": "row-major-portrait",
+            },
             "pixel_channel_order": "rgb",
         },
         "random_seed": 0,

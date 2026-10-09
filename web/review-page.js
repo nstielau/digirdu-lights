@@ -1,4 +1,11 @@
-import {localReviewDataUrl} from './review-mode.mjs';
+import {
+  localReviewCatalogUrl,
+  localReviewDataUrl,
+  reviewEffectFrames,
+  reviewEffectNames,
+  reviewPixelChannels,
+  selectReviewEffect,
+} from './review-mode.mjs';
 
 const state = {
   bundle: null,
@@ -8,6 +15,7 @@ const state = {
   zoom: 1,
   replayEndMs: null,
   enabledEventGroups: new Set(),
+  effect: 'Spectrum',
 };
 
 const KNOWN_EVENT_GROUPS = [
@@ -38,6 +46,7 @@ const eventFilters = document.querySelector('#review-event-filters');
 const features = document.querySelector('#review-features');
 const comparison = document.querySelector('#review-comparison');
 const led = document.querySelector('#review-led');
+const effectSelect = document.querySelector('#review-effect');
 const selectedLabel = document.querySelector('#review-selected-label');
 
 function setStatus(message, isError = false) {
@@ -362,23 +371,36 @@ function renderComparison() {
   });
 }
 
-function effectFrames() {
-  const effectNames = state.bundle.effects.effects || Object.keys(state.bundle.effects.frames || {});
-  const effect = effectNames[0];
-  const nodes = state.bundle.effects.frames?.[effect] || {};
-  const node = nodes['0'] || nodes[0] || [];
-  return Array.isArray(node) ? node : [];
+function renderEffectOptions() {
+  const names = reviewEffectNames(state.bundle?.effects);
+  state.effect = selectReviewEffect(state.bundle?.effects, state.effect);
+  effectSelect.replaceChildren();
+  names.forEach((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    effectSelect.append(option);
+  });
+  effectSelect.disabled = state.effect === null;
+  if (state.effect !== null) effectSelect.value = state.effect;
 }
 
 function renderLedFrame(timeMs) {
-  const frame = nearestRow(effectFrames(), timeMs);
+  const effect = state.bundle ? state.effect : null;
+  const frame = nearestRow(reviewEffectFrames(state.bundle?.effects, effect), timeMs);
   led.dataset.timeMs = String(frame?.time_ms ?? timeMs);
+  led.dataset.effect = effect || '';
+  led.setAttribute(
+    'aria-label',
+    effect
+      ? `Virtual consumer ${effect} frame at ${formatMs(frame?.time_ms ?? timeMs)}`
+      : 'Virtual consumer frame unavailable',
+  );
   led.replaceChildren();
   const pixels = frame?.pixels_rgb || [];
-  for (let index = 0; index < 8; index += 1) {
+  for (let index = 0; index < 32; index += 1) {
     const pixel = document.createElement('span');
-    const rgb = pixels[index] || [0, 0, 0];
-    const channels = rgb.map((value) => Math.max(0, Math.min(255, Number(value) || 0)));
+    const channels = reviewPixelChannels(pixels[index]);
     pixel.className = 'led-pixel';
     pixel.style.backgroundColor = `rgb(${channels.join(',')})`;
     pixel.setAttribute('aria-label', `LED ${index + 1}: RGB ${channels.join(', ')}`);
@@ -512,6 +534,7 @@ function configureBundle(bundle, sourceUrl) {
   zoom.disabled = false;
   play.disabled = !state.bundle.audio_url;
   replay.disabled = true;
+  renderEffectOptions();
   renderWaveform();
   renderLabels();
   renderEventFilters();
@@ -553,7 +576,9 @@ function clearReview() {
   events.replaceChildren();
   features.replaceChildren();
   comparison.replaceChildren();
-  led.replaceChildren();
+  effectSelect.replaceChildren();
+  effectSelect.disabled = true;
+  renderLedFrame(0);
   selectedLabel.textContent = 'No label selected.';
 }
 
@@ -587,14 +612,25 @@ play.addEventListener('click', () => {
   else startPlayback();
 });
 replay.addEventListener('click', replaySelectedLabel);
+effectSelect.addEventListener('change', () => {
+  state.effect = effectSelect.value;
+  renderLedFrame(state.timeMs);
+});
 waveform.addEventListener('pointerdown', waveformPointerDown);
 waveform.addEventListener('pointermove', waveformPointerMove);
 waveform.addEventListener('pointerup', waveformPointerUp);
 waveform.addEventListener('pointercancel', (event) => clearWaveformGesture(event.pointerId));
 waveform.addEventListener('lostpointercapture', (event) => clearWaveformGesture(event.pointerId, {release: false}));
 
+renderLedFrame(0);
+const localCatalogUrl = localReviewCatalogUrl(window.location);
 const localDataUrl = localReviewDataUrl(window.location);
-if (localDataUrl) {
+if (localCatalogUrl) {
+  document.querySelector('#review-protected').hidden = false;
+  import('./review-local.js')
+    .then(({initLocalReview}) => initLocalReview({clearReview, configureBundle, setStatus}, localCatalogUrl))
+    .catch(() => setStatus('Local recording catalog could not start.', true));
+} else if (localDataUrl) {
   document.querySelector('#review-protected').hidden = false;
   loadBundle(localDataUrl);
 } else {
