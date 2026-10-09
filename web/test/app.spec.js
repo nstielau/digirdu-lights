@@ -93,10 +93,14 @@ const hostedCatalog={schema_version:1,recordings:[
  {id:'drone-yell-10s',name:'Generated drone/yell fixture',duration_ms:1000,label_counts:{drone:1,yell:1},event_counts:{transient:1,yell:1}},
  {id:'high-yell-01',name:'High yell 01',duration_ms:2000,label_counts:{drone:1,yell:1},event_counts:{transient:1,yell:1}}
 ]};
+function testSpectrogram(columns){
+ return {min_frequency_hz:31.25,max_frequency_hz:8000,min_dbfs:-90,max_dbfs:0,
+  rows:3,columns,frames:Array.from({length:columns},(_,column)=>[0,80+column*20,255-column*20])};
+}
 function hostedReview(id){
  const high=id==='high-yell-01';
  return {id,audio_mime_type:'audio/wav',audio_base64:reviewAudioBase64,bundle:{
-  duration_ms:high?2000:1000,waveform:[0,.5,1],
+  duration_ms:high?2000:1000,waveform:high?[0,.5,1,.25]:[0,.5,1],spectrogram:testSpectrogram(high?4:3),
   labels:[{type:'drone',start_ms:high?200:100,end_ms:high?1800:900},{type:'yell',start_ms:high?950:450,end_ms:high?1050:550}],
   events:[{type:'transient',time_ms:300},{type:'yell',time_ms:high?1000:500}],features:[],
   comparison:{yell:{true_positive:1,false_positive:0,false_negative:0,precision:1,recall:1,f1:1}},effects:{frames:{}}
@@ -154,6 +158,26 @@ test('local review library exposes retry after audio failure',async({page})=>{
  await expect.poll(()=>bundleRequests).toBeGreaterThan(1);
 });
 
+test('local review catalog populates and switches recordings without sign-in',async({page})=>{
+ await page.route('**/local-review/catalog.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:hostedCatalog}));
+ for(const entry of hostedCatalog.recordings){
+  await page.route(`**/local-review/${entry.id}/bundle.json`,route=>route.fulfill({json:hostedReview(entry.id).bundle}));
+  await page.route(`**/local-review/${entry.id}/audio.wav`,route=>route.fulfill({contentType:'audio/wav',body:Buffer.from(reviewAudioBase64,'base64')}));
+ }
+ await page.goto('/review.html?catalog=/local-review/catalog.json');
+ const recording=page.getByRole('combobox',{name:'Recording'});
+ await expect(recording.locator('option')).toHaveCount(2);
+ await expect(recording.locator('option').first()).toHaveCSS('background-color','rgb(27, 18, 44)');
+ await expect(recording.locator('option').first()).toHaveCSS('color','rgb(255, 255, 255)');
+ await expect(recording).toHaveValue('drone-yell-10s');
+ await expect(page.locator('#review-selected-recording')).toContainText('Generated drone/yell fixture');
+ await expect(page.locator('#review-spectrogram')).toHaveAttribute('data-columns','3');
+ await recording.selectOption('high-yell-01');
+ await expect(page.locator('#review-selected-recording')).toContainText('High yell 01');
+ await expect(page.locator('#review-spectrogram')).toHaveAttribute('data-columns','4');
+ await expect(page.locator('#sign-in')).toHaveCount(0);
+});
+
 test('hosted review signs in, switches recordings, resets view state, and clears on sign-out',async({page})=>{
  await page.addInitScript(()=>{
   window.reviewObjectUrls={created:[],revoked:[]};
@@ -169,6 +193,7 @@ test('hosted review signs in, switches recordings, resets view state, and clears
  await expect(recording.locator('option')).toHaveCount(2);
  await expect(recording).toHaveValue('drone-yell-10s');
  await expect(page.locator('#review-selected-recording')).toContainText('Generated drone/yell fixture');
+ await expect(page.locator('#review-spectrogram')).toHaveAttribute('data-columns','3');
  await expect(page.locator('#review-labels')).toContainText('0.45 s');
  const position=page.getByRole('slider',{name:'Position'}),zoom=page.getByRole('slider',{name:'Zoom'});
  await position.fill('500');await position.dispatchEvent('input');
@@ -179,6 +204,7 @@ test('hosted review signs in, switches recordings, resets view state, and clears
  await recording.selectOption('high-yell-01');
  await expect(page.locator('#review-selected-recording')).toContainText('High yell 01');
  await expect(page.locator('#review-labels')).toContainText('0.95 s');
+ await expect(page.locator('#review-spectrogram')).toHaveAttribute('data-columns','4');
  await expect(position).toHaveValue('0');
  await expect(zoom).toHaveValue('1');
  await expect(page.locator('#review-waveform')).toHaveJSProperty('scrollLeft',0);
@@ -219,17 +245,20 @@ test('hosted review ignores a stale recording response',async({page})=>{
  await expect(page.locator('#review-selected-recording')).toContainText('High yell 01');
 });
 
-async function routeReviewBundle(page,url='/gesture-review.json'){
- await page.route(`**${url}`,route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
+async function routeReviewBundle(page,url='/gesture-review.json',overrides={}){
+ const bundle={
   duration_ms:1000,
   audio_url:'/fixture.wav',
   waveform:[0,.2,.8,.3],
+  spectrogram:testSpectrogram(4),
   labels:[{type:'drone',start_ms:200,end_ms:800}],
   events:[{type:'yell',time_ms:500,confidence:.9}],
   features:[{time_ms:500,volume:.8,drone:.7,vocal:.9,transient_strength:.2}],
   comparison:{},
-  effects:{frames:{}}
- }}));
+  effects:{frames:{}},
+  ...overrides,
+ };
+ await page.route(`**${url}`,route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:bundle}));
  await page.route('**/fixture.wav',route=>route.abort());
 }
 
@@ -289,6 +318,16 @@ test('review page synchronizes all tracks from one playhead',async({page})=>{
  await expect(page.locator('.event-overlay')).toHaveAttribute('data-active','true');
  await page.locator('.event-overlay').click();
  await expect(page.getByRole('slider',{name:'Position'})).toHaveValue('500');
+ const eventRow=page.locator('#review-events').getByRole('button',{name:'yell detected at 0.50 s'});
+ await page.getByRole('slider',{name:'Position'}).fill('0');
+ await page.getByRole('slider',{name:'Position'}).dispatchEvent('input');
+ await eventRow.click();
+ await expect(page.getByRole('slider',{name:'Position'})).toHaveValue('500');
+ await page.getByRole('slider',{name:'Position'}).fill('0');
+ await page.getByRole('slider',{name:'Position'}).dispatchEvent('input');
+ await eventRow.press('Enter');
+ await expect(page.getByRole('slider',{name:'Position'})).toHaveValue('500');
+ await expect(eventRow).toBeFocused();
  await expect(page.locator('#review-features')).toContainText('0.80');
  await expect(page.locator('#review-comparison')).toContainText('yell');
  await expect(page.locator('#review-comparison')).toContainText('50% precision');
@@ -355,6 +394,28 @@ test('virtual consumer stays complete and disabled without effect frames',async(
  await expect(page.locator('#review-led .led-pixel').first()).toHaveCSS('background-color','rgb(0, 0, 0)');
 });
 
+test('review stacks a log spectrogram under the waveform on the shared timeline',async({page})=>{
+ await routeReviewBundle(page,'/spectrogram-review.json');
+ await page.goto('/review.html?data=/spectrogram-review.json');
+ const amplitude=page.locator('.waveform-region');
+ const spectrogram=page.locator('.spectrogram-region');
+ await expect(page.locator('#review-spectrogram')).toBeVisible();
+ const amplitudeBox=await amplitude.boundingBox();
+ const spectrogramBox=await spectrogram.boundingBox();
+ expect(spectrogramBox.y).toBeGreaterThanOrEqual(amplitudeBox.y+amplitudeBox.height);
+ expect(Math.abs(spectrogramBox.width-amplitudeBox.width)).toBeLessThanOrEqual(1);
+ await expect(spectrogram).toContainText('8 kHz');
+ await expect(spectrogram).toContainText('31 Hz');
+ await expect(spectrogram).toContainText('-90 dBFS');
+ const waveform=page.locator('#review-waveform');
+ const box=await waveform.boundingBox();
+ await waveform.click({position:{x:box.width/2,y:spectrogramBox.y-box.y+spectrogramBox.height/2}});
+ expect(Number(await page.getByRole('slider',{name:'Position'}).inputValue())).toBeGreaterThanOrEqual(495);
+ await page.getByRole('slider',{name:'Zoom'}).fill('4');
+ await page.getByRole('slider',{name:'Zoom'}).dispatchEvent('input');
+ await expect(waveform).toHaveAttribute('data-zoom','4');
+});
+
 test('review event visibility filters known detector groups without changing evaluation',async({page})=>{
  await page.route('**/filter-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({json:{
   duration_ms:1000,waveform:[0,.5],
@@ -379,6 +440,9 @@ test('review event visibility filters known detector groups without changing eva
  const comparison=page.locator('#review-comparison');
  const comparisonText=await comparison.textContent();
  await transient.check();
+ const eventBoxes=await page.locator('#review-events li').evaluateAll(items=>items.map(item=>item.getBoundingClientRect().toJSON()));
+ expect(new Set(eventBoxes.map(box=>Math.round(box.y))).size).toBe(eventBoxes.length);
+ expect(eventBoxes.every(box=>box.width===eventBoxes[0].width)).toBeTruthy();
  await drone.uncheck();
  await expect(page.locator('#review-events')).toContainText('transient');
  await expect(page.locator('#review-events')).toContainText('yell');
@@ -510,6 +574,20 @@ test('review page reports missing bundle instead of showing empty tracks',async(
  await page.route('**/missing-review.json',route=>route.request().resourceType()==='document'?route.continue():route.fulfill({status:503,body:'unavailable'}));
  await page.goto('/review.html?data=/missing-review.json');
  await expect(page.locator('#review-status')).toContainText('could not load');
+});
+
+test('review explains when an older bundle has no spectrogram',async({page})=>{
+ await routeReviewBundle(page,'/older-review.json',{spectrogram:undefined});
+ await page.goto('/review.html?data=/older-review.json');
+ await expect(page.locator('.spectrogram-empty')).toContainText('unavailable');
+});
+
+test('review rejects malformed spectrogram bytes',async({page})=>{
+ await routeReviewBundle(page,'/invalid-spectrogram.json',{spectrogram:{
+  ...testSpectrogram(4),frames:[[0,1,300],[0,1,2],[0,1,2],[0,1,2]]
+ }});
+ await page.goto('/review.html?data=/invalid-spectrogram.json');
+ await expect(page.locator('#review-status')).toContainText('Review could not load: spectrogram values must be bytes');
 });
 
 test('review page reports audio failures after loading a bundle',async({page})=>{

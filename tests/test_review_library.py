@@ -117,6 +117,11 @@ class ReviewLibraryTests(unittest.TestCase):
             )
             bundle = json.loads((output / recording_id / "bundle.json").read_text())
             self.assertNotIn("audio_url", bundle)
+            self.assertEqual(bundle["schema_version"], 2)
+            self.assertEqual(
+                bundle["spectrogram"]["columns"], len(bundle["waveform"])
+            )
+            self.assertEqual(bundle["spectrogram"]["rows"], 64)
 
         comparison = self.root / "comparison"
         build_review_library(self.catalog, comparison)

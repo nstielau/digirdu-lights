@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 import wave
 
+import numpy as np
+
 # Make the CLI work when invoked as `python tools/sound_review.py`.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
@@ -25,7 +27,7 @@ from effects import EFFECT_NAMES, FEATHERWING_PORTRAIT
 from tools.record_fixture import validate_wav
 
 
-RANGE_LABEL_TYPES = frozenset(("drone", "yell"))
+RANGE_LABEL_TYPES = frozenset(("drone", "growl", "yell"))
 POINT_LABEL_TYPES = frozenset(("beat", "transient"))
 LABEL_TYPES = RANGE_LABEL_TYPES | POINT_LABEL_TYPES
 
@@ -252,6 +254,77 @@ def waveform_preview(hops):
         )
         for hop in hops
     ]
+
+
+SPECTROGRAM_MIN_HZ = 31.25
+SPECTROGRAM_MIN_DBFS = -90.0
+SPECTROGRAM_MAX_DBFS = 0.0
+SPECTROGRAM_ROWS = 64
+
+
+def spectrogram_preview(hops, config):
+    """Return fixed-scale, byte-quantized log-frequency magnitudes per hop."""
+    fft_size = config.fft_size
+    if config.hop_size != fft_size:
+        raise ValueError("Spectrogram preview requires contiguous full FFT hops")
+    max_frequency_hz = config.sample_rate / 2.0
+    window = np.hanning(fft_size)
+    amplitude_scale = 2.0 / (float(np.sum(window)) * 32768.0)
+    frequencies = np.fft.rfftfreq(fft_size, 1.0 / config.sample_rate)
+    edges = np.geomspace(
+        SPECTROGRAM_MIN_HZ, max_frequency_hz, SPECTROGRAM_ROWS + 1
+    )
+    band_indexes = []
+    for row, (low_hz, high_hz) in enumerate(zip(edges, edges[1:])):
+        upper = (
+            frequencies <= high_hz
+            if row == SPECTROGRAM_ROWS - 1
+            else frequencies < high_hz
+        )
+        indexes = np.flatnonzero((frequencies >= low_hz) & upper)
+        if not len(indexes):
+            center_hz = math.sqrt(low_hz * high_hz)
+            indexes = np.array(
+                [int(np.argmin(np.abs(frequencies - center_hz)))]
+            )
+        band_indexes.append(indexes)
+
+    floor_amplitude = 10.0 ** (SPECTROGRAM_MIN_DBFS / 20.0)
+    frames = []
+    for hop in hops:
+        if len(hop) != fft_size:
+            raise ValueError("Expected one complete PCM hop")
+        samples = np.asarray(hop, dtype=float)
+        samples -= float(np.mean(samples))
+        amplitude = np.abs(np.fft.rfft(samples * window)) * amplitude_scale
+        amplitude[-1] *= 0.5
+        frame = []
+        for indexes in band_indexes:
+            peak = max(float(np.max(amplitude[indexes])), floor_amplitude)
+            dbfs = max(
+                SPECTROGRAM_MIN_DBFS,
+                min(
+                    SPECTROGRAM_MAX_DBFS,
+                    20.0 * math.log10(peak),
+                ),
+            )
+            frame.append(
+                round(
+                    (dbfs - SPECTROGRAM_MIN_DBFS)
+                    * 255.0
+                    / (SPECTROGRAM_MAX_DBFS - SPECTROGRAM_MIN_DBFS)
+                )
+            )
+        frames.append(frame)
+    return {
+        "min_frequency_hz": SPECTROGRAM_MIN_HZ,
+        "max_frequency_hz": max_frequency_hz,
+        "min_dbfs": SPECTROGRAM_MIN_DBFS,
+        "max_dbfs": SPECTROGRAM_MAX_DBFS,
+        "rows": SPECTROGRAM_ROWS,
+        "columns": len(frames),
+        "frames": frames,
+    }
 
 
 _MAX_METRIC_MS = 1_000_000_000_000
@@ -580,6 +653,7 @@ def analyze_wav(
         "info": info,
         "labels": labels,
         "waveform": waveform_preview(hops),
+        "spectrogram": spectrogram_preview(hops, config),
         "features": features,
         "events": list(events),
         "comparison": comparison,
@@ -1135,11 +1209,12 @@ def build_artifacts(
     write_json(
         paths["review_json"],
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "duration_ms": result["info"]["duration_ms"],
             "sample_rate_hz": result["info"]["sample_rate_hz"],
             "audio_url": audio_url,
             "waveform": result["waveform"],
+            "spectrogram": result["spectrogram"],
             "labels": result["labels"]["labels"],
             "features": result["features"],
             "events": result["events"],

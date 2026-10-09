@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import * as reviewMode from '../review-mode.mjs';
 
-const {localReviewDataUrl}=reviewMode;
+const {localReviewCatalogUrl,localReviewDataUrl}=reviewMode;
 
 test('local review data URLs are accepted only on loopback hosts',()=>{
  assert.equal(localReviewDataUrl(new URL('http://localhost:8765/review.html?data=/take.json')),'/take.json');

@@ -9,7 +9,7 @@ function normalizeCatalog(value){
  if(value?.schema_version!==1||!Array.isArray(value.recordings)||!value.recordings.length)throw new Error('Invalid local recording catalog');
  const seen=new Set();
  return value.recordings.map(entry=>{
-  if(!RECORDING_ID.test(entry?.id)||seen.has(entry.id)||typeof entry.name!=='string'||!entry.name.trim())throw new Error('Invalid local recording catalog');
+  if(!RECORDING_ID.test(entry?.id)||seen.has(entry.id)||typeof entry.name!=='string'||!entry.name.trim()||!Number.isFinite(entry.duration_ms)||entry.duration_ms<=0)throw new Error('Invalid local recording catalog');
   seen.add(entry.id);
   return {...entry,name:entry.name.trim()};
  });

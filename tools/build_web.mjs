@@ -9,5 +9,6 @@ for(const file of ['index.html','effects.html','review.html','styles.css'])await
 await copyFile('web/review-page.js',out+'/review-page.js');
 await copyFile('web/review-mode.mjs',out+'/review-mode.mjs');
 await copyFile('web/review-local.js',out+'/review-local.js');
+await copyFile('web/spectrogram.mjs',out+'/spectrogram.mjs');
 await mkdir(out+'/assets',{recursive:true});
 for(const file of ['laser-horizon.png','effects-replay.json'])await copyFile('web/assets/'+file,out+'/assets/'+file);

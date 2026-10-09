@@ -18,6 +18,7 @@ from audio_events import DroneEventConfig
 from animation import CulvertAnimation
 from config import Config
 from effects import FEATHERWING_PORTRAIT
+from tools import sound_review
 from tools.sound_review import (
     analyze_wav,
     build_artifacts,
@@ -358,6 +359,24 @@ class SoundReviewWavTests(unittest.TestCase):
             ],
         )
 
+    def test_load_labels_accepts_growl_range(self):
+        path = self.tempdir / "growl-labels.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "audio_file": "take.wav",
+                    "sample_rate_hz": 16000,
+                    "labels": [
+                        {"type": "growl", "start_ms": 2500, "end_ms": 4500}
+                    ],
+                }
+            )
+        )
+        self.assertEqual(
+            load_labels(path, duration_ms=10000, sample_rate_hz=16000)["labels"],
+            [{"type": "growl", "start_ms": 2500, "end_ms": 4500}],
+        )
+
     def test_load_labels_rejects_invalid_document_shapes(self):
         invalid_documents = (
             [],
@@ -394,6 +413,62 @@ class SoundReviewAnalysisTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.tempdir = Path(self.temporary.name)
+
+    def test_spectrogram_preview_maps_silence_to_fixed_floor(self):
+        config = Config()
+        hops = [array.array("h", [0]) * config.hop_size for _ in range(2)]
+
+        self.assertTrue(hasattr(sound_review, "spectrogram_preview"))
+        preview = sound_review.spectrogram_preview(hops, config)
+
+        self.assertEqual(preview["min_frequency_hz"], 31.25)
+        self.assertEqual(preview["max_frequency_hz"], 8000.0)
+        self.assertEqual(preview["min_dbfs"], -90.0)
+        self.assertEqual(preview["max_dbfs"], 0.0)
+        self.assertEqual(preview["rows"], 64)
+        self.assertEqual(preview["columns"], 2)
+        self.assertEqual(preview["frames"], [[0] * 64, [0] * 64])
+
+    def test_spectrogram_preview_places_tone_in_expected_log_band(self):
+        config = Config()
+        frequency_hz = 500.0
+        samples = array.array(
+            "h",
+            (
+                round(
+                    12000
+                    * math.sin(
+                        2
+                        * math.pi
+                        * frequency_hz
+                        * index
+                        / config.sample_rate
+                    )
+                )
+                for index in range(config.hop_size)
+            ),
+        )
+
+        self.assertTrue(hasattr(sound_review, "spectrogram_preview"))
+        first = sound_review.spectrogram_preview([samples], config)
+        second = sound_review.spectrogram_preview([samples], config)
+        peak_row = max(
+            range(first["rows"]), key=first["frames"][0].__getitem__
+        )
+        expected_row = math.floor(
+            math.log(frequency_hz / first["min_frequency_hz"])
+            / math.log(
+                first["max_frequency_hz"] / first["min_frequency_hz"]
+            )
+            * first["rows"]
+        )
+
+        self.assertEqual(first, second)
+        self.assertLessEqual(abs(peak_row - expected_row), 1)
+        self.assertGreater(first["frames"][0][peak_row], 0)
+        self.assertTrue(
+            all(0 <= value <= 255 for value in first["frames"][0])
+        )
 
     def test_analyze_wav_uses_ordered_hop_end_timestamps_and_events(self):
         config = Config()
@@ -1236,6 +1311,7 @@ class SoundReviewEffectTests(unittest.TestCase):
                 "sample_rate_hz",
                 "audio_url",
                 "waveform",
+                "spectrogram",
                 "labels",
                 "features",
                 "events",
@@ -1243,10 +1319,20 @@ class SoundReviewEffectTests(unittest.TestCase):
                 "comparison",
             },
         )
-        self.assertEqual(bundle["schema_version"], 1)
+        self.assertEqual(bundle["schema_version"], 2)
         self.assertEqual(bundle["duration_ms"], 192)
         self.assertEqual(bundle["sample_rate_hz"], config.sample_rate)
         self.assertEqual(bundle["audio_url"], "../take.wav")
+        self.assertEqual(
+            bundle["spectrogram"]["columns"], len(bundle["waveform"])
+        )
+        self.assertEqual(bundle["spectrogram"]["rows"], 64)
+        self.assertTrue(
+            all(
+                len(frame) == bundle["spectrogram"]["rows"]
+                for frame in bundle["spectrogram"]["frames"]
+            )
+        )
         self.assertEqual(bundle["labels"], [])
         self.assertEqual(bundle["features"], json.loads(Path(paths["features_json"]).read_text()))
         self.assertEqual(bundle["events"], json.loads(Path(paths["events_json"]).read_text()))

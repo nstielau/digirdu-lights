@@ -6,6 +6,7 @@ import {
   reviewPixelChannels,
   selectReviewEffect,
 } from './review-mode.mjs';
+import {normalizeSpectrogram, paintSpectrogram} from './spectrogram.mjs';
 
 const state = {
   bundle: null,
@@ -74,10 +75,12 @@ function normalizeBundle(bundle) {
   if (bundle.audio_url !== undefined && typeof bundle.audio_url !== 'string') {
     throw new Error('audio_url must be a string');
   }
+  const waveformRows = Array.isArray(bundle.waveform) ? bundle.waveform : [];
   return {
     ...bundle,
     duration_ms: durationMs,
-    waveform: Array.isArray(bundle.waveform) ? bundle.waveform : [],
+    waveform: waveformRows,
+    spectrogram: normalizeSpectrogram(bundle.spectrogram, waveformRows.length),
     labels: normalizeRows(bundle.labels, 'labels'),
     events: normalizeRows(bundle.events, 'events'),
     features: normalizeRows(bundle.features, 'features'),
@@ -110,27 +113,88 @@ function percentAt(timeMs) {
   return state.bundle.duration_ms ? timeMs / state.bundle.duration_ms * 100 : 0;
 }
 
+function frequencyLabel(value) {
+  return value >= 1000
+    ? `${Number((value / 1000).toFixed(2))} kHz`
+    : `${Math.round(value)} Hz`;
+}
+
+function frequencyAxis(spectrogram) {
+  const axis = document.createElement('div');
+  const high = document.createElement('span');
+  const low = document.createElement('span');
+  axis.className = 'spectrogram-axis';
+  high.textContent = frequencyLabel(spectrogram.maxFrequencyHz);
+  low.textContent = frequencyLabel(spectrogram.minFrequencyHz);
+  axis.append(high, low);
+  return axis;
+}
+
+function intensityLegend(spectrogram) {
+  const legend = document.createElement('div');
+  legend.className = 'spectrogram-legend';
+  legend.textContent = `${spectrogram.minDbfs} dBFS → ${spectrogram.maxDbfs} dBFS`;
+  return legend;
+}
+
+function renderSpectrogramCanvas() {
+  const canvas = waveform.querySelector('#review-spectrogram');
+  if (canvas && state.bundle?.spectrogram) {
+    paintSpectrogram(
+      canvas,
+      state.bundle.spectrogram,
+      window.devicePixelRatio || 1,
+    );
+  }
+}
+
 function renderWaveform() {
   const track = waveform.querySelector('.timeline-track');
   track.replaceChildren();
   track.style.setProperty('--wave-count', String(Math.max(1, state.bundle.waveform.length)));
+  const waveformRegion = document.createElement('div');
+  waveformRegion.className = 'waveform-region';
   state.bundle.waveform.forEach((sample, index) => {
     const bar = document.createElement('span');
     const magnitude = Math.max(0, Math.min(1, Math.abs(Number(sample) || 0)));
     bar.className = 'wave-bar';
     bar.style.left = `${index / Math.max(1, state.bundle.waveform.length) * 100}%`;
     bar.style.height = `${Math.max(4, magnitude * 70)}px`;
-    track.append(bar);
+    waveformRegion.append(bar);
   });
   const labelLayer = document.createElement('div');
   labelLayer.className = 'label-overlay-layer';
-  track.append(labelLayer);
+  waveformRegion.append(labelLayer);
   const eventLayer = document.createElement('div');
   eventLayer.className = 'event-overlay-layer';
-  track.append(eventLayer);
+  waveformRegion.append(eventLayer);
+  const spectrogramRegion = document.createElement('div');
+  spectrogramRegion.className = 'spectrogram-region';
+  if (state.bundle.spectrogram) {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'review-spectrogram';
+    canvas.className = 'spectrogram-canvas';
+    canvas.dataset.columns = String(state.bundle.spectrogram.columns);
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute(
+      'aria-label',
+      `Log-frequency spectrogram from ${state.bundle.spectrogram.minFrequencyHz} Hz to ${state.bundle.spectrogram.maxFrequencyHz} Hz, ${state.bundle.spectrogram.minDbfs} to ${state.bundle.spectrogram.maxDbfs} dBFS`,
+    );
+    spectrogramRegion.append(
+      canvas,
+      frequencyAxis(state.bundle.spectrogram),
+      intensityLegend(state.bundle.spectrogram),
+    );
+  } else {
+    const message = document.createElement('p');
+    message.className = 'spectrogram-empty';
+    message.textContent = 'Spectrogram unavailable for this older review bundle.';
+    spectrogramRegion.append(message);
+  }
   const cursor = document.createElement('span');
   cursor.className = 'track-cursor';
-  track.append(cursor);
+  track.append(waveformRegion, spectrogramRegion, cursor);
+  requestAnimationFrame(renderSpectrogramCanvas);
 }
 
 function labelIsActive(label, timeMs) {
@@ -311,11 +375,17 @@ function renderEvents(timeMs) {
   }
   visibleEvents.forEach(({event, index}) => {
     const item = document.createElement('li');
-    const active = timeMs >= rowTime(event) && timeMs <= rowEnd(event);
-    item.textContent = `${event.type} · ${formatMs(rowTime(event))}${event.confidence === undefined ? '' : ` · ${(event.confidence * 100).toFixed(0)}%`}`;
+    const time = rowTime(event);
+    const active = timeMs >= time && timeMs <= rowEnd(event);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = `${event.type} · ${formatMs(time)}${event.confidence === undefined ? '' : ` · ${(event.confidence * 100).toFixed(0)}%`}`;
+    button.setAttribute('aria-label', `${event.type} detected at ${formatMs(time)}`);
+    button.addEventListener('click', () => setTime(time));
     item.dataset.eventIndex = String(index);
     item.dataset.active = active ? 'true' : 'false';
     item.className = active ? 'event-active' : '';
+    item.append(button);
     events.append(item);
   });
   renderEventOverlays();
@@ -435,7 +505,7 @@ function setTime(timeMs, {seekAudio = true} = {}) {
   }
   updateLabelState(state.timeMs);
   renderFeatureCursor(state.timeMs);
-  renderEvents(state.timeMs);
+  updateEventState(state.timeMs);
   renderLedFrame(state.timeMs);
   if (state.replayEndMs !== null && state.timeMs >= state.replayEndMs) stopPlayback();
 }
@@ -470,7 +540,8 @@ async function replaySelectedLabel() {
 function setZoom(value) {
   state.zoom = Math.max(1, Math.min(8, Number(value)));
   waveform.dataset.zoom = String(state.zoom);
-  waveform.querySelector('.timeline-track').style.setProperty('--timeline-zoom', state.zoom);
+  waveformTrack().style.setProperty('--timeline-zoom', state.zoom);
+  requestAnimationFrame(renderSpectrogramCanvas);
 }
 
 function waveformTrack() {
@@ -538,6 +609,7 @@ function configureBundle(bundle, sourceUrl) {
   renderWaveform();
   renderLabels();
   renderEventFilters();
+  renderEvents(0);
   renderComparison();
   if (state.bundle.audio_url) {
     audio.src = new URL(state.bundle.audio_url, sourceUrl).href;
@@ -623,6 +695,9 @@ waveform.addEventListener('pointercancel', (event) => clearWaveformGesture(event
 waveform.addEventListener('lostpointercapture', (event) => clearWaveformGesture(event.pointerId, {release: false}));
 
 renderLedFrame(0);
+const spectrogramResizeObserver = new ResizeObserver(renderSpectrogramCanvas);
+spectrogramResizeObserver.observe(waveformTrack());
+
 const localCatalogUrl = localReviewCatalogUrl(window.location);
 const localDataUrl = localReviewDataUrl(window.location);
 if (localCatalogUrl) {
