@@ -5,6 +5,17 @@ function manifest(){const files=c.FILES.map(name=>({name,size:1,sha256:c.hash('x
  boards:c.BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
  sha256:c.hash(files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''))};}
 test('manifest and numeric semantic ordering',()=>{assert.equal(c.validateManifest(manifest()).version,'1.2.0');assert.ok(c.compare('1.10.0','1.9.0')>0);});
+test('manifest accepts bounded new app modules and old releases without a fixed file list',()=>{
+ const old=manifest();old.version='1.0.8';old.files=old.files.filter(f=>f.name!=='telemetry.py');
+ old.sha256=c.hash(old.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
+ assert.equal(c.validateManifest(old).version,'1.0.8');
+ const dynamic=manifest();dynamic.files.push({name:'new_effect2.py',size:1,sha256:c.hash('x')});
+ dynamic.files.sort((a,b)=>a.name.localeCompare(b.name));
+ dynamic.sha256=c.hash(dynamic.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
+ assert.equal(c.validateManifest(dynamic).files.length,12);
+ for(const name of ['boot.py','code.py','node_config.py','ota_bootstrap.py','../boot.py','/abs.py','a/b.py','__import__.py'])
+  assert.equal(c.safeAppName(name),false);
+});
 test('reject paths, duplicated files, bad digest and incompatible packet version',()=>{
  for(const edit of [m=>m.files[0].name='../boot.py',m=>m.files[0]=m.files[1],m=>m.sha256='b'.repeat(64),m=>m.protocol_send=2,m=>m.extra=true]){
   const m=manifest();edit(m);assert.throws(()=>c.validateManifest(m));
@@ -31,3 +42,23 @@ test('optional battery reports preserve old devices and validate voltage/status 
   assert.throws(()=>c.validateReport({...report(),battery},'test'),/invalid_report/);
  }
 });
+
+function telemetry(role='consumer'){
+ const zero='00'.repeat(32),one='02'+zero.slice(2);
+ return {schema:1,device_id:'a'.repeat(16),batch_id:'b'.repeat(16),record:{
+  schema:1,role,boot_id:'c'.repeat(16),windows:[{session:7,base:0,
+   received:role==='consumer'?one:zero,attempted:role==='producer'?one:zero,
+   delivered:role==='producer'?one:zero,failed:zero,controls:zero}],
+  counts:{features:1,controls:0,skipped:0,rejected:0,native_drops:0,link_losses:0,audio_overruns:0,audio_discontinuities:0},
+  truncated_windows:0,epoch_uncertain:false,rssi:role==='consumer'?{min:-80,max:-70,mean:-75}:null}};
+}
+test('telemetry accepts bounded packet evidence and rejects malformed or mismatched data',()=>{
+ assert.equal(c.validateTelemetry(telemetry(),'a'.repeat(16),'consumer').batch_id,'b'.repeat(16));
+ for(const edit of [b=>b.extra=true,b=>b.device_id='d'.repeat(16),b=>b.record.windows[0].received='xx',
+  b=>b.record.windows[0].base=1,b=>b.record.windows[0].delivered='ff'.repeat(32),
+  b=>b.record.windows=Array(129).fill(b.record.windows[0]),b=>b.record.rssi.mean=12]){
+  const b=telemetry();edit(b);assert.throws(()=>c.validateTelemetry(b,'a'.repeat(16),'consumer'),/invalid_telemetry/);
+ }
+ assert.throws(()=>c.validateTelemetry(telemetry('producer'),'a'.repeat(16),'consumer'),/invalid_telemetry/);
+});
+module.exports.telemetry=telemetry;

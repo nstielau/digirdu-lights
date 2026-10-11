@@ -189,9 +189,11 @@ over open `openwireless.org`. Keep the cloud project/credentials separate from
 Drawbridge. Wi-Fi association changes the ESP-NOW channel: proposed maintenance
 and performance phases must explicitly restore the configured lighting channel.
 
-See `docs/ota-operations.md` for commands and actual bench results. App releases
-contain the ten modules listed in `ota_manifest.APP_FILES`, staged as complete
-slot directories. Never include node_config.py/settings.toml/credentials in OTA
+See `docs/ota-operations.md` for commands and actual bench results. Releases
+through 1.0.8 contain ten app modules; the 1.0.9 candidate adds telemetry.py.
+USB base 1.0.5 validates bounded safe app filenames from the remote manifest
+and stages exactly those hash-verified files in a complete slot directory.
+Never include node_config.py/settings.toml/credentials in OTA
 assets. Base changes need a base version bump and USB deployment after initial
 release. Keep the original recovery app and active slot intact during download.
 Use the local Node 22 runtime for web tools; `make web-test` includes browser and
@@ -350,7 +352,7 @@ claiming the base is installed on a particular device.
 
 `battery.py` is a USB-base module, imported by ota_bootstrap before load_app
 removes root from sys.path, and shared with lights_app. Keep it in BASE_FILES,
-not APP_FILES; app remains the same ten-file contract. App 1.0.7 requires
+not APP_FILES; app 1.0.7 retained the ten-file contract. App 1.0.7 requires
 APP_MINIMUM_BASE=1.0.4 for this reader. Install the backward-compatible cloud
 report validator before device bases start sending the optional battery field.
 Do not claim that app-only OTA installs the new report/sensor support.
@@ -373,3 +375,22 @@ is available in device reports; scrolling text was removed for readability. It r
 visible on silence/link loss. Old consumers reject ID5: update every node
 before selecting it. Keep replay limited to the five audio effects because
 the saved take has no battery measurements.
+
+## RF telemetry candidate (app 1.0.9 / USB base 1.0.5)
+
+`telemetry.py` records bounded packet windows in RAM during performance. The
+USB base's `telemetry_store.py` persists a four-batch outbox and uploads after
+intentional sleep or one batch at boot. Keep flash and Wi-Fi work out of the
+music loop, preserve native RX completion gating and the one-send bound, and
+hold the wing data pin LOW during post-fade upload. Old app releases must still
+run after the base update. The manifest validator and device HTTP route allow
+bounded, safe `.py` app names listed by a hash-verified remote manifest; do not
+restore a fixed ten/eleven-file requirement or allow base, boot, credential or
+node-profile paths. OTA still cannot update the USB base itself.
+
+Deploy cloud telemetry validation before bases send records, then install base
+1.0.5 over USB on every target and confirm fresh fleet reports before releasing
+app 1.0.9. The dashboard is historical, not live; missing features are counted
+only inside one consumer boot's observation interval, with outside intervals
+marked unobserved. Zero-reception batches must remain visible. Native
+sleep/upload latency and culvert RF coverage are not yet measured.

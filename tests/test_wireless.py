@@ -23,6 +23,7 @@ class ReceiveCompletionTests(unittest.TestCase):
         self.link.radio = Mock(read_success=0)
         self.link.receiver = Mock(scene_time=2.0, phase=0.25, effect=1)
         self.link.receiver.accept.return_value = True
+        self.link.telemetry = Mock()
         self.animation = Mock()
 
     def test_partial_callback_does_not_read_even_with_buffer_bytes(self):

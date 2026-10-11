@@ -7,10 +7,22 @@ import unittest
 from unittest.mock import Mock,patch,mock_open
 from types import SimpleNamespace
 from audio_features import AudioFeatures
-from ota_bootstrap import Health,TrialReady,main,OTAIndicator,network
+from ota_bootstrap import Health,TrialReady,main,OTAIndicator,network,telemetry_on_sleep
+from telemetry_store import TelemetryQueue
 
 
 class OTAIndicatorTests(unittest.TestCase):
+    def test_offline_sleep_keeps_batch_for_next_boot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            queue=TelemetryQueue(folder+'/telemetry',sync=lambda:None)
+            radio=Mock();radio.connect.side_effect=OSError('offline')
+            cfg={'id':'a'*16,'ssid':'openwireless.org','token':'b'*64,'api':'unused'}
+            with patch.dict(sys.modules,{'wifi':SimpleNamespace(radio=radio),'socketpool':SimpleNamespace()}), \
+                 patch('ota_bootstrap.TelemetryQueue',return_value=queue),patch('ota_bootstrap.nvm_flag'):
+                telemetry_on_sleep({'schema':1},cfg,Mock())
+            self.assertEqual(len(queue.pending()),1)
+            radio.stop_station.assert_called_once()
+
     def test_verified_pins_single_cyan_pixel_timing_wrap_and_cleanup(self):
         for board_id, pin_name in (('unexpectedmaker_feathers2','IO38'),
                                    ('adafruit_feather_esp32_v2','D32')):
@@ -47,6 +59,7 @@ class OTAIndicatorTests(unittest.TestCase):
                  patch('ota_bootstrap.OTAIndicator',return_value=progress), \
                  patch('ota_bootstrap.DeviceHTTP',return_value=client), \
                  patch('ota_bootstrap.report_body',return_value={}), \
+                 patch('ota_bootstrap.upload_telemetry'), \
                  patch('ota_bootstrap.nvm_flag'), patch('ota_bootstrap.time.sleep'):
                 self.assertFalse(network(store,cfg,'1.0.6','session',1,Mock()))
                 progress.update.assert_called()
@@ -62,7 +75,7 @@ class OTAIndicatorTests(unittest.TestCase):
 
     def test_battery_app_requires_base_with_shared_sensor(self):
         from tools.bundle import application,manifest
-        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.0.4')
+        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.0.5')
 
 class RecoveryBootTests(unittest.TestCase):
     def test_new_rollback_skips_network_but_later_boot_reports(self):
@@ -90,6 +103,7 @@ class RecoveryBootTests(unittest.TestCase):
                  patch('ota_bootstrap.network',return_value=False) as network:
                 with self.assertRaises(AppRunning):main()
                 self.assertEqual(network.call_count,0 if recovered else 1)
+                self.assertEqual(set(app.main.call_args.kwargs),{'health'})
 
 class HealthTests(unittest.TestCase):
     def test_trial_requires_completed_calibration_and_sustained_progress(self):

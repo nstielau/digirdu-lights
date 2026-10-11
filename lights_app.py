@@ -25,6 +25,7 @@ else:
     raise RuntimeError("Unconfigured board: " + board.board_id)
 SAMPLE_RATE = CONFIG.sample_rate
 SAMPLE_COUNT = CONFIG.hop_size
+TELEMETRY_API = 1
 
 
 class EffectButtons:
@@ -155,6 +156,8 @@ def run(seconds=None, drive_pixels=True, health=None):
                     # wall-clock gap is an additional warning, not proof of loss.
                     if count != len(samples) or mic.overflow or dt > 3 * period:
                         discontinuities += 1
+                        if radio is not None:
+                            radio.telemetry.audio_discontinuity()
                         spectrum.reset_history()
                         analyzer.discontinuity()
                         print("AUDIO discontinuity: samples=%d gap_ms=%.1f" % (count, dt * 1000))
@@ -183,7 +186,7 @@ def run(seconds=None, drive_pixels=True, health=None):
                     if health is not None:
                         health(features, radio)
                     if sleep.done(now):
-                        raise SleepRequested()
+                        raise SleepRequested(radio.telemetry if radio is not None else None)
                     if features.attackEvent:
                         print("ATTACK strength=%.2f" % features.attack)
                     if features.yellEvent:
@@ -204,6 +207,8 @@ def run(seconds=None, drive_pixels=True, health=None):
                     max_work = max(max_work, work)
                     if work > period:
                         overruns += 1
+                        if radio is not None:
+                            radio.telemetry.audio_overrun()
                         if overruns == 1 or overruns % 100 == 0:
                             print("AUDIO processing over budget: %.1f ms / %.1f ms" %
                                   (work * 1000, period * 1000))
@@ -238,6 +243,7 @@ def run_follower(health=None):
                 previous = now
                 features = radio.receive(now, animation)
                 lost = radio.receiver.fade_if_lost(now, dt)
+                radio.observe_link(lost)
                 if animation.effect == 5:
                     animation.battery_voltage = battery.update(now)["voltage"]
                 # Ignore sleep during the initial OTA health trial. An intentional
@@ -258,7 +264,7 @@ def run_follower(health=None):
                 if health is not None:
                     health(features, radio)
                 if sleep.done(now):
-                    raise SleepRequested()
+                    raise SleepRequested(radio.telemetry)
                 frames += 1
                 if now >= next_log:
                     age_ms = (int((now - radio.receiver.last_receive) * 1000)
@@ -284,8 +290,21 @@ def run_follower(health=None):
 class SleepRequested(BaseException):
     """Unwind hardware contexts without triggering the OTA failure handler."""
 
+    def __init__(self, telemetry=None):
+        self.telemetry = telemetry
 
-def enter_deep_sleep():
+
+def hold_wing_data_low():
+    """Keep the black frame and data LOW throughout post-fade networking."""
+    sleep_pin = digitalio.DigitalInOut(PIXEL_PIN)
+    sleep_pin.switch_to_output(value=False)
+    neopixel_write(sleep_pin, bytes(CONFIG.pixel_count * 3))
+    sleep_pin.value = False
+    time.sleep(0.001)
+    return sleep_pin
+
+
+def enter_deep_sleep(sleep_pin=None):
     import alarm
     import microcontroller
     import supervisor
@@ -298,24 +317,27 @@ def enter_deep_sleep():
     # Keep the powered wing's data input LOW through VM teardown and sleep.
     # Releasing it to high impedance can latch stray bits after the black frame.
     # Do not use a with/finally here: DeepSleepRequest unwinds Python contexts.
-    sleep_pin = digitalio.DigitalInOut(PIXEL_PIN)
-    sleep_pin.switch_to_output(value=False)
-    neopixel_write(sleep_pin, bytes(CONFIG.pixel_count * 3))
-    sleep_pin.value = False
-    time.sleep(0.001)  # Allow the all-black frame to latch before holding the pin.
+    if sleep_pin is None:
+        sleep_pin = hold_wing_data_low()
     print("SLEEP entering deep sleep; wing data held LOW; reset each board to wake")
     # Pin preservation is an output hold, NOT a PinAlarm or other wake source.
     alarm.exit_and_deep_sleep_until_alarms(preserve_dios=(sleep_pin,))
 
 
-def main(health=None):
+def main(health=None, on_sleep=None):
     try:
         if CONFIG.radio_role == "follower":
             run_follower(health=health)
         else:
             run(health=health)
-    except SleepRequested:
-        enter_deep_sleep()
+    except SleepRequested as request:
+        sleep_pin = hold_wing_data_low()
+        if on_sleep is not None and request.telemetry is not None:
+            try:
+                on_sleep(request.telemetry.snapshot())
+            except Exception as error:
+                print("TELEMETRY sleep upload unavailable: " + type(error).__name__)
+        enter_deep_sleep(sleep_pin)
 
 
 if __name__ == "__main__":

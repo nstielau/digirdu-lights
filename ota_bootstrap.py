@@ -9,6 +9,7 @@ from ota_manifest import APP_API, BASE_VERSION, BOARDS, MAX_MANIFEST, validate
 from ota_store import UpdateStore
 from ota_http import DeviceHTTP
 from battery import read_battery
+from telemetry_store import TelemetryQueue
 
 TRIAL_SECONDS = 30
 NVM_MARKER = b"DGO1"  # Reserved bytes 0..4; never store device secrets in NVM.
@@ -108,6 +109,41 @@ def nvm_flag(value=None):
     return bytes(nvm[:4]) == NVM_MARKER and nvm[4] == 1
 
 
+def upload_telemetry(client, service, limit=1):
+    queue = TelemetryQueue()
+    if not queue.has_pending():
+        return 0
+    return queue.flush(lambda batch: client.request(
+        "telemetry", service, lambda response: response.json(), limit=256, body=batch), limit)
+
+
+def telemetry_on_sleep(record, cfg, watchdog):
+    """Persist after I2S/ESP-NOW cleanup, then try one bounded HTTPS upload."""
+    queue = TelemetryQueue()
+    queue.enqueue(cfg["id"], record)
+    import wifi
+    import socketpool
+    deadline = time.monotonic() + 18
+    def service():
+        if time.monotonic() >= deadline:
+            raise OSError("telemetry_deadline")
+        watchdog.feed()
+    try:
+        nvm_flag(True)
+        wifi.radio.enabled = True
+        service()
+        wifi.radio.connect(cfg["ssid"], timeout=8)
+        client = DeviceHTTP(socketpool.SocketPool(wifi.radio), cfg["id"], cfg["token"], cfg["api"])
+        upload_telemetry(client, service)
+    except Exception as error:
+        print("TELEMETRY queued for next boot: " + type(error).__name__)
+    finally:
+        try:
+            wifi.radio.stop_station()
+        finally:
+            nvm_flag(False)
+
+
 def network(store, cfg, version, session, sequence, watchdog, report_only=False, health=None):
     """Run only outside audio/LED processing. Every exit disconnects the AP."""
     import wifi
@@ -135,6 +171,15 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
                                 limit=MAX_MANIFEST, body=body)
         if store.state["report_pending"]:
             store.save(dict(store.state, report_pending=False))
+        try:
+            telemetry_deadline = time.monotonic() + 12
+            def telemetry_service():
+                if time.monotonic() >= telemetry_deadline:
+                    raise OSError("telemetry_deadline")
+                service()
+            upload_telemetry(client, telemetry_service)
+        except Exception as error:
+            print("TELEMETRY boot retry deferred: " + type(error).__name__)
         if not report_only and result and result.get("manifest"):
             manifest = validate(result["manifest"], cfg["board"], cfg["role"], body["circuitpython"])
             if manifest["version"] == version:
@@ -246,7 +291,10 @@ def main():
             raise ValueError("app_version_mismatch")
         if selected and version != selected["manifest"]["version"]:
             raise ValueError("manifest_version_mismatch")
-        app.main(health=health)
+        if getattr(app, "TELEMETRY_API", 0) == 1:
+            app.main(health=health, on_sleep=lambda record: telemetry_on_sleep(record, cfg, watchdog))
+        else:
+            app.main(health=health)  # Existing app stays runnable while USB bases roll out.
         raise RuntimeError("application_returned")
     except TrialReady:
         store.confirm()

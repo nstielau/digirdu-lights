@@ -6,12 +6,13 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from ota_manifest import APP_FILES, BOARDS, bundle_digest, sha256, validate
+from ota_manifest import APP_FILES, LEGACY_APP_FILES, BOARDS, bundle_digest, sha256, validate, safe_app_name
 from ota_store import UpdateStore
 
 
 def release(sequence=1, version="1.0.0"):
-    data = {name: ("# " + name + "\n").encode() for name in APP_FILES}
+    names = APP_FILES if tuple(int(v) for v in version.split('.')) >= (1, 0, 9) else LEGACY_APP_FILES
+    data = {name: ("# " + name + "\n").encode() for name in names}
     data['app_version.py'] = ('APP_VERSION = "%s"\nAPP_API_VERSION = 1\n' % version).encode()
     files = [{"name": name, "size": len(value), "sha256": sha256(value)} for name, value in data.items()]
     return {"schema": 1, "version": version, "git_commit": "a"*40, "app_api": 1,
@@ -21,6 +22,15 @@ def release(sequence=1, version="1.0.0"):
 
 
 class StoreTests(unittest.TestCase):
+    def test_manifest_stages_new_safe_module_named_by_release(self):
+        manifest, data = release(version='1.0.9')
+        data['new_effect2.py'] = b'VALUE=2\n'
+        manifest['files'].append({'name':'new_effect2.py','size':len(data['new_effect2.py']),
+                                  'sha256':sha256(data['new_effect2.py'])})
+        manifest['sha256'] = bundle_digest(manifest['files'])
+        self.assertTrue(self.store.stage(manifest,lambda m,f,consume:consume([data[f['name']]])))
+        self.assertEqual(Path(self.store.path(self.store.state['trial']), 'new_effect2.py').read_bytes(),b'VALUE=2\n')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -135,6 +145,19 @@ class StoreTests(unittest.TestCase):
 
 
 class ManifestTests(unittest.TestCase):
+    def test_manifest_downloads_safe_new_files_without_base_name_allowlist(self):
+        old, _ = release(version='1.0.8')
+        new, _ = release(version='1.0.9')
+        self.assertEqual(len(validate(old)['files']), 10)
+        self.assertEqual(len(validate(new)['files']), 11)
+        extra = {'name': 'new_effect2.py', 'size': 1, 'sha256': sha256(b'x')}
+        new['files'].append(extra)
+        new['sha256'] = bundle_digest(new['files'])
+        self.assertEqual(len(validate(new)['files']), 12)
+        for name in ('boot.py', 'code.py', 'node_config.py', 'ota_bootstrap.py',
+                     '../boot.py', '/abs.py', 'a/b.py', '__import__.py'):
+            self.assertFalse(safe_app_name(name))
+
     def test_compatibility_and_board_role(self):
         m, _ = release()
         self.assertEqual(validate(m, BOARDS[0], 'producer'), m)
