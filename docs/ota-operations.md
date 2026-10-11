@@ -673,8 +673,9 @@ no device has been deployed or native latency measured for it. The current
 OTA app bundle adds `telemetry.py` as an eleventh file. The USB base adds
 `telemetry_store.py`; the app manifest requires base 1.0.5. Protocol v3 payload
 size and existing effects stay unchanged. Base 1.0.5 accepts bounded safe app
-filenames from the hash-verified remote manifest; release packaging still
-selects local source files. Deployed base 1.0.4 cannot adopt that new validation
+filenames from the hash-verified remote manifest, including JSON or binary data
+assets in the inactive slot; release packaging still selects local source files.
+No data asset or parser ships in this release. Deployed base 1.0.4 cannot adopt that new validation
 rule without USB service.
 
 Rollout order:

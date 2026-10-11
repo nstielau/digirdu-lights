@@ -193,6 +193,9 @@ See `docs/ota-operations.md` for commands and actual bench results. Releases
 through 1.0.8 contain ten app modules; the 1.0.9 candidate adds telemetry.py.
 USB base 1.0.5 validates bounded safe app filenames from the remote manifest
 and stages exactly those hash-verified files in a complete slot directory.
+The filenames may identify Python modules or opaque data assets such as JSON or
+bitmaps; the app owns asset parsing. Keep filenames flat and bounded, with no
+path separators, hidden files or protected base/config names.
 Never include node_config.py/settings.toml/credentials in OTA
 assets. Base changes need a base version bump and USB deployment after initial
 release. Keep the original recovery app and active slot intact during download.
@@ -384,7 +387,7 @@ intentional sleep or one batch at boot. Keep flash and Wi-Fi work out of the
 music loop, preserve native RX completion gating and the one-send bound, and
 hold the wing data pin LOW during post-fade upload. Old app releases must still
 run after the base update. The manifest validator and device HTTP route allow
-bounded, safe `.py` app names listed by a hash-verified remote manifest; do not
+bounded, safe app filenames listed by a hash-verified remote manifest; do not
 restore a fixed ten/eleven-file requirement or allow base, boot, credential or
 node-profile paths. OTA still cannot update the USB base itself.
 

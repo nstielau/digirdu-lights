@@ -3,8 +3,8 @@ const BOARDS = ['unexpectedmaker_feathers2', 'adafruit_feather_esp32_v2'];
 const FILES = ['animation.py','app_version.py','audio_features.py','audio_spectrum.py','config.py',
   'effects.py','lights_app.py','radio_protocol.py','sound_reactive.py','telemetry.py','wireless.py'];
 const RESERVED_APP_FILES=new Set(['boot.py','code.py','node_config.py','battery.py','ota_manifest.py',
-  'ota_store.py','ota_http.py','ota_bootstrap.py','telemetry_store.py']);
-const safeAppName=name=>typeof name==='string'&&/^[a-z][a-z0-9_]{0,39}\.py$/.test(name)&&!RESERVED_APP_FILES.has(name);
+  'ota_store.py','ota_http.py','ota_bootstrap.py','telemetry_store.py','settings.toml','secrets.py']);
+const safeAppName=name=>typeof name==='string'&&/^[a-z][a-z0-9_]{0,39}\.[a-z0-9]{1,8}$/.test(name)&&!RESERVED_APP_FILES.has(name);
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const version = value => typeof value === 'string' && /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/.test(value);

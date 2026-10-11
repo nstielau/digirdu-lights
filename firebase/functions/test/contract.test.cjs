@@ -13,8 +13,14 @@ test('manifest accepts bounded new app modules and old releases without a fixed 
  dynamic.files.sort((a,b)=>a.name.localeCompare(b.name));
  dynamic.sha256=c.hash(dynamic.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
  assert.equal(c.validateManifest(dynamic).files.length,12);
- for(const name of ['boot.py','code.py','node_config.py','ota_bootstrap.py','../boot.py','/abs.py','a/b.py','__import__.py'])
+ for(const name of ['palette.json','intro.bmp','frames.bin','effect.mpy'])assert.equal(c.safeAppName(name),true);
+ for(const name of ['boot.py','code.py','node_config.py','ota_bootstrap.py','settings.toml','secrets.py',
+  '../boot.py','/abs.py','a/b.py','a\\b.json','__import__.py','.hidden.json','a..json','a.json.py','a.PNG','a.json?x','a.'+'x'.repeat(9)])
   assert.equal(c.safeAppName(name),false);
+ for(const name of ['palette.json','intro.bmp'])dynamic.files.push({name,size:1,sha256:c.hash('x')});
+ dynamic.files.sort((a,b)=>a.name.localeCompare(b.name));
+ dynamic.sha256=c.hash(dynamic.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
+ assert.equal(c.validateManifest(dynamic).files.length,14);
 });
 test('reject paths, duplicated files, bad digest and incompatible packet version',()=>{
  for(const edit of [m=>m.files[0].name='../boot.py',m=>m.files[0]=m.files[1],m=>m.sha256='b'.repeat(64),m=>m.protocol_send=2,m=>m.extra=true]){

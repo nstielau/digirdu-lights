@@ -41,5 +41,10 @@ class HTTPTests(unittest.TestCase):
         client=DeviceHTTP(Pool(),'abc123','a'*64,'https://digirdu-lights.firebaseapp.com/device-api/v1')
         with self.assertRaises(ReachedNetwork):
             client.request('artifacts/'+'a'*64+'/new_effect2.py',lambda:None,lambda r:None)
+        for name in ('palette.json', 'intro.bmp', 'frames.bin'):
+            with self.assertRaises(ReachedNetwork):
+                client.request('artifacts/'+'a'*64+'/'+name,lambda:None,lambda r:None)
         with self.assertRaises(ValueError):
             client.request('artifacts/'+'a'*64+'/ota_bootstrap.py',lambda:None,lambda r:None)
+        with self.assertRaises(ValueError):
+            client.request('artifacts/'+'a'*64+'/settings.toml',lambda:None,lambda r:None)

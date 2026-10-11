@@ -60,7 +60,13 @@ test('pause, incompatible base and missing producer are independent',async()=>{
 test('download requires assigned compatible bundle and exact file',async()=>{
  await svc.checkIn(id,token,report());const m=manifest();
  assert.equal((await svc.artifact(id,token,m.sha256,'effects.py')).size,1);
+ m.files.push({name:'palette.json',size:5,sha256:c.hash('hello')});
+ m.files.sort((a,b)=>a.name.localeCompare(b.name));
+ m.sha256=c.hash(m.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
+ await db.doc('releases/1.1.0').update({manifest:m});
+ assert.equal((await svc.artifact(id,token,m.sha256,'palette.json')).size,5);
  await assert.rejects(svc.artifact(id,token,m.sha256,'../settings.toml'),e=>e.status===404);
+ await assert.rejects(svc.artifact(id,token,m.sha256,'settings.toml'),e=>e.status===404);
  await db.doc('devices/'+id).update({paused:true});await assert.rejects(svc.artifact(id,token,m.sha256,'effects.py'),e=>e.status===404);
 });
 test('browser authentication, App Check and admin role all required',async()=>{

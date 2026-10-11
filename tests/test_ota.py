@@ -31,6 +31,19 @@ class StoreTests(unittest.TestCase):
         self.assertTrue(self.store.stage(manifest,lambda m,f,consume:consume([data[f['name']]])))
         self.assertEqual(Path(self.store.path(self.store.state['trial']), 'new_effect2.py').read_bytes(),b'VALUE=2\n')
 
+    def test_manifest_stages_json_and_binary_assets_as_bytes(self):
+        manifest, data = release(version='1.0.9')
+        data['palette.json'] = b'{"colors":[1,2,3]}\n'
+        data['intro.bmp'] = b'BM\x00\xff\x80\x00'
+        for name in ('palette.json', 'intro.bmp'):
+            manifest['files'].append({'name': name, 'size': len(data[name]), 'sha256': sha256(data[name])})
+        manifest['sha256'] = bundle_digest(manifest['files'])
+        self.assertTrue(self.store.stage(manifest, lambda m, f, consume: consume([data[f['name']]])))
+        slot = Path(self.store.path(self.store.state['trial']))
+        self.assertEqual((slot / 'palette.json').read_bytes(), data['palette.json'])
+        self.assertEqual((slot / 'intro.bmp').read_bytes(), data['intro.bmp'])
+        self.assertFalse((Path(self.root) / 'palette.json').exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -154,8 +167,12 @@ class ManifestTests(unittest.TestCase):
         new['files'].append(extra)
         new['sha256'] = bundle_digest(new['files'])
         self.assertEqual(len(validate(new)['files']), 12)
+        for name in ('palette.json', 'intro.bmp', 'frames.bin', 'effect.mpy'):
+            self.assertTrue(safe_app_name(name))
         for name in ('boot.py', 'code.py', 'node_config.py', 'ota_bootstrap.py',
-                     '../boot.py', '/abs.py', 'a/b.py', '__import__.py'):
+                     'settings.toml', 'secrets.py', '../boot.py', '/abs.py',
+                     'a/b.py', 'a\\b.json', '__import__.py', '.hidden.json',
+                     'a..json', 'a.json.py', 'a.PNG', 'a.json?x', 'a.' + 'x'*9):
             self.assertFalse(safe_app_name(name))
 
     def test_compatibility_and_board_role(self):

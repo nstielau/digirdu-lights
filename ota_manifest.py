@@ -19,15 +19,23 @@ REQUIRED_APP_FILES = ("app_version.py", "lights_app.py")
 # boot names out of that slot so a release cannot accidentally shadow them.
 RESERVED_APP_FILES = ("boot.py", "code.py", "node_config.py", "battery.py",
                       "ota_manifest.py", "ota_store.py", "ota_http.py",
-                      "ota_bootstrap.py", "telemetry_store.py")
+                      "ota_bootstrap.py", "telemetry_store.py", "settings.toml",
+                      "secrets.py")
 
 
 def safe_app_name(name):
-    if type(name) is not str or not 4 <= len(name) <= 43 or not name.endswith(".py"):
+    # The slot may hold code or opaque data. A single safe basename keeps both
+    # device writes and cloud artifact URLs inside the selected app slot.
+    if type(name) is not str or not 3 <= len(name) <= 49:
         return False
-    stem = name[:-3]
-    return ("a" <= stem[0] <= "z" and all("a" <= c <= "z" or "0" <= c <= "9" or c == "_"
-                                            for c in stem)
+    parts = name.split(".")
+    if len(parts) != 2:
+        return False
+    stem, extension = parts
+    return (1 <= len(stem) <= 40 and 1 <= len(extension) <= 8
+            and "a" <= stem[0] <= "z"
+            and all("a" <= c <= "z" or "0" <= c <= "9" or c == "_" for c in stem)
+            and all("a" <= c <= "z" or "0" <= c <= "9" for c in extension)
             and name not in RESERVED_APP_FILES)
 
 

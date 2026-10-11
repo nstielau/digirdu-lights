@@ -1515,9 +1515,13 @@ installing USB base 1.0.5. Use `make deploy-base` in each board's USB maintenanc
 mode, reset normally and confirm a fresh base report, then publish app 1.0.9
 with its minimum-base requirement. App-only OTA cannot install the queue.
 Base 1.0.5 accepts bounded, safe app filenames listed in a hash-verified remote
-manifest and downloads those files into the inactive slot. Future app modules
-can be added to OTA releases without changing the device base's file list;
-release packaging still selects the source files. Installed base 1.0.4 retains
+manifest and downloads those files as bytes into the inactive slot. This includes
+JSON, bitmap or other data assets with flat lowercase names, a single dot and a
+1–8 character extension; the app must parse any asset it uses. Path separators,
+hidden files, protected base/config names and duplicate names remain forbidden.
+The 24-file, 64-KiB-per-file and 256-KiB-total bounds still apply. Future app
+modules and data assets can be added without changing the device base's file
+list; release packaging still selects the source files. Installed base 1.0.4 retains
 its fixed ten-file validation, so it cannot accept an added module retroactively.
 Existing effects and 51-byte feature packets do not change. Native sleep/upload
 timing and culvert RF coverage still need a two-board field trial; host tests
