@@ -5,7 +5,7 @@ import os
 import sys
 import time
 
-from ota_manifest import APP_API, BASE_VERSION, BOARDS, MAX_MANIFEST, validate
+from ota_manifest import APP_API, BASE_VERSION, BOARDS, MAX_MANIFEST, validate, valid_protocol, valid_targets
 from ota_store import UpdateStore
 from ota_http import DeviceHTTP
 from battery import read_battery
@@ -91,11 +91,50 @@ def settings():
     return result
 
 
-def report_body(store, cfg, version, session, sequence, health=None):
+def app_protocol(identity=None):
+    """Read app-owned radio metadata; releases before 1.0.9 implied v3."""
+    identity = identity or {}
+    send = identity.get("PROTOCOL_SEND", 3)
+    receive = identity.get("PROTOCOL_RECEIVE", (3,))
+    if type(receive) not in (tuple, list):
+        raise ValueError("invalid_app_protocol")
+    receive = list(receive)
+    if not valid_protocol(send, receive):
+        raise ValueError("invalid_app_protocol")
+    return send, receive
+
+
+def app_targets(identity=None):
+    """Read app-owned target metadata; older releases targeted both boards and roles."""
+    identity = identity or {}
+    boards = identity.get("APP_BOARDS", BOARDS)
+    roles = identity.get("APP_ROLES", ("producer", "consumer"))
+    if type(boards) not in (tuple, list) or type(roles) not in (tuple, list):
+        raise ValueError("invalid_app_targets")
+    boards, roles = list(boards), list(roles)
+    if not valid_targets(boards, BOARDS) or not valid_targets(roles, ("producer", "consumer")):
+        raise ValueError("invalid_app_targets")
+    return boards, roles
+
+
+def validate_app_manifest(manifest, identity, board_id, role, cp_version):
+    """Ensure the selected slot's manifest and app identity describe the same app."""
+    validate(manifest, board_id, role, cp_version)
+    boards, roles = app_targets(identity)
+    send, receive = app_protocol(identity)
+    if manifest["boards"] != boards or manifest["roles"] != roles:
+        raise ValueError("manifest_targets_mismatch")
+    if manifest["protocol_send"] != send or manifest["protocol_receive"] != receive:
+        raise ValueError("manifest_protocol_mismatch")
+    return manifest
+
+
+def report_body(store, cfg, version, session, sequence, health=None, identity=None):
+    protocol_send, protocol_receive = app_protocol(identity)
     return {"device_id": cfg["id"], "board": cfg["board"], "role": cfg["role"],
             "version": version, "base_version": BASE_VERSION,
             "circuitpython": ".".join(str(v) for v in sys.implementation.version[:3]),
-            "protocol_send": 3, "protocol_receive": [3], "session": session,
+            "protocol_send": protocol_send, "protocol_receive": protocol_receive, "session": session,
             "report_sequence": sequence, "state": store.state["outcome"],
             "deployment_sequence": store.state["floor"], "error": store.state["error"],
             "health": health or {}, "battery": read_battery()}
@@ -144,7 +183,7 @@ def telemetry_on_sleep(record, cfg, watchdog):
             nvm_flag(False)
 
 
-def network(store, cfg, version, session, sequence, watchdog, report_only=False, health=None):
+def network(store, cfg, version, session, sequence, watchdog, report_only=False, health=None, identity=None):
     """Run only outside audio/LED processing. Every exit disconnects the AP."""
     import wifi
     import socketpool
@@ -165,7 +204,7 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
         wifi.radio.enabled = True
         wifi.radio.connect(cfg["ssid"], timeout=8)
         client = DeviceHTTP(socketpool.SocketPool(wifi.radio), cfg["id"], cfg["token"], cfg["api"])
-        body = report_body(store, cfg, version, session, sequence, health)
+        body = report_body(store, cfg, version, session, sequence, health, identity)
         result = client.request("report" if report_only else "check-in", service,
                                 lambda response: response.json() if response.status == 200 else None,
                                 limit=MAX_MANIFEST, body=body)
@@ -281,7 +320,7 @@ def main():
     skip = nvm_flag() or recovered
     nvm_flag(False)
     print("OTA app=%s base=%s state=%s" % (version, BASE_VERSION, store.state["outcome"]))
-    if not trial and not skip and network(store, cfg, version, session, 1, watchdog):
+    if not trial and not skip and network(store, cfg, version, session, 1, watchdog, identity=identity):
         microcontroller.reset()
     # A fresh VM ensures no old slot modules survive selection.
     health = Health(watchdog, trial)
@@ -291,6 +330,9 @@ def main():
             raise ValueError("app_version_mismatch")
         if selected and version != selected["manifest"]["version"]:
             raise ValueError("manifest_version_mismatch")
+        if selected:
+            validate_app_manifest(selected["manifest"], identity, cfg["board"], cfg["role"],
+                                  ".".join(str(v) for v in sys.implementation.version[:3]))
         if getattr(app, "TELEMETRY_API", 0) == 1:
             app.main(health=health, on_sleep=lambda record: telemetry_on_sleep(record, cfg, watchdog))
         else:
@@ -299,7 +341,8 @@ def main():
     except TrialReady:
         store.confirm()
         print("OTA confirmed version=" + version)
-        network(store, cfg, version, session, 2, watchdog, report_only=True, health=health.summary)
+        network(store, cfg, version, session, 2, watchdog, report_only=True,
+                health=health.summary, identity=identity)
         # Skip the redundant boot check after this deliberate confirmation reset.
         nvm_flag(True)
         microcontroller.reset()

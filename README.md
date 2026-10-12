@@ -1523,6 +1523,15 @@ The 24-file, 64-KiB-per-file and 256-KiB-total bounds still apply. Future app
 modules and data assets can be added without changing the device base's file
 list; release packaging still selects the source files. Installed base 1.0.4 retains
 its fixed ten-file validation, so it cannot accept an added module retroactively.
+App release metadata now declares its target board/role subset and ESP-NOW send
+and receive versions in `app_version.py`. Base 1.0.5 validates bounded protocol
+numbers without fixing them to v3 and reports the installed app's values; apps
+released before these declarations continue to report v3. The selected app's
+metadata must match its manifest. A protocol upgrade still needs a coordinated
+producer/consumer rollout so the radios remain mutually compatible.
+Subset-target app releases omit base bundles. Full USB recovery deployment
+requires an app supporting the complete verified fleet; base-only USB updates
+can preserve the installed recovery image.
 Existing effects and 51-byte feature packets do not change. Native sleep/upload
 timing and culvert RF coverage still need a two-board field trial; host tests
 do not establish either measurement.

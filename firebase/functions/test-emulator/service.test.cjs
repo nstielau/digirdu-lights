@@ -93,6 +93,14 @@ test('newest compatible stable falls back below a base-incompatible release',asy
  const result=await svc.checkIn(id,token,report());assert.equal(result.manifest.version,'1.1.0');assert.equal(result.manifest.sequence,3);
  assert.equal((await svc.artifact(id,token,manifest().sha256,'effects.py')).size,1);
 });
+test('board and role targeted releases fall back for other devices',async()=>{
+ const targeted=manifest('1.2.0');targeted.boards=[c.BOARDS[0]];targeted.roles=['producer'];
+ await db.doc('releases/1.2.0').set({approved:true,manifest:targeted});
+ await db.doc('channels/stable').set({version:'1.2.0',sequence:3});
+ const selected=await svc.checkIn(id,token,report());
+ assert.equal(selected.manifest.version,'1.1.0');
+ assert.equal((await svc.artifact(id,token,manifest().sha256,'effects.py')).size,1);
+});
 test('direct unauthenticated Firestore reads are denied by deployed emulator rules',async()=>{
  const response=await fetch('http://127.0.0.1:8081/v1/projects/demo-digirdu/databases/(default)/documents/devices/'+id);
  assert.equal(response.status,403);

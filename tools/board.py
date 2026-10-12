@@ -17,9 +17,11 @@ S2_BOARD = "unexpectedmaker_feathers2"
 ROOT = Path(__file__).resolve().parents[1]
 try:
     from tools.bundle import deployment_contents, BASE_FILES
+    from ota_manifest import APP_FILES as SLOT_APP_FILES
 except ImportError:
     from bundle import deployment_contents, BASE_FILES
-APP_FILES = tuple(deployment_contents())
+    from ota_manifest import APP_FILES as SLOT_APP_FILES
+APP_FILES = ('node_config.py',) + tuple('recovery/' + name for name in SLOT_APP_FILES) + BASE_FILES
 
 # Executed on the device, not imported by host Python. Works with the existing
 # producer app; no deployment is needed to inspect the physical button first.
@@ -175,9 +177,8 @@ def deploy_s2(repl, mount, node_config=None, base_only=False):
         raise RuntimeError("FeatherS2 is in OTA field mode. Reset, then press BOOT during the blue startup window for USB maintenance.")
     # Python must not remount a drive that the USB host also writes.
     repl.execute("import supervisor; supervisor.runtime.autoreload = False")
-    contents = deployment_contents()
-    if base_only:
-        contents = {name: contents[name] for name in BASE_FILES}
+    contents = ({name: (ROOT / name).read_bytes() for name in BASE_FILES}
+                if base_only else deployment_contents())
     sources = tuple(contents)
     if node_config:
         contents["node_config.py"] = Path(node_config).read_bytes()
@@ -231,7 +232,8 @@ def deploy_serial(repl, node_config=None, legacy=False, base_only=False):
     """Back up, stage and verify files on boards without USB mass storage."""
     names = ("code.py",) if legacy else (BASE_FILES if base_only else APP_FILES)
     contents = ({"code.py": (ROOT / "examples/esp32_rainbow.py").read_bytes()}
-                if legacy else deployment_contents())
+                if legacy else ({name: (ROOT / name).read_bytes() for name in BASE_FILES}
+                                if base_only else deployment_contents()))
     contents = {name: contents[name] for name in names}
     repl.execute("import supervisor, storage, os; supervisor.runtime.autoreload = False; storage.remount('/', readonly=False)")
     backup = ROOT / ".artifacts" / "app-backups" / f"esp32-{time.time_ns()}"

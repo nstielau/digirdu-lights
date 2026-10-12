@@ -196,6 +196,14 @@ and stages exactly those hash-verified files in a complete slot directory.
 The filenames may identify Python modules or opaque data assets such as JSON or
 bitmaps; the app owns asset parsing. Keep filenames flat and bounded, with no
 path separators, hidden files or protected base/config names.
+The base accepts nonempty release board/role subsets from its verified profiles
+and bounded ESP-NOW protocol metadata declared by the app, rather than a fixed
+v3/full-fleet manifest. Old apps without metadata imply v3. Keep radio protocol
+changes coordinated across producer and consumers; OTA eligibility alone does
+not make different on-air formats interoperable.
+Subset-target app releases omit USB base bundles; full USB recovery deployment
+requires an app supporting both verified boards and both roles. Base-only USB
+updates preserve the installed recovery image and remain available.
 Never include node_config.py/settings.toml/credentials in OTA
 assets. Base changes need a base version bump and USB deployment after initial
 release. Keep the original recovery app and active slot intact during download.

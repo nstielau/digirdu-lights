@@ -14,7 +14,8 @@ test('manifest accepts bounded new app modules and old releases without a fixed 
  dynamic.sha256=c.hash(dynamic.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
  assert.equal(c.validateManifest(dynamic).files.length,12);
  for(const name of ['palette.json','intro.bmp','frames.bin','effect.mpy'])assert.equal(c.safeAppName(name),true);
- for(const name of ['boot.py','code.py','node_config.py','ota_bootstrap.py','settings.toml','secrets.py',
+ for(const name of ['boot.py','code.py','node_config.py','node_config.json','ota_bootstrap.py',
+  'settings.toml','settings.json','secrets.py','secrets.json','credentials.py','credentials.json',
   '../boot.py','/abs.py','a/b.py','a\\b.json','__import__.py','.hidden.json','a..json','a.json.py','a.PNG','a.json?x','a.'+'x'.repeat(9)])
   assert.equal(c.safeAppName(name),false);
  for(const name of ['palette.json','intro.bmp'])dynamic.files.push({name,size:1,sha256:c.hash('x')});
@@ -22,8 +23,20 @@ test('manifest accepts bounded new app modules and old releases without a fixed 
  dynamic.sha256=c.hash(dynamic.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
  assert.equal(c.validateManifest(dynamic).files.length,14);
 });
-test('reject paths, duplicated files, bad digest and incompatible packet version',()=>{
- for(const edit of [m=>m.files[0].name='../boot.py',m=>m.files[0]=m.files[1],m=>m.sha256='b'.repeat(64),m=>m.protocol_send=2,m=>m.extra=true]){
+test('release targeting and packet protocol are flexible within bounds',()=>{
+ const m=manifest();m.boards=[c.BOARDS[0]];m.roles=['producer'];m.protocol_send=4;m.protocol_receive=[3,4];
+ assert.equal(c.validateManifest(m),m);
+ assert.equal(c.compatible(m,{board:c.BOARDS[0],role:'producer',base_version:'1.0.5',circuitpython:'10.3.1'}),true);
+ assert.equal(c.compatible(m,{board:c.BOARDS[1],role:'consumer',base_version:'1.0.5',circuitpython:'10.3.1'}),false);
+ for(const edit of [m=>m.boards=[],m=>m.boards=[c.BOARDS[0],c.BOARDS[0]],m=>m.boards=['unknown'],
+  m=>m.roles=[],m=>m.roles=['producer','producer'],m=>m.roles=['unknown'],
+  m=>m.protocol_send=0,m=>m.protocol_send=256,m=>m.protocol_receive=[],
+  m=>m.protocol_receive=[3,3],m=>m.protocol_receive=[3,4,5,6,7]]){
+  const bad=manifest();edit(bad);assert.throws(()=>c.validateManifest(bad));
+ }
+});
+test('reject paths, duplicated files and bad digest',()=>{
+ for(const edit of [m=>m.files[0].name='../boot.py',m=>m.files[0]=m.files[1],m=>m.sha256='b'.repeat(64),m=>m.extra=true]){
   const m=manifest();edit(m);assert.throws(()=>c.validateManifest(m));
  }
 });
@@ -36,6 +49,13 @@ module.exports={manifest};
 function report(){return {device_id:'test',board:c.BOARDS[1],role:'consumer',version:'1.0.7',base_version:'1.0.4',
  circuitpython:'10.3.1',protocol_send:3,protocol_receive:[3],session:'a'.repeat(16),report_sequence:1,
  state:'current',deployment_sequence:11,error:'',health:{}};}
+test('reports accept bounded protocol capabilities',()=>{
+ assert.equal(c.validateReport({...report(),protocol_send:4,protocol_receive:[3,4]},'test').protocol_send,4);
+ for(const edit of [r=>r.protocol_send=0,r=>r.protocol_send=256,r=>r.protocol_receive=[],
+  r=>r.protocol_receive=[3,3],r=>r.protocol_receive=[3,4,5,6,7]]){
+  const invalid=report();edit(invalid);assert.throws(()=>c.validateReport(invalid,'test'),/invalid_report/);
+ }
+});
 test('optional battery reports preserve old devices and validate voltage/status pairs',()=>{
  assert.equal(c.validateReport(report(),'test').battery,undefined);
  for(const battery of [{voltage:3.87,status:'measured'},{voltage:null,status:'unsupported'},

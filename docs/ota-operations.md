@@ -677,6 +677,16 @@ filenames from the hash-verified remote manifest, including JSON or binary data
 assets in the inactive slot; release packaging still selects local source files.
 No data asset or parser ships in this release. Deployed base 1.0.4 cannot adopt that new validation
 rule without USB service.
+Base 1.0.5 also accepts nonempty release board/role subsets drawn from its
+supported hardware profiles and bounded ESP-NOW protocol versions instead of
+requiring the literal v3/full-fleet manifest. The app's `app_version.py` declares
+release targets and protocol capabilities; older installed apps imply v3.
+Subset-target releases publish app OTA artifacts only. Full USB deployment and
+base bundles require a full-fleet app for the recovery image, so a targeted app
+cannot replace recovery on an unsupported node. Base-only USB updates can still
+install the independent base files while preserving the existing recovery image.
+Actual packets remain v3 in app 1.0.9. A future protocol transition must still
+be coordinated across producer and consumers.
 
 Rollout order:
 

@@ -2,9 +2,15 @@ const crypto = require('node:crypto');
 const BOARDS = ['unexpectedmaker_feathers2', 'adafruit_feather_esp32_v2'];
 const FILES = ['animation.py','app_version.py','audio_features.py','audio_spectrum.py','config.py',
   'effects.py','lights_app.py','radio_protocol.py','sound_reactive.py','telemetry.py','wireless.py'];
-const RESERVED_APP_FILES=new Set(['boot.py','code.py','node_config.py','battery.py','ota_manifest.py',
-  'ota_store.py','ota_http.py','ota_bootstrap.py','telemetry_store.py','settings.toml','secrets.py']);
-const safeAppName=name=>typeof name==='string'&&/^[a-z][a-z0-9_]{0,39}\.[a-z0-9]{1,8}$/.test(name)&&!RESERVED_APP_FILES.has(name);
+const RESERVED_APP_STEMS=new Set(['boot','code','node_config','battery','ota_manifest',
+  'ota_store','ota_http','ota_bootstrap','telemetry_store','settings','secrets','credentials']);
+const safeAppName=name=>typeof name==='string'&&/^[a-z][a-z0-9_]{0,39}\.[a-z0-9]{1,8}$/.test(name)&&
+  !RESERVED_APP_STEMS.has(name.split('.')[0]);
+const validTargets=(values,allowed)=>Array.isArray(values)&&values.length>0&&values.length<=allowed.length&&
+  values.every(value=>typeof value==='string'&&allowed.includes(value))&&new Set(values).size===values.length;
+const validProtocol=(send,receive)=>Number.isInteger(send)&&send>=1&&send<=255&&Array.isArray(receive)&&
+  receive.length>0&&receive.length<=4&&receive.every(value=>Number.isInteger(value)&&value>=1&&value<=255)&&
+  new Set(receive).size===receive.length;
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const version = value => typeof value === 'string' && /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/.test(value);
@@ -21,9 +27,9 @@ function validateManifest(m) {
   if (!exact(m, ['schema','version','git_commit','app_api','minimum_base','circuitpython','boards','roles',
     'protocol_send','protocol_receive','files','sha256']) || m.schema!==1 || !version(m.version) ||
     !/^[a-f0-9]{40}$/.test(m.git_commit) || m.app_api!==1 || !version(m.minimum_base) ||
-    m.circuitpython!=='10.3.1' || JSON.stringify(m.boards)!==JSON.stringify(BOARDS) ||
-    JSON.stringify(m.roles)!==JSON.stringify(['producer','consumer']) || m.protocol_send!==3 ||
-    JSON.stringify(m.protocol_receive)!=='[3]' || !Array.isArray(m.files) || m.files.length<2 || m.files.length>24) {
+    m.circuitpython!=='10.3.1' || !validTargets(m.boards,BOARDS) ||
+    !validTargets(m.roles,['producer','consumer']) || !validProtocol(m.protocol_send,m.protocol_receive) ||
+    !Array.isArray(m.files) || m.files.length<2 || m.files.length>24) {
     throw new Error('invalid_manifest');
   }
   const seen=new Set(); let size=0;
@@ -48,8 +54,7 @@ function validateReport(b,id) {
   if (Object.hasOwn(b || {},'battery')) keys.push('battery');
   if (!exact(b,keys) || b.device_id!==id || !BOARDS.includes(b.board) || !['producer','consumer'].includes(b.role) ||
     (b.board===BOARDS[1] && b.role!=='consumer') || !version(b.version) || !version(b.base_version) ||
-    !version(b.circuitpython) || !Number.isInteger(b.protocol_send) || !Array.isArray(b.protocol_receive) ||
-    b.protocol_receive.length>4 || b.protocol_receive.some(v=>!Number.isInteger(v)||v<1||v>255) ||
+    !version(b.circuitpython) || !validProtocol(b.protocol_send,b.protocol_receive) ||
     !/^[a-f0-9]{16}$/.test(b.session) || !Number.isInteger(b.report_sequence) || b.report_sequence<1 || b.report_sequence>1000 ||
     !['recovery','current','trial','rolled_back'].includes(b.state) || !Number.isInteger(b.deployment_sequence) ||
     b.deployment_sequence<0 || b.deployment_sequence>2147483647 || typeof b.error!=='string' || b.error.length>80 ||

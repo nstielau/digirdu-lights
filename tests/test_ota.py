@@ -170,7 +170,9 @@ class ManifestTests(unittest.TestCase):
         for name in ('palette.json', 'intro.bmp', 'frames.bin', 'effect.mpy'):
             self.assertTrue(safe_app_name(name))
         for name in ('boot.py', 'code.py', 'node_config.py', 'ota_bootstrap.py',
-                     'settings.toml', 'secrets.py', '../boot.py', '/abs.py',
+                     'settings.toml', 'settings.json', 'secrets.py', 'secrets.json',
+                     'credentials.py', 'credentials.json', 'node_config.json',
+                     '../boot.py', '/abs.py',
                      'a/b.py', 'a\\b.json', '__import__.py', '.hidden.json',
                      'a..json', 'a.json.py', 'a.PNG', 'a.json?x', 'a.' + 'x'*9):
             self.assertFalse(safe_app_name(name))
@@ -178,6 +180,17 @@ class ManifestTests(unittest.TestCase):
     def test_compatibility_and_board_role(self):
         m, _ = release()
         self.assertEqual(validate(m, BOARDS[0], 'producer'), m)
+        m['boards'] = [BOARDS[0]]
+        m['roles'] = ['producer']
+        m['protocol_send'] = 4
+        m['protocol_receive'] = [3, 4]
+        self.assertEqual(validate(m, BOARDS[0], 'producer'), m)
+        with self.assertRaises(ValueError):
+            validate(m, BOARDS[1], 'consumer')
+        with self.assertRaises(ValueError):
+            validate(m, BOARDS[0], 'consumer')
+        m['boards'] = list(BOARDS)
+        m['roles'] = ['producer', 'consumer']
         for args in ((BOARDS[1], 'producer'), ('unknown', 'consumer'), (BOARDS[0], 'unknown')):
             with self.assertRaises(ValueError):
                 validate(m, *args)
@@ -188,7 +201,12 @@ class ManifestTests(unittest.TestCase):
         m, _ = release()
         variants = []
         for name, value in (('version', '1.0.01'), ('sequence', True), ('minimum_base', '9.0.0'),
-                            ('sha256', 'b'*64), ('protocol_send', 2), ('unexpected', 'x')):
+                            ('sha256', 'b'*64), ('protocol_send', 0), ('protocol_send', 256),
+                            ('protocol_receive', []), ('protocol_receive', [3, 3]),
+                            ('boards', []), ('boards', [BOARDS[0], BOARDS[0]]),
+                            ('boards', ['unknown_board']), ('roles', []),
+                            ('roles', ['producer', 'producer']), ('roles', ['unknown']),
+                            ('unexpected', 'x')):
             candidate = copy.deepcopy(m)
             candidate[name] = value
             variants.append(candidate)

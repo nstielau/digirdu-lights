@@ -17,10 +17,10 @@ MAX_FILES = 24
 REQUIRED_APP_FILES = ("app_version.py", "lights_app.py")
 # App files are written only inside an inactive slot. Keep base, identity and
 # boot names out of that slot so a release cannot accidentally shadow them.
-RESERVED_APP_FILES = ("boot.py", "code.py", "node_config.py", "battery.py",
-                      "ota_manifest.py", "ota_store.py", "ota_http.py",
-                      "ota_bootstrap.py", "telemetry_store.py", "settings.toml",
-                      "secrets.py")
+RESERVED_APP_STEMS = ("boot", "code", "node_config", "battery",
+                      "ota_manifest", "ota_store", "ota_http",
+                      "ota_bootstrap", "telemetry_store", "settings",
+                      "secrets", "credentials")
 
 
 def safe_app_name(name):
@@ -36,7 +36,7 @@ def safe_app_name(name):
             and "a" <= stem[0] <= "z"
             and all("a" <= c <= "z" or "0" <= c <= "9" or c == "_" for c in stem)
             and all("a" <= c <= "z" or "0" <= c <= "9" for c in extension)
-            and name not in RESERVED_APP_FILES)
+            and stem not in RESERVED_APP_STEMS)
 
 
 def sha256(data):
@@ -63,6 +63,19 @@ def bundle_digest(files):
                           for f in sorted(files, key=lambda f: f["name"])).encode())
 
 
+def valid_targets(values, allowed):
+    return (type(values) is list and 0 < len(values) <= len(allowed)
+            and all(type(value) is str and value in allowed for value in values)
+            and len(set(values)) == len(values))
+
+
+def valid_protocol(send, receive):
+    return (type(send) is int and 1 <= send <= 255 and type(receive) is list
+            and 0 < len(receive) <= 4
+            and all(type(value) is int and 1 <= value <= 255 for value in receive)
+            and len(set(receive)) == len(receive))
+
+
 def validate(m, board_id=None, role=None, cp_version="10.3.1", require_sequence=True):
     keys = {"schema", "version", "git_commit", "app_api", "minimum_base", "circuitpython",
             "boards", "roles", "protocol_send", "protocol_receive", "files", "sha256"}
@@ -72,9 +85,9 @@ def validate(m, board_id=None, role=None, cp_version="10.3.1", require_sequence=
         raise ValueError("manifest_fields")
     if (type(m["schema"]) is not int or m["schema"] != 1 or type(m["app_api"]) is not int
             or m["app_api"] != APP_API or version_tuple(m["minimum_base"]) > version_tuple(BASE_VERSION)
-            or m["circuitpython"] != cp_version or m["boards"] != list(BOARDS)
-            or m["roles"] != ["producer", "consumer"] or m["protocol_send"] != 3
-            or m["protocol_receive"] != [3]):
+            or m["circuitpython"] != cp_version or not valid_targets(m["boards"], BOARDS)
+            or not valid_targets(m["roles"], ("producer", "consumer"))
+            or not valid_protocol(m["protocol_send"], m["protocol_receive"])):
         raise ValueError("incompatible_manifest")
     version_tuple(m["version"])
     if (type(m["git_commit"]) is not str or len(m["git_commit"]) != 40
