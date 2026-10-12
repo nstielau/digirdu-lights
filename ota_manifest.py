@@ -1,17 +1,42 @@
 """USB-managed release contract, shared by device and host tooling."""
 import hashlib
 
-BASE_VERSION = "1.0.4"
+BASE_VERSION = "1.0.5"
 # App compatibility is independent of optional USB-base improvements.
-APP_MINIMUM_BASE = "1.0.4"  # Battery effect imports the shared base sensor.
+APP_MINIMUM_BASE = "1.0.5"  # Sleep telemetry uses the USB-base outbox and uploader.
 APP_API = 1
 BOARDS = ("unexpectedmaker_feathers2", "adafruit_feather_esp32_v2")
-APP_FILES = ("animation.py", "app_version.py", "audio_features.py", "audio_spectrum.py",
+LEGACY_APP_FILES = ("animation.py", "app_version.py", "audio_features.py", "audio_spectrum.py",
              "config.py", "effects.py", "lights_app.py", "radio_protocol.py",
              "sound_reactive.py", "wireless.py")
+APP_FILES = LEGACY_APP_FILES[:-1] + ("telemetry.py",) + LEGACY_APP_FILES[-1:]
 MAX_FILE = 65536
 MAX_TOTAL = 262144
 MAX_MANIFEST = 8192
+MAX_FILES = 24
+REQUIRED_APP_FILES = ("app_version.py", "lights_app.py")
+# App files are written only inside an inactive slot. Keep base, identity and
+# boot names out of that slot so a release cannot accidentally shadow them.
+RESERVED_APP_STEMS = ("boot", "code", "node_config", "battery",
+                      "ota_manifest", "ota_store", "ota_http",
+                      "ota_bootstrap", "telemetry_store", "settings",
+                      "secrets", "credentials")
+
+
+def safe_app_name(name):
+    # The slot may hold code or opaque data. A single safe basename keeps both
+    # device writes and cloud artifact URLs inside the selected app slot.
+    if type(name) is not str or not 3 <= len(name) <= 49:
+        return False
+    parts = name.split(".")
+    if len(parts) != 2:
+        return False
+    stem, extension = parts
+    return (1 <= len(stem) <= 40 and 1 <= len(extension) <= 8
+            and "a" <= stem[0] <= "z"
+            and all("a" <= c <= "z" or "0" <= c <= "9" or c == "_" for c in stem)
+            and all("a" <= c <= "z" or "0" <= c <= "9" for c in extension)
+            and stem not in RESERVED_APP_STEMS)
 
 
 def sha256(data):
@@ -38,6 +63,19 @@ def bundle_digest(files):
                           for f in sorted(files, key=lambda f: f["name"])).encode())
 
 
+def valid_targets(values, allowed):
+    return (type(values) is list and 0 < len(values) <= len(allowed)
+            and all(type(value) is str and value in allowed for value in values)
+            and len(set(values)) == len(values))
+
+
+def valid_protocol(send, receive):
+    return (type(send) is int and 1 <= send <= 255 and type(receive) is list
+            and 0 < len(receive) <= 4
+            and all(type(value) is int and 1 <= value <= 255 for value in receive)
+            and len(set(receive)) == len(receive))
+
+
 def validate(m, board_id=None, role=None, cp_version="10.3.1", require_sequence=True):
     keys = {"schema", "version", "git_commit", "app_api", "minimum_base", "circuitpython",
             "boards", "roles", "protocol_send", "protocol_receive", "files", "sha256"}
@@ -47,9 +85,9 @@ def validate(m, board_id=None, role=None, cp_version="10.3.1", require_sequence=
         raise ValueError("manifest_fields")
     if (type(m["schema"]) is not int or m["schema"] != 1 or type(m["app_api"]) is not int
             or m["app_api"] != APP_API or version_tuple(m["minimum_base"]) > version_tuple(BASE_VERSION)
-            or m["circuitpython"] != cp_version or m["boards"] != list(BOARDS)
-            or m["roles"] != ["producer", "consumer"] or m["protocol_send"] != 3
-            or m["protocol_receive"] != [3]):
+            or m["circuitpython"] != cp_version or not valid_targets(m["boards"], BOARDS)
+            or not valid_targets(m["roles"], ("producer", "consumer"))
+            or not valid_protocol(m["protocol_send"], m["protocol_receive"])):
         raise ValueError("incompatible_manifest")
     version_tuple(m["version"])
     if (type(m["git_commit"]) is not str or len(m["git_commit"]) != 40
@@ -63,18 +101,19 @@ def validate(m, board_id=None, role=None, cp_version="10.3.1", require_sequence=
     if require_sequence and (type(m["sequence"]) is not int or not 0 < m["sequence"] <= 2147483647):
         raise ValueError("invalid_sequence")
     files = m["files"]
-    if type(files) is not list or len(files) != len(APP_FILES):
+    if type(files) is not list or not len(REQUIRED_APP_FILES) <= len(files) <= MAX_FILES:
         raise ValueError("file_list")
     names = []
     total = 0
     for f in files:
         if type(f) is not dict or set(f) != {"name", "size", "sha256"}:
             raise ValueError("file_fields")
-        if (f["name"] not in APP_FILES or f["name"] in names or type(f["size"]) is not int
+        if (not safe_app_name(f["name"]) or f["name"] in names or type(f["size"]) is not int
                 or not 0 < f["size"] <= MAX_FILE or not is_digest(f["sha256"])):
             raise ValueError("invalid_file")
         names.append(f["name"])
         total += f["size"]
-    if total > MAX_TOTAL or not is_digest(m["sha256"]) or bundle_digest(files) != m["sha256"]:
+    if (any(name not in names for name in REQUIRED_APP_FILES) or total > MAX_TOTAL
+            or not is_digest(m["sha256"]) or bundle_digest(files) != m["sha256"]):
         raise ValueError("invalid_bundle")
     return m

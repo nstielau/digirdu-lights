@@ -663,3 +663,50 @@ test, and default-off wing power switching as the stronger hardware solution.
 The wing's DIN pad is level-shifted; both its diode-fed VBAT and VUSB sources
 must be considered for power isolation. Neither hardware change is installed.
 Do not treat the older two-wing visual pass as resolution of this recurrence.
+
+## NIC-10 RF telemetry candidate (app 1.0.9 / USB base 1.0.5)
+
+Code and host/emulator/browser tests implement a bounded ESP-NOW packet recorder,
+sleep-time local outbox and HTTPS upload, boot retry, separate authenticated
+telemetry API, and historical fleet comparison. This is an unreleased candidate;
+no device has been deployed or native latency measured for it. The current
+OTA app bundle adds `telemetry.py` as an eleventh file. The USB base adds
+`telemetry_store.py`; the app manifest requires base 1.0.5. Protocol v3 payload
+size and existing effects stay unchanged. Base 1.0.5 accepts bounded safe app
+filenames from the hash-verified remote manifest, including JSON or binary data
+assets in the inactive slot; release packaging still selects local source files.
+No data asset or parser ships in this release. Deployed base 1.0.4 cannot adopt that new validation
+rule without USB service.
+Base 1.0.5 also accepts nonempty release board/role subsets drawn from its
+supported hardware profiles and bounded ESP-NOW protocol versions instead of
+requiring the literal v3/full-fleet manifest. The app's `app_version.py` declares
+release targets and protocol capabilities; older installed apps imply v3.
+Subset-target releases publish app OTA artifacts only. Full USB deployment and
+base bundles require a full-fleet app for the recovery image, so a targeted app
+cannot replace recovery on an unsupported node. Base-only USB updates can still
+install the independent base files while preserving the existing recovery image.
+Actual packets remain v3 in app 1.0.9. A future protocol transition must still
+be coordinated across producer and consumers.
+
+Rollout order:
+
+1. Deploy Firebase functions, hosting and Firestore indexes/TTL with `make web-deploy`.
+   Verify telemetry upload authorization and the 90-day `expiresAt` TTL policy.
+2. Put each board into USB maintenance, run `make deploy-base` with verified
+   BOARD/PORT/MOUNT, preserve slots and credentials, then reboot normally.
+   Confirm fresh fleet reports say USB base 1.0.5 for every target board.
+3. Publish app 1.0.9 only after both bases are eligible. Update consumers and
+   producer through their normal OTA check-ins, and confirm current reports.
+4. Run a controlled two-node sleep session. Observe producer and consumer
+   records in RF sessions, induce packet loss on one consumer, test offline
+   sleep followed by boot retry, and measure frame time and sleep-upload delay.
+
+The per-node outbox keeps at most four batches of at most 49,152 bytes each.
+The RAM recorder retains the newest 112 windows and reports truncation. The
+sleep upload has an 18-second deadline, and boot retry gets 12 seconds after
+the normal check-in. Any Wi-Fi failure leaves the batch for a later boot;
+deep sleep still follows the failed attempt. No telemetry writes or association
+occur during playing. A power loss before intentional sleep may lose current
+RAM data. Each upload has a random stable batch ID, acknowledged before local
+deletion; server duplicates are idempotent. The dashboard displays the newest
+40 uploaded batches, not live RF state.

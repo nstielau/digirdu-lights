@@ -9,11 +9,15 @@ function report(seq=1){return {device_id:id,board:c.BOARDS[1],role:'consumer',ve
  circuitpython:'10.3.1',protocol_send:3,protocol_receive:[3],session:'1'.repeat(16),report_sequence:seq,
  state:'current',deployment_sequence:0,error:'',health:{}};}
 function manifest(ver='1.1.0',base='1.0.0'){
- const files=c.FILES.map(name=>({name,size:1,sha256:c.hash('x')}));
+ const files=(c.compare(ver,'1.0.9')>=0?c.FILES:c.FILES.filter(name=>name!=='telemetry.py')).map(name=>({name,size:1,sha256:c.hash('x')}));
  return {schema:1,version:ver,git_commit:'a'.repeat(40),app_api:1,minimum_base:base,circuitpython:'10.3.1',
  boards:c.BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
  sha256:c.hash(files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''))};
 }
+function telemetry(){return {schema:1,device_id:id,batch_id:'b'.repeat(16),record:{
+ schema:1,role:'consumer',boot_id:'c'.repeat(16),windows:[],
+ counts:{features:0,controls:0,skipped:0,rejected:0,native_drops:0,link_losses:0,audio_overruns:0,audio_discontinuities:0},
+ truncated_windows:0,epoch_uncertain:false,rssi:null}};}
 const admin={auth:{uid:'owner',token:{email,email_verified:true,firebase:{sign_in_provider:'google.com'}}},app:{appId:'test'}};
 beforeEach(async()=>{
  await fetch('http://127.0.0.1:8081/emulator/v1/projects/demo-digirdu/databases/(default)/documents',{method:'DELETE'});
@@ -56,7 +60,13 @@ test('pause, incompatible base and missing producer are independent',async()=>{
 test('download requires assigned compatible bundle and exact file',async()=>{
  await svc.checkIn(id,token,report());const m=manifest();
  assert.equal((await svc.artifact(id,token,m.sha256,'effects.py')).size,1);
+ m.files.push({name:'palette.json',size:5,sha256:c.hash('hello')});
+ m.files.sort((a,b)=>a.name.localeCompare(b.name));
+ m.sha256=c.hash(m.files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''));
+ await db.doc('releases/1.1.0').update({manifest:m});
+ assert.equal((await svc.artifact(id,token,m.sha256,'palette.json')).size,5);
  await assert.rejects(svc.artifact(id,token,m.sha256,'../settings.toml'),e=>e.status===404);
+ await assert.rejects(svc.artifact(id,token,m.sha256,'settings.toml'),e=>e.status===404);
  await db.doc('devices/'+id).update({paused:true});await assert.rejects(svc.artifact(id,token,m.sha256,'effects.py'),e=>e.status===404);
 });
 test('browser authentication, App Check and admin role all required',async()=>{
@@ -83,7 +93,27 @@ test('newest compatible stable falls back below a base-incompatible release',asy
  const result=await svc.checkIn(id,token,report());assert.equal(result.manifest.version,'1.1.0');assert.equal(result.manifest.sequence,3);
  assert.equal((await svc.artifact(id,token,manifest().sha256,'effects.py')).size,1);
 });
+test('board and role targeted releases fall back for other devices',async()=>{
+ const targeted=manifest('1.2.0');targeted.boards=[c.BOARDS[0]];targeted.roles=['producer'];
+ await db.doc('releases/1.2.0').set({approved:true,manifest:targeted});
+ await db.doc('channels/stable').set({version:'1.2.0',sequence:3});
+ const selected=await svc.checkIn(id,token,report());
+ assert.equal(selected.manifest.version,'1.1.0');
+ assert.equal((await svc.artifact(id,token,manifest().sha256,'effects.py')).size,1);
+});
 test('direct unauthenticated Firestore reads are denied by deployed emulator rules',async()=>{
  const response=await fetch('http://127.0.0.1:8081/v1/projects/demo-digirdu/databases/(default)/documents/devices/'+id);
  assert.equal(response.status,403);
+});
+test('telemetry upload is authenticated, idempotent and visible only to admins',async()=>{
+ const batch=telemetry();
+ assert.deepEqual(await svc.telemetry(id,token,batch),{accepted:batch.batch_id});
+ assert.deepEqual(await svc.telemetry(id,token,batch),{accepted:batch.batch_id});
+ const view=await svc.telemetryOverview(admin);
+ assert.equal(view.batches.length,1);assert.equal(view.batches[0].record.boot_id,batch.record.boot_id);
+ await assert.rejects(svc.telemetry(id,'d'.repeat(64),batch),e=>e.status===401);
+ await assert.rejects(svc.telemetry(id,token,{...batch,record:{...batch.record,epoch_uncertain:true}}),e=>e.status===409);
+ await assert.rejects(svc.telemetryOverview({}),e=>e.status===401);
+ await db.doc('devices/'+id).update({enabled:false});
+ await assert.rejects(svc.telemetry(id,token,{...batch,batch_id:'d'.repeat(16)}),e=>e.status===401);
 });

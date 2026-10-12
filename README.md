@@ -1477,3 +1477,61 @@ battery attached. A numeric reading is not battery-presence detection.
 
 The saved didgeridoo take contains no battery measurements. Replay continues
 to render only the five audio effects; no battery data is invented.
+
+## RF packet telemetry (app 1.0.9 / USB base 1.0.5 candidate)
+
+Each node keeps a bounded RAM record of ESP-NOW packet sequence windows while
+playing. The producer records attempted, native-completed and failed sends,
+audio overruns and discontinuities;
+consumers record accepted feature/control sequences, RSSI, native receive-buffer
+failures, protocol rejections and link-loss transitions. The recorder does not
+store audio, flash data or use Wi-Fi during the music loop. It keeps the newest
+112 windows of 256 sequence numbers (roughly 40 minutes at 12 sends/second);
+older windows are counted as truncated. Control packets are excluded from
+missing-feature counts. Sequence wrap is tracked locally; a consumer that joins
+after an unknown wrap is labelled ambiguous in the dashboard.
+
+After an intentional three-second sleep fade, the app closes audio and ESP-NOW,
+blacks out and holds the wing data pin LOW, then USB base 1.0.5 writes one
+bounded JSON batch to `/telemetry/`. It attempts one time-limited HTTPS upload
+before deep sleep. A failed upload remains queued; boot maintenance retries one
+batch after the ordinary check-in. The four-batch queue retains newest sessions
+when full. An abrupt power loss before sleep can lose the current RAM record.
+The upload receipt's stable batch ID prevents duplicate history after a retry.
+No sleep wake alarm is added.
+
+The authenticated fleet page shows recent historical RF sessions, per-consumer
+missing feature IDs, unobserved intervals, RSSI, native drops and producer send
+results. "Missing" means a native-completed producer feature send that falls
+between two consumer observations of that producer session. ESP-NOW native
+completion does not prove a frame reached the antenna; outside the observation
+range, the page says "unobserved." RSSI and error/audio counters cover a device
+boot and may span multiple producer sessions; the page labels their boot scope.
+Firestore retains uploaded batches for 90
+days under the configured TTL policy; the page loads the newest 40 batches.
+
+Deploy the device API, dashboard and Firestore TTL/index configuration before
+installing USB base 1.0.5. Use `make deploy-base` in each board's USB maintenance
+mode, reset normally and confirm a fresh base report, then publish app 1.0.9
+with its minimum-base requirement. App-only OTA cannot install the queue.
+Base 1.0.5 accepts bounded, safe app filenames listed in a hash-verified remote
+manifest and downloads those files as bytes into the inactive slot. This includes
+JSON, bitmap or other data assets with flat lowercase names, a single dot and a
+1–8 character extension; the app must parse any asset it uses. Path separators,
+hidden files, protected base/config names and duplicate names remain forbidden.
+The 24-file, 64-KiB-per-file and 256-KiB-total bounds still apply. Future app
+modules and data assets can be added without changing the device base's file
+list; release packaging still selects the source files. Installed base 1.0.4 retains
+its fixed ten-file validation, so it cannot accept an added module retroactively.
+App release metadata now declares its target board/role subset and ESP-NOW send
+and receive versions in `app_version.py`. Base 1.0.5 validates bounded protocol
+numbers without fixing them to v3 and reports the installed app's values; apps
+released before these declarations continue to report v3. The selected app's
+metadata must match its manifest. A protocol upgrade still needs a coordinated
+producer/consumer rollout so the radios remain mutually compatible.
+Subset-target app releases omit base bundles. Full USB recovery deployment
+requires an app supporting the complete verified fleet; base-only USB updates
+can preserve the installed recovery image.
+Existing effects and 51-byte feature packets do not change. Native sleep/upload
+timing and culvert RF coverage still need a two-board field trial; host tests
+do not establish either measurement.

@@ -107,7 +107,8 @@ class SleepProtocolTests(unittest.TestCase):
         cls=wireless_class();link=cls.__new__(cls)
         link.c=self.c;link.radio=Mock(send_success=0,send_failure=0)
         link.transmitter=self.tx;link.peer=object();link.next_send=0
-        link.pending=False;link.completed=0;link.sleep_turn=True
+        link.pending=False;link.completed=0;link.completed_success=0;link.pending_sequence=None;link.sleep_turn=True
+        link.telemetry=Mock()
         link.skipped=link.sent=link.errors=0
         link.publish(self.f,self.a,10,self.sleep)
         link.publish(self.f,self.a,10.1,self.sleep)  # Send still pending.
@@ -130,6 +131,17 @@ def load_app():
 
 
 class ShutdownTests(unittest.TestCase):
+    def test_sleep_callback_runs_with_wing_data_held_low_before_alarm(self):
+        app=load_app();order=[];record=Mock();record.snapshot.return_value={'schema':1}
+        class DeepSleep(BaseException):pass
+        with patch.object(app,'run_follower',side_effect=app.SleepRequested(record)), \
+             patch.object(app,'hold_wing_data_low',side_effect=lambda:order.append('hold') or object()), \
+             patch.object(app,'enter_deep_sleep',side_effect=lambda pin:order.append('alarm') or (_ for _ in ()).throw(DeepSleep)):
+            with self.assertRaises(DeepSleep):
+                app.main(on_sleep=lambda data:order.append('upload'))
+        self.assertEqual(order,['hold','upload','alarm'])
+        record.snapshot.assert_called_once()
+
     def test_no_wake_alarms_watchdog_off_and_no_ota_failure_exception(self):
         app=load_app()
         class DeepSleep(BaseException):pass

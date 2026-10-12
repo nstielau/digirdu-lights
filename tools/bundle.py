@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from ota_manifest import APP_FILES, APP_MINIMUM_BASE, BASE_VERSION, BOARDS, bundle_digest, sha256, validate
 
-BASE_FILES = ('ota_manifest.py', 'ota_store.py', 'ota_http.py', 'ota_bootstrap.py', 'battery.py',
+BASE_FILES = ('ota_manifest.py', 'ota_store.py', 'ota_http.py', 'ota_bootstrap.py', 'battery.py', 'telemetry_store.py',
               'certs/google-roots.pem', 'boot.py', 'code.py')
 
 
@@ -22,14 +22,25 @@ def manifest(contents, commit):
     files = [{'name': name, 'size': len(contents[name]), 'sha256': sha256(contents[name])} for name in APP_FILES]
     result = {'schema': 1, 'version': identity['APP_VERSION'], 'app_api': identity['APP_API_VERSION'],
               'git_commit': commit, 'minimum_base': APP_MINIMUM_BASE, 'circuitpython': '10.3.1',
-              'boards': list(BOARDS), 'roles': ['producer', 'consumer'], 'protocol_send': 3,
-              'protocol_receive': [3], 'files': files, 'sha256': bundle_digest(files)}
+              'boards': list(identity.get('APP_BOARDS', BOARDS)),
+              'roles': list(identity.get('APP_ROLES', ('producer', 'consumer'))),
+              'protocol_send': identity.get('PROTOCOL_SEND', 3),
+              'protocol_receive': list(identity.get('PROTOCOL_RECEIVE', (3,))),
+              'files': files, 'sha256': bundle_digest(files)}
     validate(result, require_sequence=False)
     return result
 
 
+def full_fleet_recovery(release):
+    """A USB recovery image must be usable on every supported board and role."""
+    return set(release['boards']) == set(BOARDS) and set(release['roles']) == {'producer', 'consumer'}
+
+
 def deployment_contents():
+    app = application()
+    if not full_fleet_recovery(manifest(app, '0' * 40)):
+        raise ValueError('USB recovery requires an app supporting every board and role')
     contents = {'node_config.py': (ROOT / 'node_config.py').read_bytes()}
-    contents.update({'recovery/' + name: data for name, data in application().items()})
+    contents.update({'recovery/' + name: data for name, data in app.items()})
     contents.update({name: (ROOT / name).read_bytes() for name in BASE_FILES})
     return contents

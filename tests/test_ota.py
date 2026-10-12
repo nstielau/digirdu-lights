@@ -6,12 +6,13 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from ota_manifest import APP_FILES, BOARDS, bundle_digest, sha256, validate
+from ota_manifest import APP_FILES, LEGACY_APP_FILES, BOARDS, bundle_digest, sha256, validate, safe_app_name
 from ota_store import UpdateStore
 
 
 def release(sequence=1, version="1.0.0"):
-    data = {name: ("# " + name + "\n").encode() for name in APP_FILES}
+    names = APP_FILES if tuple(int(v) for v in version.split('.')) >= (1, 0, 9) else LEGACY_APP_FILES
+    data = {name: ("# " + name + "\n").encode() for name in names}
     data['app_version.py'] = ('APP_VERSION = "%s"\nAPP_API_VERSION = 1\n' % version).encode()
     files = [{"name": name, "size": len(value), "sha256": sha256(value)} for name, value in data.items()]
     return {"schema": 1, "version": version, "git_commit": "a"*40, "app_api": 1,
@@ -21,6 +22,28 @@ def release(sequence=1, version="1.0.0"):
 
 
 class StoreTests(unittest.TestCase):
+    def test_manifest_stages_new_safe_module_named_by_release(self):
+        manifest, data = release(version='1.0.9')
+        data['new_effect2.py'] = b'VALUE=2\n'
+        manifest['files'].append({'name':'new_effect2.py','size':len(data['new_effect2.py']),
+                                  'sha256':sha256(data['new_effect2.py'])})
+        manifest['sha256'] = bundle_digest(manifest['files'])
+        self.assertTrue(self.store.stage(manifest,lambda m,f,consume:consume([data[f['name']]])))
+        self.assertEqual(Path(self.store.path(self.store.state['trial']), 'new_effect2.py').read_bytes(),b'VALUE=2\n')
+
+    def test_manifest_stages_json_and_binary_assets_as_bytes(self):
+        manifest, data = release(version='1.0.9')
+        data['palette.json'] = b'{"colors":[1,2,3]}\n'
+        data['intro.bmp'] = b'BM\x00\xff\x80\x00'
+        for name in ('palette.json', 'intro.bmp'):
+            manifest['files'].append({'name': name, 'size': len(data[name]), 'sha256': sha256(data[name])})
+        manifest['sha256'] = bundle_digest(manifest['files'])
+        self.assertTrue(self.store.stage(manifest, lambda m, f, consume: consume([data[f['name']]])))
+        slot = Path(self.store.path(self.store.state['trial']))
+        self.assertEqual((slot / 'palette.json').read_bytes(), data['palette.json'])
+        self.assertEqual((slot / 'intro.bmp').read_bytes(), data['intro.bmp'])
+        self.assertFalse((Path(self.root) / 'palette.json').exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -135,9 +158,39 @@ class StoreTests(unittest.TestCase):
 
 
 class ManifestTests(unittest.TestCase):
+    def test_manifest_downloads_safe_new_files_without_base_name_allowlist(self):
+        old, _ = release(version='1.0.8')
+        new, _ = release(version='1.0.9')
+        self.assertEqual(len(validate(old)['files']), 10)
+        self.assertEqual(len(validate(new)['files']), 11)
+        extra = {'name': 'new_effect2.py', 'size': 1, 'sha256': sha256(b'x')}
+        new['files'].append(extra)
+        new['sha256'] = bundle_digest(new['files'])
+        self.assertEqual(len(validate(new)['files']), 12)
+        for name in ('palette.json', 'intro.bmp', 'frames.bin', 'effect.mpy'):
+            self.assertTrue(safe_app_name(name))
+        for name in ('boot.py', 'code.py', 'node_config.py', 'ota_bootstrap.py',
+                     'settings.toml', 'settings.json', 'secrets.py', 'secrets.json',
+                     'credentials.py', 'credentials.json', 'node_config.json',
+                     '../boot.py', '/abs.py',
+                     'a/b.py', 'a\\b.json', '__import__.py', '.hidden.json',
+                     'a..json', 'a.json.py', 'a.PNG', 'a.json?x', 'a.' + 'x'*9):
+            self.assertFalse(safe_app_name(name))
+
     def test_compatibility_and_board_role(self):
         m, _ = release()
         self.assertEqual(validate(m, BOARDS[0], 'producer'), m)
+        m['boards'] = [BOARDS[0]]
+        m['roles'] = ['producer']
+        m['protocol_send'] = 4
+        m['protocol_receive'] = [3, 4]
+        self.assertEqual(validate(m, BOARDS[0], 'producer'), m)
+        with self.assertRaises(ValueError):
+            validate(m, BOARDS[1], 'consumer')
+        with self.assertRaises(ValueError):
+            validate(m, BOARDS[0], 'consumer')
+        m['boards'] = list(BOARDS)
+        m['roles'] = ['producer', 'consumer']
         for args in ((BOARDS[1], 'producer'), ('unknown', 'consumer'), (BOARDS[0], 'unknown')):
             with self.assertRaises(ValueError):
                 validate(m, *args)
@@ -148,7 +201,12 @@ class ManifestTests(unittest.TestCase):
         m, _ = release()
         variants = []
         for name, value in (('version', '1.0.01'), ('sequence', True), ('minimum_base', '9.0.0'),
-                            ('sha256', 'b'*64), ('protocol_send', 2), ('unexpected', 'x')):
+                            ('sha256', 'b'*64), ('protocol_send', 0), ('protocol_send', 256),
+                            ('protocol_receive', []), ('protocol_receive', [3, 3]),
+                            ('boards', []), ('boards', [BOARDS[0], BOARDS[0]]),
+                            ('boards', ['unknown_board']), ('roles', []),
+                            ('roles', ['producer', 'producer']), ('roles', ['unknown']),
+                            ('unexpected', 'x')):
             candidate = copy.deepcopy(m)
             candidate[name] = value
             variants.append(candidate)
