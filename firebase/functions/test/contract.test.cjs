@@ -2,7 +2,7 @@ const {test}=require('node:test');const assert=require('node:assert/strict');
 const c=require('../contract.cjs');
 function manifest(){const files=c.FILES.map(name=>({name,size:1,sha256:c.hash('x')}));return {
  schema:1,version:'1.2.0',git_commit:'a'.repeat(40),app_api:1,minimum_base:'1.0.0',circuitpython:'10.3.1',
- boards:c.BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
+ boards:c.LEGACY_BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
  sha256:c.hash(files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''))};}
 test('manifest and numeric semantic ordering',()=>{assert.equal(c.validateManifest(manifest()).version,'1.2.0');assert.ok(c.compare('1.10.0','1.9.0')>0);});
 test('manifest accepts bounded new app modules and old releases without a fixed file list',()=>{
@@ -43,6 +43,18 @@ test('reject paths, duplicated files and bad digest',()=>{
 test('hardware and base compatibility',()=>{
  const m=manifest();assert.ok(c.compatible(m,{board:c.BOARDS[1],role:'consumer',base_version:'1.0.0',circuitpython:'10.3.1'}));
  assert.equal(c.compatible(m,{board:c.BOARDS[1],role:'producer',base_version:'1.0.0',circuitpython:'10.3.1'}),false);
+});
+test('Reverse TFT check-ins and schema 2 releases are accepted without widening schema 1 boards',()=>{
+ const s3={...report(),board:'adafruit_feather_esp32s3_reverse_tft',version:'1.1.3',base_version:'1.1.4'};
+ assert.equal(c.validateReport(s3,'test').board,s3.board);
+ const m=manifest();m.schema=2;m.version='1.1.3';m.minimum_base='1.1.0';
+ m.boards=[s3.board];m.roles=['consumer'];
+ assert.equal(c.validateManifest(m),m);
+ assert.equal(c.compatible(m,s3),true);
+ assert.equal(c.compatible(m,{...s3,base_version:'1.0.4'}),false);
+ for(const edit of [x=>x.schema=1,x=>x.minimum_base='1.0.4']){
+  const invalid={...m};edit(invalid);assert.throws(()=>c.validateManifest(invalid));
+ }
 });
 module.exports={manifest};
 

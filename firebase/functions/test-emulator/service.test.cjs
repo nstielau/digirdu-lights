@@ -11,7 +11,7 @@ function report(seq=1){return {device_id:id,board:c.BOARDS[1],role:'consumer',ve
 function manifest(ver='1.1.0',base='1.0.0'){
  const files=(c.compare(ver,'1.0.9')>=0?c.FILES:c.FILES.filter(name=>name!=='telemetry.py')).map(name=>({name,size:1,sha256:c.hash('x')}));
  return {schema:1,version:ver,git_commit:'a'.repeat(40),app_api:1,minimum_base:base,circuitpython:'10.3.1',
- boards:c.BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
+ boards:c.LEGACY_BOARDS,roles:['producer','consumer'],protocol_send:3,protocol_receive:[3],files,
  sha256:c.hash(files.map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join(''))};
 }
 function telemetry(){return {schema:1,device_id:id,batch_id:'b'.repeat(16),record:{
@@ -31,6 +31,17 @@ test('check-in persists actual version and returns newest target',async()=>{
  const result=await svc.checkIn(id,token,report());assert.equal(result.manifest.version,'1.1.0');
  assert.equal((await db.doc('devices/'+id).get()).data().report.version,'1.0.0');
  const view=await svc.overview(admin);assert.equal(view.devices[0].report.version,'1.0.0');assert.ok(!JSON.stringify(view).includes(c.hash(token)));
+});
+test('Reverse TFT checks in against a schema 2 release and reports its installed version',async()=>{
+ const s3=manifest('1.1.2','1.1.0');s3.schema=2;s3.boards=[c.BOARDS[2]];s3.roles=['consumer'];
+ await db.doc('releases/1.1.2').set({approved:true,manifest:s3});
+ await db.doc('channels/stable').set({version:'1.1.2',sequence:2});
+ await db.doc('devices/'+id).update({board:c.BOARDS[2]});
+ const body={...report(),board:c.BOARDS[2],version:'1.1.3',base_version:'1.1.4'};
+ const result=await svc.checkIn(id,token,body);
+ assert.equal(result.manifest,null);
+ assert.deepEqual(result.update_status,{schema:1,state:'checked',blocked:null});
+ assert.equal((await db.doc('devices/'+id).get()).data().report.version,'1.1.3');
 });
 test('bad credentials, disabled identity and cross-device reports rejected',async()=>{
  await assert.rejects(svc.checkIn(id,'b'.repeat(64),report()),e=>e.status===401);
