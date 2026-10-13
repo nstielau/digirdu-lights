@@ -1354,3 +1354,21 @@ does not install the new app. The host tests exercise the gesture, cancellation,
 no-command behavior, NVM consumption, boot selection, and display states.
 Native entry/exit, visible colors, filesystem handoff, and user button feel
 remain unqualified until a Reverse TFT receives both parts.
+
+## October 13: app 1.1.4 release and first base 1.1.5 install
+
+PR #6 merged into `feature/reverse-tft` at `6b24bfb`. The merged source passed
+246 host tests and was tagged `firmware-v1.1.4`. Its stable GitHub release
+contains the full-fleet app manifest (protocol v3, minimum base 1.1.0) and
+base 1.1.5 recovery bundle. The GitHub `Verify and import firmware release`
+run `38459922782` passed source/asset verification and reported an immutable
+import with stable advanced to 1.1.4.
+
+The first connected Reverse TFT, UID `468e3337cc40`, entered maintenance via
+RESET then D0. `make deploy-base` identified its board/port, backed up files,
+verified 12 base files, and restarted the recovery app. An independent host
+readback matched all 12 installed base files to merged source. Serial startup
+reported `OTA mode=maintenance app=1.1.0 base=1.1.5`, follower role, group 1,
+and a running render loop. This confirms the USB base copy and maintenance
+startup, not app 1.1.4 OTA adoption, physical orange appearance, or the new
+chord. The device disconnected before a normal-mode OTA reset was observed.
