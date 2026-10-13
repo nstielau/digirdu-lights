@@ -7,10 +7,33 @@ import unittest
 from unittest.mock import Mock,patch,mock_open
 from types import SimpleNamespace
 from audio_features import AudioFeatures
-from ota_bootstrap import Health,TrialReady,main,OTAIndicator,network
+from ota_bootstrap import Health,TrialReady,main,OTAIndicator,network,app_protocol,app_targets,validate_app_manifest,telemetry_on_sleep,upload_telemetry,report_body
+from telemetry_store import TelemetryQueue
 
 
 class OTAIndicatorTests(unittest.TestCase):
+    def test_boot_without_telemetry_has_no_storage_write(self):
+        with patch('ota_bootstrap.os.stat',side_effect=OSError('absent')), \
+             patch('ota_bootstrap.TelemetryQueue') as queue:
+            self.assertEqual(upload_telemetry(Mock(),Mock()),0)
+            queue.assert_not_called()
+
+    def test_offline_sleep_preserves_telemetry_batch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            queue=TelemetryQueue(folder+'/telemetry',sync=lambda:None)
+            radio=Mock();radio.connect.side_effect=OSError('offline')
+            cfg={'id':'a'*16,'ssid':'openwireless.org','token':'b'*64,'api':'unused'}
+            with patch.dict(sys.modules,{'wifi':SimpleNamespace(radio=radio),'socketpool':SimpleNamespace()}), \
+                 patch('ota_bootstrap.TelemetryQueue',return_value=queue),patch('ota_bootstrap.nvm_flag'):
+                telemetry_on_sleep({'schema':1},cfg,Mock())
+            self.assertEqual(len(queue.pending()),1)
+            radio.stop_station.assert_called_once()
+
+    def test_storage_failure_does_not_abort_sleep(self):
+        with patch('ota_bootstrap.TelemetryQueue',side_effect=OSError('full')), \
+             patch.dict(sys.modules,{'wifi':SimpleNamespace(radio=Mock())}):
+            telemetry_on_sleep({'schema':1},{'id':'a'*16},Mock())
+
     def test_verified_pins_single_cyan_pixel_timing_wrap_and_cleanup(self):
         for board_id, pin_name in (('unexpectedmaker_feathers2','IO38'),
                                    ('adafruit_feather_esp32_v2','D32')):
@@ -47,6 +70,7 @@ class OTAIndicatorTests(unittest.TestCase):
                  patch('ota_bootstrap.OTAIndicator',return_value=progress), \
                  patch('ota_bootstrap.DeviceHTTP',return_value=client), \
                  patch('ota_bootstrap.report_body',return_value={}), \
+                 patch('ota_bootstrap.upload_telemetry'), \
                  patch('ota_bootstrap.nvm_flag'), patch('ota_bootstrap.time.sleep'):
                 self.assertFalse(network(store,cfg,'1.0.6','session',1,Mock()))
                 progress.screen.version.assert_called_with('1.0.6')
@@ -62,8 +86,40 @@ class OTAIndicatorTests(unittest.TestCase):
         indicator.pin.deinit.assert_called_once()
 
     def test_battery_app_requires_base_with_shared_sensor(self):
-        from tools.bundle import application,manifest
-        self.assertEqual(manifest(application(),'a'*40)['minimum_base'],'1.1.0')
+        from tools.bundle import application,manifest,full_fleet_recovery,deployment_contents
+        contents=application()
+        self.assertEqual(manifest(contents,'a'*40)['minimum_base'],'1.1.0')
+        self.assertTrue(full_fleet_recovery(manifest(contents,'a'*40)))
+        contents['app_version.py']+=(b'\nAPP_BOARDS=("adafruit_feather_esp32s3_reverse_tft",)\n'
+                                     b'APP_ROLES=("consumer",)\nPROTOCOL_SEND=4\nPROTOCOL_RECEIVE=(3,4)\n')
+        targeted=manifest(contents,'a'*40)
+        self.assertFalse(full_fleet_recovery(targeted))
+        self.assertEqual((targeted['protocol_send'],targeted['protocol_receive']),(4,[3,4]))
+        with patch('tools.bundle.application',return_value=contents):
+            with self.assertRaisesRegex(ValueError,'USB recovery requires'):
+                deployment_contents()
+
+    def test_app_metadata_matches_modern_manifest_and_reports_protocol(self):
+        from test_ota_contracts import ContractsTests
+        release=ContractsTests().modern()
+        identity={'APP_BOARDS':('adafruit_feather_esp32s3_reverse_tft',),
+                  'APP_ROLES':('consumer',),'PROTOCOL_SEND':4,'PROTOCOL_RECEIVE':(3,4)}
+        release['boards']=['adafruit_feather_esp32s3_reverse_tft']
+        release['roles']=['consumer']
+        release['protocol_send']=4
+        release['protocol_receive']=[3,4]
+        self.assertEqual(app_targets(identity,2),(['adafruit_feather_esp32s3_reverse_tft'],['consumer']))
+        self.assertEqual(app_protocol(identity),(4,[3,4]))
+        self.assertIs(validate_app_manifest(release,identity,'adafruit_feather_esp32s3_reverse_tft',
+                                            'consumer','10.3.1'),release)
+        with self.assertRaisesRegex(ValueError,'manifest_targets_mismatch'):
+            validate_app_manifest(release,{**identity,'APP_ROLES':('producer',)},
+                                  'adafruit_feather_esp32s3_reverse_tft','consumer','10.3.1')
+        store=SimpleNamespace(state={'outcome':'current','floor':11,'error':''})
+        cfg={'id':'test','board':'adafruit_feather_esp32s3_reverse_tft','role':'consumer'}
+        with patch('ota_bootstrap.read_battery',return_value={'voltage':None,'status':'unsupported'}):
+            body=report_body(store,cfg,'1.1.2','session',1,identity=identity)
+        self.assertEqual((body['protocol_send'],body['protocol_receive']),(4,[3,4]))
 
 class RecoveryBootTests(unittest.TestCase):
     def test_new_rollback_skips_network_but_later_boot_reports(self):

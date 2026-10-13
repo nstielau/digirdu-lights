@@ -12,7 +12,7 @@ stays in RAM; only normalized features and animation state are transmitted.
 [OTA operations and recovery](docs/ota-operations.md) describe the implemented
 GitHub release/Firebase update workflow, device enrollment and validation status.
 Devices try open `openwireless.org` at boot and return to ESP-NOW for playing.
-App 1.0.7 adds Battery as the sixth effect. USB base 1.0.4 adds voltage to
+App 1.0.7 adds Battery as the sixth effect. Device base 1.0.4 adds voltage to
 device reports and supplies the shared sensor reader; install that base on
 each board before it can receive app 1.0.7.
 App 1.0.6 keeps the wing data line LOW through sleep to prevent stray pixels.
@@ -1290,7 +1290,7 @@ Sources: [FeatherWing power and level-shifter wiring](https://learn.adafruit.com
 The pull-down and switched-power suggestions are circuit-design recommendations,
 not modifications already installed or verified on these boards.
 
-### OTA activity light (USB base 1.0.3)
+### OTA activity light (device base 1.0.3)
 
 During the boot-time OTA check, download, or confirmation report, one cyan
 pixel advances along the 32-pixel wing about every half-second, wrapping
@@ -1301,7 +1301,7 @@ hold the current pixel until they return. The indicator clears and releases
 the wing pin before normal audio effects start, including when Wi-Fi fails.
 The existing full-wing blue flash still marks the USB maintenance window.
 
-Install this optional **USB base 1.0.3** with `make deploy-base` on each board.
+Install this optional **device base 1.0.3** with `make deploy-base` on each board.
 For FeatherS2, first tap RESET, then press/release BOOT during the blue flash.
 The deploy command backs up and verifies the base files, preserving credentials,
 node settings, recovery app and OTA slots. A normal RESET afterward checks OTA
@@ -1352,11 +1352,11 @@ battery attached. A numeric reading is not battery-presence detection.
 
 ### Install
 
-1. Deploy the backward-compatible device API, then install **USB base 1.0.4**
+1. Deploy the backward-compatible device API, then install **device base 1.0.4**
    using `make deploy-base` on each board. FeatherS2 requires BOOT-after-RESET
    maintenance mode. This preserves credentials, node settings and app slots.
 2. Reset normally to check OTA and install **app 1.0.7**. Its manifest requires
-   base 1.0.4 because the shared `battery.py` reader is part of the USB base.
+   base 1.0.4 because the shared `battery.py` reader is part of the device base.
 3. Update every consumer before selecting effect 6. Older apps reject that
    effect ID; the feature packet stays protocol v3 and does not carry voltage.
 
@@ -1413,7 +1413,7 @@ explicit source MAC. Setup requires device-owned storage to save from the TFT;
 when USB owns the filesystem it displays the host command instead.
 
 ```sh
-# Install the USB base/recovery application; identity and saved tuning survive.
+# Install the device base and recovery app; identity and saved tuning survive.
 make deploy BOARD=adafruit_feather_esp32s3_reverse_tft
 
 # Explicit consumer source: use the producer's RADIO mac= log.
@@ -1449,7 +1449,7 @@ change an enrolled role. Credentials are never part of an app release.
 
 ### TFT dashboard and controls
 
-**EchoGlow startup (USB base1.1.3):** the Reverse TFT shows EchoGlow, the selected
+**EchoGlow startup (device base 1.1.3):** the Reverse TFT shows EchoGlow, the selected
 local **app version**, and a live startup status. A cyan soundwave travels into
 a magenta wall, reflects back, and bursts into cyan/pink/gold light before
 settling into a gentle glow. Animation targets20Hz; blocking imports/Wi-Fi/TLS
@@ -1628,9 +1628,9 @@ heartbeats. Protocol checks are not authentication against malicious RF senders.
 
 ### OTA compatibility and qualification
 
-USB base/app 1.1.0 requires minimum base 1.1.0. The base adds `hardware.py` and
+Device base/app 1.1.0 requires minimum base 1.1.0. The base adds `hardware.py` and
 `node_state.py`; app schema 2 adds `dashboard.py` and `device_setup.py`. Upgrade
-cloud validators before publishing a new release, then install the USB base
+cloud validators before publishing a new release, then install the device base
 on each board. This is a one-time USB dependency update, not an app-only OTA.
 
 Both base and cloud retain the exact historical schema-1 ten-file/two-board
@@ -1683,15 +1683,21 @@ EchoGlow startup, consumer dashboard, and D0 wake/page switching are confirmed
 by the user. Live radio testing and cloud OTA enrollment remain pending.
 
 
-### Device information page (USB base 1.1.3)
+### Device information page (device base 1.1.3)
+
+The **device base** is the installed boot, recovery, hardware support and OTA
+update layer. It is installed over USB whether or not the device is enrolled
+for app OTA. It has its own version, separate from the lighting app and the
+CircuitPython firmware. `make deploy-base` updates this layer while preserving
+the app, saved configuration and credentials.
 
 D0 now cycles **Audio → Status → Brightness → Device**. Device shows the actual
-running app version, installed USB base version, and complete device ID (the
+running app version, installed device base version, and complete device ID (the
 lowercase CPU UID used for fleet enrollment, not the ESP-NOW MAC). D1 still
 changes the group effect and holding D2 still requests group sleep. Display
 idle, wake-only first press, and the sleep overlay apply on all four pages.
 
-The update area reports this boot's check-in result. **USB BASE NEEDED** names
+The update area reports this boot's check-in result. **BASE UPDATE NEEDED** names
 the newer blocked app and its minimum base. A successful check without such a
 block says **No base block found**; this is not a claim that every kind of update
 or incompatibility has been resolved. Disabled/unenrolled, USB maintenance,
@@ -1701,7 +1707,7 @@ check includes a short safe reason when known, such as `Wi-Fi`, `timeout`, or
 Wi-Fi polling or status persistence was added; reboot normally near the configured
 SSID for a fresh check. A failed check does not reuse an old warning as current.
 
-Full status reporting needs the new server check-in response and **USB base
+Full status reporting needs the new server check-in response and **device base
 1.1.3**, installed using `make deploy-base` in maintenance mode. New/older server
 and base combinations fail safely to unavailable status. The app remains
 compatible with base1.1.0+; older bases display versions/ID and **Status needs
@@ -1762,3 +1768,13 @@ Reverse TFT report contract. Other boards may still need their individual USB
 `ota-provision` step; inspect `make ota-status` before assuming a board can
 perform a check-in. Credentials remain owner-only in the ignored OTA artifact
 directory.
+
+The Echo Glow Reverse TFT device base 1.1.4 prepares for RF telemetry by adding a
+bounded durable outbox and accepting safe manifest-listed schema-2 app modules
+or data assets. Install it with `make deploy-base BOARD=adafruit_feather_esp32s3_reverse_tft`
+over USB in maintenance mode. This preserves the installed app, OTA slots and node
+profile. App 1.1.1 does not record RF telemetry; a later app and cloud contract
+update are needed before the RF sessions page can show this board's data.
+The renamed update warning and fleet label in this source branch require a later
+app release and web deployment, respectively; the attached board still runs
+app 1.1.1 with its existing on-device wording.
