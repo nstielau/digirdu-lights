@@ -14,3 +14,8 @@ test('paused reports remain historical',()=>{
  const v=describeDevice({id:'a',enabled:true,paused:true,report:{version:'1.0.0',base_version:'1.0.0',state:'current',protocol_send:3,protocol_receive:[3]}}, {version:'2.0.0'});
  assert.equal(v.state,'Updates paused');assert.equal(v.fields['Reported app'],'1.0.0');
 });
+test('fleet labels the installed layer as device base',()=>{
+ const v=describeDevice({id:'a',enabled:true,report:{base_version:'1.1.4',protocol_receive:[]}},null);
+ assert.equal(v.fields['Device base'],'1.1.4');
+ assert.equal(Object.hasOwn(v.fields,'USB base'),false);
+});

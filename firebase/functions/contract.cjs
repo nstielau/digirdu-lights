@@ -1,9 +1,10 @@
 const crypto = require('node:crypto');
-const BOARDS = ['unexpectedmaker_feathers2', 'adafruit_feather_esp32_v2'];
+const LEGACY_BOARDS = ['unexpectedmaker_feathers2', 'adafruit_feather_esp32_v2'];
+const BOARDS = [...LEGACY_BOARDS, 'adafruit_feather_esp32s3_reverse_tft'];
 const FILES = ['animation.py','app_version.py','audio_features.py','audio_spectrum.py','config.py',
   'effects.py','lights_app.py','radio_protocol.py','sound_reactive.py','telemetry.py','wireless.py'];
-const RESERVED_APP_STEMS=new Set(['boot','code','node_config','battery','ota_manifest',
-  'ota_store','ota_http','ota_bootstrap','telemetry_store','settings','secrets','credentials']);
+const RESERVED_APP_STEMS=new Set(['boot','code','node_config','battery','hardware','node_state',
+  'ota_status','ota_manifest','ota_store','ota_http','ota_bootstrap','telemetry_store','settings','secrets','credentials']);
 const safeAppName=name=>typeof name==='string'&&/^[a-z][a-z0-9_]{0,39}\.[a-z0-9]{1,8}$/.test(name)&&
   !RESERVED_APP_STEMS.has(name.split('.')[0]);
 const validTargets=(values,allowed)=>Array.isArray(values)&&values.length>0&&values.length<=allowed.length&&
@@ -25,9 +26,10 @@ function exact(value, keys) {
 }
 function validateManifest(m) {
   if (!exact(m, ['schema','version','git_commit','app_api','minimum_base','circuitpython','boards','roles',
-    'protocol_send','protocol_receive','files','sha256']) || m.schema!==1 || !version(m.version) ||
+    'protocol_send','protocol_receive','files','sha256']) || ![1,2].includes(m.schema) || !version(m.version) ||
     !/^[a-f0-9]{40}$/.test(m.git_commit) || m.app_api!==1 || !version(m.minimum_base) ||
-    m.circuitpython!=='10.3.1' || !validTargets(m.boards,BOARDS) ||
+    (m.schema===2 && compare(m.minimum_base,'1.1.0')<0) ||
+    m.circuitpython!=='10.3.1' || !validTargets(m.boards,m.schema===1?LEGACY_BOARDS:BOARDS) ||
     !validTargets(m.roles,['producer','consumer']) || !validProtocol(m.protocol_send,m.protocol_receive) ||
     !Array.isArray(m.files) || m.files.length<2 || m.files.length>24) {
     throw new Error('invalid_manifest');
@@ -108,4 +110,4 @@ function validateTelemetry(b,id,role) {
  }
  return b;
 }
-module.exports={BOARDS,FILES,safeAppName,hash,digest,version,compare,validateManifest,validateReport,validateTelemetry,compatible};
+module.exports={BOARDS,LEGACY_BOARDS,FILES,safeAppName,hash,digest,version,compare,validateManifest,validateReport,validateTelemetry,compatible};

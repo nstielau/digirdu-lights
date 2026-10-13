@@ -1,5 +1,15 @@
 # Project guidance
 
+## Pull request workflow
+
+For repository changes intended for integration, open a PR against the target
+branch and enable GitHub auto-merge (squash) after pushing the tested changes.
+The required `check` status must pass before GitHub merges the PR. If a check
+fails, fix the branch and let auto-merge wait for the new run. Keep a PR open
+when its required checks or reviews still need attention. After an automatic
+merge, pull the target branch and perform any separately requested cloud or
+device deployment and verification; merging alone does not deploy firmware.
+
 ## Mechanical design
 
 `hardware/producer/` contains two distinct Reverse TFT Feather enclosures:
