@@ -32,4 +32,4 @@
 
 - [ ] Review the diff for layout, version, and memory impact; ensure no changes to sleep or running maintenance display.
 - [ ] Commit and open a PR to `feature/reverse-tft`.
-- [ ] If the current Reverse TFT is present in USB maintenance, deploy with `make deploy BOARD=adafruit_feather_esp32s3_reverse_tft`, verify all files and serial startup, and request a visual check.
+- [ ] Publish an OTA release for the active app and confirm its import; a full USB recovery update is optional and separate. Request a visual check after the device adopts the OTA app.
