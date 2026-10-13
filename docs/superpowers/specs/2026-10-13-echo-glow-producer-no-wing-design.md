@@ -13,10 +13,23 @@ The local producer revision 3 remains the historical print baseline; the new
 geometry becomes producer revision 4.
 
 The producer retains the Adafruit ESP32-S3 Reverse TFT Feather and its visible
-TFT, the modeled 19 × 69 mm cylindrical battery, direct onboard USB-C access,
+TFT, the battery defined below, direct onboard USB-C access,
 the domed three-button rail, the 2 mm reset pinhole, two M2 case screws, and
 the established battery supports and board mounts. It has **no NeoPixel
 FeatherWing**.
+
+## Battery definition
+
+Design around the intended, user-measured cylindrical cell envelope:
+**19 mm diameter × 69 mm overall length**, with its long axis along the case's
+X direction. In the existing producer model the battery begins approximately
+at X = 1 mm, just beyond the rear-half stop at X = 0.8 mm. Preserve the two
+battery saddles and a route for the cell leads. The enclosure must clear the
+full Ø19 × 69 mm modeled cylinder; remove the approximately 6.82 mm³ rear-lip
+intrusion recorded for revision 2 rather than carrying it into this revision.
+The dimensions describe this particular measured cell and do not establish a
+universal 18650 fit, chemistry, capacity, or lead/terminal tolerance. Confirm
+the wrapped physical cell and lead exit in the first print.
 
 ## Enclosure geometry
 
