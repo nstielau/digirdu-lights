@@ -5,7 +5,7 @@ different battery and port layouts:
 
 | Design | Current local revision | Controls |
 | --- | --- | --- |
-| [Echo Glow producer](echo-glow/README.md) | [3](echo-glow/revision-3/README.md) | Domed three-button rail and 2 mm reset pinhole; direct board USB-C |
+| [Echo Glow producer](echo-glow/README.md) | [4](echo-glow/revision-4/README.md) | No pixel wing; solid compact rear; domed three-button rail, 2 mm reset pinhole, direct board USB-C |
 | DidgeLights handheld producer | [11](revision-11/README.md), historical | Original four-button options and rear panel USB |
 
 Download complete F3D and print kits from the tagged GitHub Releases described
