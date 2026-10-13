@@ -2,8 +2,10 @@
 
 ## Status
 
-The compact approach was approved on October 13, 2026. This written design
-awaits review before the Fusion model is changed.
+The compact approach was approved on October 13, 2026 and implemented locally
+as producer revision 4. Fusion reported an offline outage during the save, so
+cloud version 4 remains the last confirmed version. The release F3D is the
+verified editable snapshot pending cloud sync.
 
 ## Source and scope
 

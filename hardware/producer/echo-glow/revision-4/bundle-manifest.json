@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "file": "Echo-Glow-producer-r4.f3d",
+      "bytes": 22141825,
+      "sha256": "8ceba27097a89e68554827572170a032a244b93033d63c3292a238f0ba6a0735"
+    },
+    {
+      "file": "README.md",
+      "bytes": 2230,
+      "sha256": "2b3df743f898b88d3064b362c406ccbeb3dc0169aa9a58d8f57ae663876bc230"
+    },
+    {
+      "file": "button-rail-domed.stl",
+      "bytes": 679684,
+      "sha256": "4694db6c035c3a4aac516c58633f0b1b04def11518263fc6780e431ec52e217e"
+    },
+    {
+      "file": "front-controls-preview.png",
+      "bytes": 62013,
+      "sha256": "4d8763fc00a32b5b9e6c5f928cd29be51d7d79aeaa7c64bf19ac333ecfd8a0a6"
+    },
+    {
+      "file": "plain-front-housing.stl",
+      "bytes": 245684,
+      "sha256": "3b3a582a31878400430b202702a1699844229a9adb403011cbdfa2f4db944497"
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "bytes": 103484,
+      "sha256": "24314bd661d269e50b89b8d208829c3bab58314e1b4b95b333b862e1cac449ff"
+    },
+    {
+      "file": "solid-rear-preview.png",
+      "bytes": 39336,
+      "sha256": "7f9b45c1f03e3da8c92938ba1cc6cb9bad5f667716719bf90d04660f7aa4601a"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 3182,
+      "sha256": "046e2656e444a145b1971191aaecdfb6894a3b8e58c7040032c81bf41d3581ee"
+    }
+  ]
+}
