@@ -1,4 +1,5 @@
 import unittest
+import sys
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -7,6 +8,29 @@ from config import Config
 
 
 class DisplayActivityTests(unittest.TestCase):
+    def test_maintenance_border_is_ready_before_boot_splash_closes(self):
+        events=[]
+        def bitmap(width,height,_colors):
+            return SimpleNamespace(width=width,height=height,fill=Mock())
+        display=SimpleNamespace(auto_refresh=True,brightness=0,root_group=None,
+                                refresh=lambda **_kw:events.append('refresh'))
+        font=SimpleNamespace(bitmap=SimpleNamespace(width=6,height=12),
+                             get_bounding_box=lambda:(6,12))
+        displayio=SimpleNamespace(Bitmap=bitmap,Palette=lambda n:[0]*n,
+                                  Group=lambda:SimpleNamespace(append=Mock()),
+                                  TileGrid=Mock())
+        bitmaptools=SimpleNamespace(fill_region=Mock(),blit=Mock(),arrayblit=Mock(),
+                                    rotozoom=Mock(),replace_color=Mock())
+        modules={'board':SimpleNamespace(DISPLAY=display),'displayio':displayio,
+                 'bitmaptools':bitmaptools,'terminalio':SimpleNamespace(FONT=font),
+                 'hardware':SimpleNamespace(finish_boot=lambda:events.append('close'))}
+        with patch.dict(sys.modules,modules), \
+             patch.object(d.TFTBackend,'_border',lambda _self,_bitmap:events.append('border')):
+            d.TFTBackend(SimpleNamespace(display_rotation=0,display_brightness=.2),
+                         maintenance=True)
+        self.assertLess(events.index('border'),events.index('close'))
+        self.assertLess(events.index('close'),events.index('refresh'))
+
     def test_all_three_chord_can_start_while_display_is_idle(self):
         from test_sleep import load_app
         from effects import TFTControls, SleepTransition
@@ -43,6 +67,18 @@ class DisplayActivityTests(unittest.TestCase):
         backend.set_awake.assert_called_with(True)
         self.assertEqual(ui.page,2)
         self.assertTrue(ui.update(201,state))
+
+    def test_maintenance_keeps_display_awake_until_mode_ends(self):
+        backend=Mock(pending=False)
+        ui=d.Dashboard(backend,idle_s=30)
+        ui.visible(0)
+        ui.maintenance=True
+        self.assertTrue(ui.visible(100))
+        backend.set_awake.assert_not_called()
+        ui.maintenance=False
+        self.assertTrue(ui.visible(120))
+        self.assertFalse(ui.visible(130.1))
+        backend.set_awake.assert_called_once_with(False)
 
     def test_wake_hold_is_consumed_until_all_buttons_released_stably(self):
         ui=d.Dashboard(Mock(),idle_s=30)
@@ -182,13 +218,27 @@ class SleepAnimationTests(unittest.TestCase):
         backend.back=Mock();backend.fill_region=Mock();backend._text=Mock()
         backend._sleep_dog=Mock()
         backend._prepare(state,0)
-        self.assertEqual([call.args[:5] for call in backend.fill_region.call_args_list[:4]],[
+        self.assertEqual([call.args[:5] for call in backend.fill_region.call_args_list[-4:]],[
             (backend.back,0,0,240,2),(backend.back,0,133,240,135),
             (backend.back,0,0,2,135),(backend.back,238,0,240,135)])
         backend._sleep_dog.assert_not_called()
         ready=d.maintenance_overlay(0,ready=True)
         self.assertEqual(d.page_content(d.snapshot('consumer',0,overlay=ready),0)['maintenance_title'],
                          'USB READY')
+
+    def test_running_maintenance_border_persists_on_every_page(self):
+        border=((0,0,240,2),(0,133,240,135),(0,0,2,135),(238,0,240,135))
+        backend=d.TFTBackend.__new__(d.TFTBackend)
+        backend.back=Mock();backend.fill_region=Mock();backend._text=Mock()
+        backend._sleep_dog=Mock()
+        for page in range(4):
+            backend.fill_region.reset_mock()
+            backend._prepare(d.snapshot('consumer',0,maintenance=True),page)
+            self.assertEqual([call.args[1:6] for call in backend.fill_region.call_args_list[-4:]],
+                             [(*rect,14) for rect in border])
+        backend.fill_region.reset_mock()
+        backend._prepare(d.snapshot('consumer',0,maintenance=False),3)
+        self.assertFalse(any(call.args[-1]==14 for call in backend.fill_region.call_args_list))
 
     def test_animated_frames_do_not_restart_incomplete_transfers(self):
         backend=d.TFTBackend.__new__(d.TFTBackend)

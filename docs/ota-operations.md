@@ -1328,9 +1328,9 @@ Startup reported app 1.1.3/base 1.1.4, then live producer reception reached
 confirms startup and short-range radio reception, not visual output or culvert
 coverage. The host cleanly unmounted `CIRCUITPY` (`disk5s1`) afterward.
 
-## October 13: local USB maintenance shortcut candidate
+## October 13: local USB maintenance shortcut
 
-The Reverse TFT candidate app 1.1.4 and device base 1.1.5 add a local D0+D1+D2
+Reverse TFT app 1.1.4 and device base 1.1.5 add a local D0+D1+D2
 four-second hold. The TFT counts down in orange; after `USB READY`, release all
 buttons to trigger a software reset. D0 must be released before reset because
 holding it through reset can select ROM download. The app raises a local
@@ -1354,3 +1354,34 @@ does not install the new app. The host tests exercise the gesture, cancellation,
 no-command behavior, NVM consumption, boot selection, and display states.
 Native entry/exit, visible colors, filesystem handoff, and user button feel
 remain unqualified until a Reverse TFT receives both parts.
+
+## October 13: app 1.1.4 release and first base 1.1.5 install
+
+PR #6 merged into `feature/reverse-tft` at `6b24bfb`. The merged source passed
+246 host tests and was tagged `firmware-v1.1.4`. Its stable GitHub release
+contains the full-fleet app manifest (protocol v3, minimum base 1.1.0) and
+base 1.1.5 recovery bundle. The GitHub `Verify and import firmware release`
+run `38459922782` passed source/asset verification and reported an immutable
+import with stable advanced to 1.1.4.
+
+The first connected Reverse TFT, UID `468e3337cc40`, entered maintenance via
+RESET then D0. `make deploy-base` identified its board/port, backed up files,
+verified 12 base files, and restarted the recovery app. An independent host
+readback matched all 12 installed base files to merged source. Serial startup
+reported `OTA mode=maintenance app=1.1.0 base=1.1.5`, follower role, group 1,
+and a running render loop. This confirms the USB base copy and maintenance
+startup, not app 1.1.4 OTA adoption or the new chord. The device disconnected
+before a normal-mode OTA reset was observed.
+
+App 1.1.5 changes only the maintenance dashboard display behavior. The
+two-pixel orange border is painted before the boot splash closes, remains
+across all pages, and maintenance keeps the TFT awake until a normal reboot.
+Maintenance runs `/recovery`, which app-only OTA and `make deploy-base` do not
+replace. A full USB `make deploy` of app 1.1.5 is required on each board to
+receive this display fix. Device base 1.1.5 and app minimum base 1.1.0 are
+unchanged. Host tests cover the splash handoff, every page,
+normal-mode absence, and the idle timeout. The user visually observed the
+orange border during boot on another board, then reported that it disappeared
+when the dashboard loaded; no USB serial port or CIRCUITPY drive enumerated on
+the Mac during that observation. Persistent appearance remains to be checked
+after app 1.1.5 is installed.
