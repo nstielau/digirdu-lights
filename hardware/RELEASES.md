@@ -2,14 +2,16 @@
 
 Git tracks design notes, version references, verification, and SHA-256 manifests.
 The large Fusion archives, print meshes, slicer projects, and previews are local
-working files and **GitHub Release assets**, not Git blobs. An explicit tag such
-as `hardware-echo-glow-producer-v3` identifies each numbered kit. Download the
-ZIP attached to that tag to obtain the complete printable release and editable
-F3D source. A tag without its matching asset is not a complete hardware release.
+working files and **GitHub Release assets**, not Git blobs. GitHub associates
+each Release with a Git tag. Names such as `hardware-echo-glow-producer-v3` are
+our proposed convention for identifying numbered kits, not a GitHub requirement.
+Download the ZIP attached to the Release for the complete printable kit and
+editable F3D source. A tag without its matching asset is not a complete hardware
+release.
 
 Current local prototypes:
 
-| Tag when published | Local bundle | Fusion cloud document |
+| Suggested Release tag | Local bundle | Fusion cloud document |
 | --- | --- | --- |
 | `hardware-didgelights-producer-v11` | `producer/revision-11/` | DidgeLights enclosure |
 | `hardware-echo-glow-producer-v2` | `producer/echo-glow/revision-2/` | Echo Glow producer v1, version 3 |
@@ -40,8 +42,9 @@ domed three-button rail and reset pinhole.
    ```
 
 3. Run `make check`, review the notes and manifest, and commit those **text**
-   files. Make an annotated hardware tag at that commit. Publish a GitHub Release
-   for that tag with the verified ZIP attached. For example:
+   files. Choose a tag for that commit and publish a GitHub Release with the
+   verified ZIP attached. The example creates an annotated tag using our
+   suggested naming convention:
 
    ```sh
    git tag -a hardware-echo-glow-consumer-v8 -m 'Echo Glow consumer revision 8'
