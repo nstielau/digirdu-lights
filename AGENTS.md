@@ -577,6 +577,8 @@ untouched. Boot consumes the marker, selects host-writable USB ownership,
 shows the orange boot border and moving matrix pixel, and preserves manual
 D0-after-RESET entry. Boards without the chord retain their reset-window
 buttons: FeatherS2 BOOT/IO0 and HUZZAH32 V2 SW38/`board.BUTTON` (not D0).
+All supported boards switch the blue wing selection light to a moving dim
+orange pixel once maintenance is selected; the recovery loader stays orange.
 Soft reloads retain maintenance; the next full reset
 returns to OTA. App minimum base remains 1.1.0 with an old-base warning;
 base-only deployment does not install the gesture. Verify native entry and

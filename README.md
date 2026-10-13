@@ -525,6 +525,9 @@ during an OTA health trial or an active group sleep.
 Boards without the three TFT buttons keep their existing reset-window button
 entry: BOOT/IO0 on FeatherS2 and SW38/`board.BUTTON` on HUZZAH32 V2. The
 HUZZAH32 V2 does not use D0 for maintenance.
+On all three supported boards, selecting maintenance during the blue window
+switches the wing to a single dim moving orange pixel. The recovery app also
+shows an orange loading pixel before lighting starts.
 
 Keep the room quiet for the **first two seconds** after startup to calibrate
 the noise floor. Then play a steady drone, change mouth/tongue position, add a
@@ -1316,7 +1319,8 @@ integer rounding); audio effects retain their separate **15%** cap.
 This shows activity, not percentage complete; blocking Wi-Fi/TLS operations
 hold the current pixel until they return. The indicator clears and releases
 the wing pin before normal audio effects start, including when Wi-Fi fails.
-The existing full-wing blue flash still marks the USB maintenance window.
+The full-wing blue flash marks the USB maintenance selection window. Device
+base 1.1.5 changes it to a moving orange pixel once maintenance is selected.
 
 Install this optional **device base 1.0.3** with `make deploy-base` on each board.
 For FeatherS2, first tap RESET, then press/release BOOT during the blue flash.

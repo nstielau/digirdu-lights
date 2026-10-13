@@ -55,28 +55,32 @@ class HardwareTests(unittest.TestCase):
         self.assertEqual(frames[0],bytes((0,0,12))*32)
         self.assertFalse(hardware.consume_maintenance_request(nvm))
 
-    def test_v2_button_still_enters_maintenance_without_chord(self):
+    def test_legacy_buttons_select_orange_maintenance_without_chord(self):
         import hardware
-        storage=Mock()
-        frames=[]
-        class Pin:
-            value=False  # HUZZAH32 V2 SW38 user button.
-            def __enter__(self):return self
-            def __exit__(self,*args):pass
-            def switch_to_input(self,**kwargs):pass
-            def switch_to_output(self,**kwargs):pass
-        modules={'board':SimpleNamespace(board_id=hardware.V2,BUTTON=38,D32=32),
-                 'storage':storage,
-                 'digitalio':SimpleNamespace(DigitalInOut=lambda pin:Pin(),Pull=SimpleNamespace(UP=1)),
-                 'microcontroller':SimpleNamespace(nvm=bytearray(32)),
-                 'neopixel_write':SimpleNamespace(neopixel_write=lambda pin,data:frames.append(bytes(data)))}
         script=str(Path(__file__).parents[1]/'boot.py')
-        with patch.dict(os.environ,{'OTA_ENABLED':'1'}),patch.dict(sys.modules,modules), \
-             patch('time.monotonic',side_effect=[0,0,3]),patch('time.sleep'):
-            runpy.run_path(script)
-        storage.remount.assert_called_once_with('/',readonly=True)
-        self.assertEqual(frames[0],bytes((0,0,12))*32)
-        self.assertEqual(frames[1],bytes(96))
+        for board_id,button,wing in ((hardware.S2,'IO0','IO38'),
+                                     (hardware.V2,'BUTTON','D32')):
+            with self.subTest(board_id=board_id):
+                storage=Mock()
+                frames=[]
+                class Pin:
+                    value=False  # BOOT/IO0 or HUZZAH32 V2 SW38, pressed after reset.
+                    def __enter__(self):return self
+                    def __exit__(self,*args):pass
+                    def switch_to_input(self,**kwargs):pass
+                    def switch_to_output(self,**kwargs):pass
+                board=SimpleNamespace(board_id=board_id,**{button:0,wing:38})
+                modules={'board':board,'storage':storage,
+                         'digitalio':SimpleNamespace(DigitalInOut=lambda pin:Pin(),Pull=SimpleNamespace(UP=1)),
+                         'neopixel_write':SimpleNamespace(neopixel_write=lambda pin,data:frames.append(bytes(data)))}
+                with patch.dict(os.environ,{'OTA_ENABLED':'1'}),patch.dict(sys.modules,modules), \
+                     patch('time.monotonic',side_effect=[0,0,3]),patch('time.sleep'):
+                    runpy.run_path(script)
+                storage.remount.assert_called_once_with('/',readonly=True)
+                self.assertEqual(frames[0],bytes((0,0,12))*32)
+                self.assertEqual(frames[1][:3],bytes((3,8,0)))
+                self.assertEqual(frames[1][3:],bytes(93))
+                self.assertEqual(frames[-1],bytes(96))
 
     def test_disabled_ota_clears_stale_chord_request(self):
         import hardware

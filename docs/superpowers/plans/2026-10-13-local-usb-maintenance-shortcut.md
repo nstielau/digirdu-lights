@@ -32,7 +32,7 @@
 
 **Files:** `boot.py`, `hardware.py`, `ota_bootstrap.py`, `tests/test_boot_screen.py`, `tests/test_ota_bootstrap.py`
 
-- [ ] Add failing tests for orange moving matrix pixel, 2 px TFT border, and pin cleanup before app handoff.
+- [ ] Add failing tests for orange moving matrix pixels on all supported boards, 2 px Reverse TFT border, and pin cleanup before app handoff.
 - [ ] Run focused tests to see the expected failures.
 - [ ] Implement the startup cues while leaving normal blue and cyan indications intact.
 - [ ] Rerun focused tests and confirm they pass.

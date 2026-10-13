@@ -29,7 +29,8 @@ Other boards retain their own reset-window button path: FeatherS2 BOOT/IO0 and
 HUZZAH32 V2 SW38/`board.BUTTON`. The three-button chord is Reverse TFT only.
 
 Maintenance startup uses a single dim orange moving pixel on the 4x8 wing
-instead of blue, then a two-pixel orange border on the TFT boot splash. The
+on every supported board once maintenance is selected, instead of blue. The
+Reverse TFT also shows a two-pixel orange border on the TFT boot splash. The
 orange border and **USB MAINT** label remain visible while the recovery app
 loads. The running dashboard retains its USB maintenance banner. The matrix
 indicator is blacked out and its pin released before the app takes ownership.

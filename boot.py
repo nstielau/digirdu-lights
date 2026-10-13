@@ -39,10 +39,9 @@ if os.getenv("OTA_ENABLED") == "1" and board.board_id in PROFILES:
         while now < end:
             if not button.value and not maintenance:
                 maintenance = True
-                if board.board_id == "adafruit_feather_esp32s3_reverse_tft":
-                    orange = True
-                    index = 0
-                    neopixel_write(pixels, orange_pixel(index))
+                orange = True
+                index = 0
+                neopixel_write(pixels, orange_pixel(index))
             elif orange and now >= next_step:
                 index = (index + 1) % 32
                 neopixel_write(pixels, orange_pixel(index))

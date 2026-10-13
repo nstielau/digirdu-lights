@@ -76,6 +76,9 @@ that window, press the board's maintenance button:
 | Adafruit Feather ESP32 V2 | SW38 user button | `board.BUTTON`, GPIO38 |
 | Adafruit ESP32-S3 Reverse TFT Feather | D0, pressed **after** releasing RESET | GPIO0 |
 
+Once maintenance is selected, the wing switches to one dim moving orange pixel
+on every supported board. Normal OTA startup keeps the blue selection window.
+
 GPIO0 on ESP32 V2 is the onboard NeoPixel, not the user button. Its GPIO38
 button has an external pull-up; do not enable an unsupported internal pull-up.
 On FeatherS2, holding BOOT through reset enters ROM download mode instead of
@@ -1343,8 +1346,9 @@ If the NVM request or reset fails, the app reports the error on serial and
 resumes lighting without triggering OTA rollback. A boot with OTA disabled
 clears a stale request rather than carrying it into a later enabled boot.
 
-Maintenance startup has a dim moving orange matrix pixel and a two-pixel orange
-TFT boot border. The app minimum base stays 1.1.0, so older boards continue
+Maintenance startup has a dim moving orange matrix pixel on all supported
+boards and a two-pixel orange TFT boot border on Reverse TFT. The app minimum
+base stays 1.1.0, so older boards continue
 running and show `BASE UPDATE NEEDED` for this gesture. Base-only USB deployment
 does not install the new app. The host tests exercise the gesture, cancellation,
 no-command behavior, NVM consumption, boot selection, and display states.
