@@ -249,6 +249,7 @@ class Dashboard:
         self.released_at = None
         self.banner = ''
         self.banner_until = 0
+        self.maintenance = False
 
     def _wake(self, now):
         self.last_activity = now
@@ -281,7 +282,7 @@ class Dashboard:
     def visible(self, now):
         if self.failed:return False
         if self.last_activity is None:self.last_activity=now
-        if self.overlay is not None:self._wake(now)
+        if self.overlay is not None or self.maintenance:self._wake(now)
         elif not self.asleep and now-self.last_activity>=self.idle_s:
             self.asleep=True
             self._set_awake(False)
@@ -345,7 +346,7 @@ class Dashboard:
 
 class TFTBackend:
     """Compose off-screen, then transfer one bounded strip per loop turn."""
-    def __init__(self, config):
+    def __init__(self, config, maintenance=False):
         import board
         import displayio
         import bitmaptools
@@ -364,6 +365,7 @@ class TFTBackend:
         self.gw,self.gh=self.font.get_bounding_box()[:2]
         self.front=displayio.Bitmap(240,135,16)
         self.back=displayio.Bitmap(240,135,16)
+        if maintenance:self._border(self.front)
         colors=(0x030714,0xec436f,0xfa8153,0xeabf55,0x99da67,0x40debd,
                 0x44bbea,0x947bea,0xcc69db,0x162132,0x00d9ff,0xffffff,
                 0x8899aa,0xff4596,0xff9f43,0xffb454)
@@ -415,11 +417,9 @@ class TFTBackend:
 
     def _prepare(self, state, page):
         self.back.fill(0)
-        if state.get('overlay') and state['overlay'][0] == 'maintenance':
-            for x1,y1,x2,y2 in ((0,0,240,2),(0,133,240,135),(0,0,2,135),(238,0,240,135)):
-                self.fill_region(self.back,x1,y1,x2,y2,14)
-        elif state.get('overlay'):
-            self._sleep_dog(state.get('animation_frame',0))
+        if state.get('overlay'):
+            if state['overlay'][0] != 'maintenance':
+                self._sleep_dog(state.get('animation_frame',0))
         elif state.get('banner') or state.get('maintenance'):
             self.fill_region(self.back,40,0,240,22,15 if state.get('maintenance') else 9)
         content=page_content(state,page)
@@ -435,6 +435,12 @@ class TFTBackend:
             self.fill_region(self.back,44,65,226,83,9)
             width=int(182*max(0,min(1,state['brightness']/max(.01,state['brightness_max']))))
             if width:self.fill_region(self.back,44,65,44+width,83,6)
+        if state.get('maintenance') or (state.get('overlay') and state['overlay'][0] == 'maintenance'):
+            self._border(self.back)
+
+    def _border(self, bitmap):
+        for x1,y1,x2,y2 in ((0,0,240,2),(0,133,240,135),(0,0,2,135),(238,0,240,135)):
+            self.fill_region(bitmap,x1,y1,x2,y2,14)
 
     def _sleep_dog(self, frame):
         phase=frame%4
@@ -476,9 +482,9 @@ class TFTBackend:
         self.display.root_group=None
 
 
-def create(config):
+def create(config, maintenance=False):
     try:
-        return Dashboard(TFTBackend(config), config.display_interval_s,
+        return Dashboard(TFTBackend(config,maintenance=maintenance), config.display_interval_s,
                          config.display_idle_s, config.button_debounce_s)
     except Exception as error:
         print('TFT unavailable:',type(error).__name__)

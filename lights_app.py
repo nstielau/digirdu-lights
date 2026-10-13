@@ -147,7 +147,14 @@ def start_dashboard():
     DISPLAY = None
     if PROFILE['display'] and CONFIG.display_enabled:
         from dashboard import create
-        DISPLAY = create(CONFIG)
+        try:
+            import ota_status
+            maintenance = ota_status.snapshot().get('state') == 'maintenance'
+        except Exception:
+            maintenance = False
+        DISPLAY = create(CONFIG,maintenance=maintenance)
+        if DISPLAY:
+            DISPLAY.maintenance = maintenance
     elif PROFILE['display']:
         try:
             board.DISPLAY.auto_refresh = False

@@ -27,6 +27,20 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(state['maintenance'])
         self.assertEqual(d.page_content(state,0)['banner'],'USB MAINTENANCE')
 
+    def test_app_sets_display_maintenance_from_base_state(self):
+        from test_sleep import load_app
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        app=load_app();d=self.module();ui=d.Dashboard(Mock())
+        config=SimpleNamespace(display_enabled=True)
+        with patch.object(app,'PROFILE',{'display':True}), \
+             patch.object(app,'CONFIG',config), \
+             patch('dashboard.create',return_value=ui) as create, \
+             patch('ota_status.snapshot',return_value={'state':'maintenance'}):
+            self.assertIs(app.start_dashboard(),ui)
+        create.assert_called_once_with(config,maintenance=True)
+        self.assertTrue(ui.maintenance)
+
     def test_rate_wrap_reset_and_bounded_updates(self):
         d=self.module();r=d.Rate()
         self.assertEqual(r.update(4294967294,0),0)
