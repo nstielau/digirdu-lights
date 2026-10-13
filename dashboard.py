@@ -418,7 +418,9 @@ class TFTBackend:
     def _prepare(self, state, page):
         self.back.fill(0)
         if state.get('overlay'):
-            if state['overlay'][0] != 'maintenance':
+            if state['overlay'][0] == 'maintenance':
+                self._maintenance_computer()
+            else:
                 self._sleep_dog(state.get('animation_frame',0))
         elif state.get('banner') or state.get('maintenance'):
             self.fill_region(self.back,40,0,240,22,15 if state.get('maintenance') else 9)
@@ -441,6 +443,19 @@ class TFTBackend:
     def _border(self, bitmap):
         for x1,y1,x2,y2 in ((0,0,240,2),(0,133,240,135),(0,0,2,135),(238,0,240,135)):
             self.fill_region(bitmap,x1,y1,x2,y2,14)
+
+    def _maintenance_computer(self):
+        """Raised 8-bit computer; leave the title and cancel line unobscured."""
+        for x1,y1,x2,y2,color in (
+                (38,37,113,105,12),  # gray shell
+                (33,44,118,99,3),    # amber front
+                (43,50,108,87,9),    # screen bezel
+                (48,55,103,82,0),   # dark screen
+                (64,64,70,70,5), (85,64,91,70,5),  # eyes
+                (67,73,73,79,5), (73,76,85,82,5), (85,73,91,79,5),  # smile
+                (51,93,97,97,9),    # disk slot
+                (87,102,97,105,14)):  # power accent
+            self.fill_region(self.back,x1,y1,x2,y2,color)
 
     def _sleep_dog(self, frame):
         phase=frame%4

@@ -589,6 +589,10 @@ The boot splash border alone is insufficient: the app replaces its display
 group when it starts. Base 1.1.5 remains sufficient for this display fix.
 Install app 1.1.5 into recovery with full USB `make deploy`: app-only OTA
 updates a slot, and `make deploy-base` preserves the old recovery app.
+App 1.1.6 adds the selected 8-bit smiling computer, raised above the cancel
+line on the Reverse TFT maintenance countdown and ready overlays. It uses
+native rectangle fills and the existing palette. A full USB deployment is
+also needed to place this version in recovery; base 1.1.5 remains sufficient.
 
 Check-in update_status schema1 includes state and optional blocked app version/
 minimum_base. Report only newer approved, non-revoked releases whose sole

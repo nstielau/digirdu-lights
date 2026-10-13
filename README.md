@@ -507,8 +507,11 @@ splash shows an amber `USB MAINT` badge and rails with `CIRCUITPY READY`, and
 the running dashboard keeps an amber `USB MAINTENANCE` strip and a two-pixel
 orange border on every page. App 1.1.5 keeps the TFT awake for the entire USB
 maintenance session; the border disappears on the next normal boot.
-The persistent border requires a full `make deploy` over USB so the recovery
-app receives 1.1.5. App-only OTA and `make deploy-base` leave recovery unchanged.
+App 1.1.6 adds a small smiling 8-bit computer to the four-second USB
+maintenance countdown and ready screen, raised above the cancel instruction.
+The persistent border and countdown art require a full `make deploy` over USB
+so the recovery app receives the latest version. App-only OTA and
+`make deploy-base` leave recovery unchanged.
 This means the host owns the CIRCUITPY filesystem and the network OTA check is
 paused for that boot. The TinyUF2 `FTHRS3BOOT` drive is an earlier bootloader
 state, so CircuitPython and the TFT are not running and cannot show a status.

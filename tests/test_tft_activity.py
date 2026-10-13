@@ -240,6 +240,29 @@ class SleepAnimationTests(unittest.TestCase):
         backend._prepare(d.snapshot('consumer',0,maintenance=False),3)
         self.assertFalse(any(call.args[-1]==14 for call in backend.fill_region.call_args_list))
 
+    def test_maintenance_countdown_computer_stays_above_cancel_instruction(self):
+        backend=d.TFTBackend.__new__(d.TFTBackend)
+        backend.back=Mock();backend.fill_region=Mock();backend._text=Mock()
+        backend._sleep_dog=Mock()
+        for overlay in (d.maintenance_overlay(3.1),d.maintenance_overlay(0,ready=True)):
+            backend.fill_region.reset_mock()
+            backend._prepare(d.snapshot('consumer',0,overlay=overlay),0)
+            art=[call.args for call in backend.fill_region.call_args_list
+                 if call.args[-1] in (3,5,9,12)]
+            self.assertTrue(any(call[-1]==5 for call in art), 'cyan face missing')
+            self.assertTrue(any(call[-1]==3 for call in art), 'amber case missing')
+            for _,x1,y1,x2,y2,_ in art:
+                self.assertTrue(33<=x1<x2<=118)
+                self.assertTrue(37<=y1<y2<=105)
+        backend._sleep_dog.assert_not_called()
+        backend.fill_region.reset_mock()
+        backend._prepare(d.snapshot('consumer',0),0)
+        self.assertFalse(any(call.args[-1]==5 for call in backend.fill_region.call_args_list))
+        backend.fill_region.reset_mock()
+        backend._prepare(d.snapshot('consumer',0,overlay=d.sleep_overlay(remaining=2)),0)
+        backend._sleep_dog.assert_called_once()
+        self.assertFalse(any(call.args[-1]==5 for call in backend.fill_region.call_args_list))
+
     def test_animated_frames_do_not_restart_incomplete_transfers(self):
         backend=d.TFTBackend.__new__(d.TFTBackend)
         backend.front=object();backend.back=object();backend.row=135
