@@ -23,6 +23,9 @@ class ReceiveCompletionTests(unittest.TestCase):
         self.link.radio = Mock(read_success=0)
         self.link.receiver = Mock(scene_time=2.0, phase=0.25, effect=1)
         self.link.receiver.accept.return_value = True
+        self.link.receiver.session = 7
+        self.link.receiver.sequence = 4
+        self.link.telemetry = Mock()
         self.animation = Mock()
 
     def test_partial_callback_does_not_read_even_with_buffer_bytes(self):
@@ -37,6 +40,16 @@ class ReceiveCompletionTests(unittest.TestCase):
         self.link.radio.read.assert_called_once()
         self.assertEqual(self.link.read_count, 1)
         self.animation.set_effect.assert_called_once_with(1)
+        self.link.telemetry.received.assert_called_once_with(7,4,None,False)
+
+    def test_brightness_packet_is_recorded_as_control(self):
+        self.link.radio.read_success=1
+        self.link.radio.read.return_value=SimpleNamespace(mac=b'123456',msg=b'DGRB',rssi=-71)
+        self.link.receiver.brightness=.2
+        self.link.receiver.brightness_max=.5
+        self.link.receive(1,self.animation)
+        self.link.telemetry.received.assert_called_once_with(7,4,-71,True)
+        self.animation.set_brightness.assert_called_once_with(.2,.5)
 
     def test_rejected_packets_are_consumed_and_draining_is_bounded(self):
         self.link.radio.read_success = 12
@@ -86,11 +99,16 @@ class PresenceTransportTests(unittest.TestCase):
         self.assertTrue(hasattr(cls,'receive_presence'), 'producer receive missing')
         link=cls.__new__(cls);link.read_count=0;link.radio=Mock(read_success=0)
         link.presence=Mock();link.transmitter=Mock(sequence=10)
+        from telemetry import TelemetryRecorder
+        link.telemetry=TelemetryRecorder('producer','a'*16)
+        link.radio.read_failure=0xfffffffe
         link.receive_presence(1);link.radio.read.assert_not_called()
         link.radio.read_success=12;link.radio.read.return_value=SimpleNamespace(mac=b'abcdef',msg=b'hello')
+        link.radio.read_failure=1
         link.receive_presence(2)
         self.assertEqual(link.radio.read.call_count,8)
         self.assertEqual(link.presence.accept.call_count,8)
+        self.assertEqual(link.telemetry.snapshot()['counts']['native_drops'],3)
 
     def test_initial_heartbeat_delay_is_relative_to_boot_clock(self):
         from config import Config

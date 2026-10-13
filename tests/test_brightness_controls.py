@@ -70,6 +70,7 @@ class BrightnessTests(unittest.TestCase):
         link.c=c;link.radio=Mock(send_success=0,send_failure=0)
         link.peer=object();link.transmitter=p.Transmitter(c,99)
         link.next_send=0;link.pending=False;link.completed=0;link.sleep_turn=True
+        link.completed_success=0;link.pending_sequence=None;link.telemetry=Mock()
         link.sent=link.errors=link.skipped=0;link.ack_turn=True;link.next_brightness=0
         a=CulvertAnimation(c);f=AudioFeatures()
         for i in range(20):
@@ -93,6 +94,7 @@ class BrightnessTests(unittest.TestCase):
         old_packet=old.encode_brightness(producer)
         link=wireless_class().__new__(wireless_class())
         link.receiver=rx;link.read_count=0;link.radio=Mock(read_success=1)
+        link.telemetry=Mock()
         link.radio.read.return_value=SimpleNamespace(mac=rx.leader,msg=old_packet)
         link.receive(1.1,a);self.assertEqual(c.brightness,.10)
         rx.accept(rx.leader,new.encode(f,producer,1.2),1.2)

@@ -8,7 +8,7 @@ from unittest.mock import Mock,patch,mock_open
 from types import SimpleNamespace
 from audio_features import AudioFeatures
 from ota_bootstrap import Health,TrialReady,main,OTAIndicator,network,app_protocol,app_targets,validate_app_manifest,telemetry_on_sleep,upload_telemetry,report_body
-from telemetry_store import TelemetryQueue
+from telemetry_store import TelemetryQueue,read_attempt
 
 
 class OTAIndicatorTests(unittest.TestCase):
@@ -44,7 +44,39 @@ class OTAIndicatorTests(unittest.TestCase):
                  patch('ota_bootstrap.TelemetryQueue',return_value=queue),patch('ota_bootstrap.nvm_flag'):
                 telemetry_on_sleep({'schema':1},cfg,Mock())
             self.assertEqual(len(queue.pending()),1)
+            self.assertEqual(read_attempt(queue.root),{'state':'failed','reason':'Wi-Fi','pending':1})
             radio.stop_station.assert_called_once()
+
+    def test_acknowledged_sleep_upload_records_success(self):
+        with tempfile.TemporaryDirectory() as folder:
+            queue=TelemetryQueue(folder+'/telemetry',sync=lambda:None)
+            radio=Mock();client=Mock()
+            client.request.side_effect=lambda route,service,decode,limit,body:{'accepted':body['batch_id']}
+            cfg={'id':'a'*16,'ssid':'openwireless.org','token':'b'*64,'api':'unused'}
+            with patch.dict(sys.modules,{'wifi':SimpleNamespace(radio=radio),
+                                         'socketpool':SimpleNamespace(SocketPool=Mock())}), \
+                 patch('ota_bootstrap.TelemetryQueue',return_value=queue), \
+                 patch('ota_bootstrap.DeviceHTTP',return_value=client), \
+                 patch('ota_bootstrap.os.stat',return_value=Mock()),patch('ota_bootstrap.nvm_flag'):
+                telemetry_on_sleep({'schema':1},cfg,Mock())
+            self.assertEqual(queue.pending(),[])
+            self.assertEqual(read_attempt(queue.root),{'state':'uploaded','reason':'','pending':0})
+
+    def test_boot_wifi_failure_marks_pending_upload_failed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            queue=TelemetryQueue(folder+'/telemetry',sync=lambda:None)
+            queue.enqueue('a'*16,{'schema':1})
+            radio=Mock();radio.connect.side_effect=OSError('offline')
+            progress=Mock();store=Mock();store.state={'report_pending':False}
+            cfg={'ssid':'openwireless.org','id':'a'*16,'token':'b'*64,'api':'unused'}
+            with patch.dict(sys.modules,{'wifi':SimpleNamespace(radio=radio),
+                                         'socketpool':SimpleNamespace()}), \
+                 patch('ota_bootstrap.OTAIndicator',return_value=progress), \
+                 patch('ota_bootstrap.TelemetryQueue',return_value=queue), \
+                 patch('ota_bootstrap.os.stat',return_value=Mock()), \
+                 patch('ota_bootstrap.nvm_flag'),patch('ota_bootstrap.time.sleep'):
+                self.assertFalse(network(store,cfg,'1.1.7','session',1,Mock()))
+            self.assertEqual(read_attempt(queue.root),{'state':'failed','reason':'Wi-Fi','pending':1})
 
     def test_storage_failure_does_not_abort_sleep(self):
         with patch('ota_bootstrap.TelemetryQueue',side_effect=OSError('full')), \
@@ -102,10 +134,14 @@ class OTAIndicatorTests(unittest.TestCase):
         with self.assertRaises(OSError):indicator.close()
         indicator.pin.deinit.assert_called_once()
 
-    def test_battery_app_requires_base_with_shared_sensor(self):
+    def test_telemetry_app_targets_all_verified_boards_and_requires_uploader(self):
         from tools.bundle import application,manifest,full_fleet_recovery,deployment_contents
         contents=application()
-        self.assertEqual(manifest(contents,'a'*40)['minimum_base'],'1.1.0')
+        self.assertEqual(manifest(contents,'a'*40)['minimum_base'],'1.1.4')
+        self.assertIn('telemetry.py',contents)
+        self.assertEqual(set(manifest(contents,'a'*40)['boards']),
+                         {'unexpectedmaker_feathers2','adafruit_feather_esp32_v2',
+                          'adafruit_feather_esp32s3_reverse_tft'})
         self.assertTrue(full_fleet_recovery(manifest(contents,'a'*40)))
         contents['app_version.py']+=(b'\nAPP_BOARDS=("adafruit_feather_esp32s3_reverse_tft",)\n'
                                      b'APP_ROLES=("consumer",)\nPROTOCOL_SEND=4\nPROTOCOL_RECEIVE=(3,4)\n')

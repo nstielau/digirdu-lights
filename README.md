@@ -1803,8 +1803,31 @@ The Echo Glow Reverse TFT device base 1.1.4 prepares for RF telemetry by adding 
 bounded durable outbox and accepting safe manifest-listed schema-2 app modules
 or data assets. Install it with `make deploy-base BOARD=adafruit_feather_esp32s3_reverse_tft`
 over USB in maintenance mode. This preserves the installed app, OTA slots and node
-profile. App 1.1.3 does not record RF telemetry; a later app and cloud contract
-update are needed before the RF sessions page can show this board's data.
+profile. App 1.1.7 records bounded producer send and consumer receive windows
+on all three verified board types. Each board needs app 1.1.7 and USB base
+1.1.4 or newer to collect and upload telemetry. A three-second group sleep
+queues each board's own batch, then tries one HTTPS upload after the music loop
+closes. A later normal boot retries a queued batch. The outbox holds at most
+four batches and never writes during the music loop. The authenticated fleet
+RF sessions view shows historical uploads and counts missing feature packets
+only between observations from one consumer boot; unobserved periods remain
+explicit. Native send completion does not establish RF delivery.
+
+USB base 1.1.6 adds a persistent result for the last telemetry upload attempt:
+**uploaded**, **queued**, or **failed**, a short safe error reason, and the
+pending batch count. The Reverse TFT **Device** page reads that local record,
+including after reboot. Base 1.1.4 and 1.1.5 can upload telemetry but display
+**RF status needs base 1.1.6**. A cloud page cannot show an attempt that never
+reached the cloud. The app requirement remains base 1.1.4, so this diagnostic
+does not block telemetry OTA on a board that already has base 1.1.4 or 1.1.5.
+
+Deploy the cloud telemetry contract and fleet view before approving app 1.1.7.
+Check each enrolled board's fresh **Device base** report before rollout. Boards
+below base 1.1.4 need `make deploy-base` over USB maintenance first, followed
+by a normal reboot and fresh report; app OTA cannot replace the USB base.
+Use base 1.1.6 where the local upload result is wanted. Do not assume an
+unreported or unenrolled board is eligible. Native sleep upload timing, RF
+coverage, and actual board adoption still need device checks.
 App 1.1.3 carries forward the 1.1.2 any-button sleep and wake behavior and
 changes the device update warning to **BASE UPDATE NEEDED**. The fleet label
 changes to **Device base** when the website is deployed.

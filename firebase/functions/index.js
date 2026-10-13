@@ -19,7 +19,11 @@ exports.deviceApi=onRequest({...options,cors:false},async(req,res)=>{
       if(!req.is('application/json')||(req.rawBody?.length||0)>8192){res.status(400).json({error:'invalid_body'});return;}
       res.json(await service.checkIn(id,token,req.body,route==='report'));return;
     }
-    const match=/^artifacts\/([a-f0-9]{64})\/([a-z_]+\.py)$/.exec(route);
+    if(route==='telemetry'&&req.method==='POST'){
+      if(!req.is('application/json')||(req.rawBody?.length||0)>49152){res.status(400).json({error:'invalid_body'});return;}
+      res.json(await service.telemetry(id,token,req.body));return;
+    }
+    const match=/^artifacts\/([a-f0-9]{64})\/([a-z][a-z0-9_]{0,39}\.[a-z0-9]{1,8})$/.exec(route);
     if(match&&req.method==='GET'){
       const file=await service.artifact(id,token,match[1],match[2]);
       const object=getStorage().bucket(`${project}-firmware`).file(file.object);
@@ -40,4 +44,5 @@ function callable(handler){return async request=>{
 };}
 const browser={...options,enforceAppCheck:true,cors:[`https://${project}.firebaseapp.com`,`https://${project}.web.app`]};
 exports.fleetOverview=onCall(browser,callable(service.overview));
+exports.fleetTelemetry=onCall(browser,callable(service.telemetryOverview));
 exports.fleetChange=onCall(browser,callable(service.change));

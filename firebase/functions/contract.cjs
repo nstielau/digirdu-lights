@@ -3,7 +3,17 @@ const LEGACY_BOARDS = ['unexpectedmaker_feathers2', 'adafruit_feather_esp32_v2']
 const LEGACY_FILES = ['animation.py','app_version.py','audio_features.py','audio_spectrum.py','config.py',
   'effects.py','lights_app.py','radio_protocol.py','sound_reactive.py','wireless.py'];
 const BOARDS = [...LEGACY_BOARDS, 'adafruit_feather_esp32s3_reverse_tft'];
-const FILES = [...LEGACY_FILES, 'dashboard.py', 'device_setup.py'].sort();
+const FILES = ['animation.py','app_version.py','audio_features.py','audio_spectrum.py','config.py',
+  'effects.py','lights_app.py','radio_protocol.py','sound_reactive.py','telemetry.py','wireless.py'];
+const RESERVED_APP_STEMS=new Set(['boot','code','node_config','battery','hardware','node_state',
+  'ota_status','ota_manifest','ota_store','ota_http','ota_bootstrap','telemetry_store','settings','secrets','credentials']);
+const safeAppName=name=>typeof name==='string'&&/^[a-z][a-z0-9_]{0,39}\.[a-z0-9]{1,8}$/.test(name)&&
+  !RESERVED_APP_STEMS.has(name.split('.')[0]);
+const validTargets=(values,allowed)=>Array.isArray(values)&&values.length>0&&values.length<=allowed.length&&
+  values.every(value=>typeof value==='string'&&allowed.includes(value))&&new Set(values).size===values.length;
+const validProtocol=(send,receive)=>Number.isInteger(send)&&send>=1&&send<=255&&Array.isArray(receive)&&
+  receive.length>0&&receive.length<=4&&receive.every(value=>Number.isInteger(value)&&value>=1&&value<=255)&&
+  new Set(receive).size===receive.length;
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const version = value => typeof value === 'string' && /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/.test(value);
@@ -17,23 +27,29 @@ function exact(value, keys) {
     Object.keys(value).sort().join(',') === [...keys].sort().join(',');
 }
 function validateManifest(m) {
-  const files=m?.schema===1?LEGACY_FILES:FILES, boards=m?.schema===1?LEGACY_BOARDS:BOARDS;
+  const legacy=m?.schema===1;
   if (!exact(m, ['schema','version','git_commit','app_api','minimum_base','circuitpython','boards','roles',
     'protocol_send','protocol_receive','files','sha256']) || ![1,2].includes(m.schema) || !version(m.version) ||
-    !/^[a-f0-9]{40}$/.test(m.git_commit) || m.app_api!==1 || !version(m.minimum_base) || (m.schema===2 && compare(m.minimum_base,'1.1.0')<0) ||
-    m.circuitpython!=='10.3.1' || JSON.stringify(m.boards)!==JSON.stringify(boards) ||
-    JSON.stringify(m.roles)!==JSON.stringify(['producer','consumer']) || m.protocol_send!==3 ||
-    JSON.stringify(m.protocol_receive)!=='[3]' || !Array.isArray(m.files) || m.files.length!==files.length) {
+    !/^[a-f0-9]{40}$/.test(m.git_commit) || m.app_api!==1 || !version(m.minimum_base) ||
+    (m.schema===2 && compare(m.minimum_base,'1.1.0')<0) ||
+    m.circuitpython!=='10.3.1' || !validTargets(m.boards,legacy?LEGACY_BOARDS:BOARDS) ||
+    !validTargets(m.roles,['producer','consumer']) || !validProtocol(m.protocol_send,m.protocol_receive) ||
+    !Array.isArray(m.files) || m.files.length<2 || m.files.length>24 ||
+    (legacy && (JSON.stringify(m.boards)!==JSON.stringify(LEGACY_BOARDS) ||
+      JSON.stringify(m.roles)!==JSON.stringify(['producer','consumer']) ||
+      m.protocol_send!==3 || JSON.stringify(m.protocol_receive)!=='[3]' ||
+      m.files.length!==LEGACY_FILES.length))) {
     throw new Error('invalid_manifest');
   }
   const seen=new Set(); let size=0;
   for (const f of m.files) {
-    if (!exact(f,['name','size','sha256']) || !files.includes(f.name) || seen.has(f.name) ||
+    if (!exact(f,['name','size','sha256']) || !safeAppName(f.name) ||
+      (legacy&&!LEGACY_FILES.includes(f.name)) || seen.has(f.name) ||
       !Number.isInteger(f.size) || f.size<1 || f.size>65536 || !digest(f.sha256)) throw new Error('invalid_file');
     seen.add(f.name); size+=f.size;
   }
   const text=[...m.files].sort((a,b)=>a.name.localeCompare(b.name)).map(f=>`${f.name}:${f.size}:${f.sha256}\n`).join('');
-  if (size>262144 || !digest(m.sha256) || hash(text)!==m.sha256) throw new Error('invalid_bundle');
+  if (!seen.has('app_version.py')||!seen.has('lights_app.py')||size>262144 || !digest(m.sha256) || hash(text)!==m.sha256) throw new Error('invalid_bundle');
   return m;
 }
 function compatible(m, report) {
@@ -44,12 +60,11 @@ function compatible(m, report) {
 function validateReport(b,id) {
   const keys=['device_id','board','role','version','base_version','circuitpython','protocol_send',
     'protocol_receive','session','report_sequence','state','deployment_sequence','error','health'];
-  // Optional for older device bases; when present, validate the complete reading.
+  // Optional for older USB bases; when present, validate the complete reading.
   if (Object.hasOwn(b || {},'battery')) keys.push('battery');
   if (!exact(b,keys) || b.device_id!==id || !BOARDS.includes(b.board) || !['producer','consumer'].includes(b.role) ||
     (b.board===BOARDS[1] && b.role!=='consumer') || !version(b.version) || !version(b.base_version) ||
-    !version(b.circuitpython) || !Number.isInteger(b.protocol_send) || !Array.isArray(b.protocol_receive) ||
-    b.protocol_receive.length>4 || b.protocol_receive.some(v=>!Number.isInteger(v)||v<1||v>255) ||
+    !version(b.circuitpython) || !validProtocol(b.protocol_send,b.protocol_receive) ||
     !/^[a-f0-9]{16}$/.test(b.session) || !Number.isInteger(b.report_sequence) || b.report_sequence<1 || b.report_sequence>1000 ||
     !['recovery','current','trial','rolled_back'].includes(b.state) || !Number.isInteger(b.deployment_sequence) ||
     b.deployment_sequence<0 || b.deployment_sequence>2147483647 || typeof b.error!=='string' || b.error.length>80 ||
@@ -67,4 +82,40 @@ function validateReport(b,id) {
   }
   return b;
 }
-module.exports={BOARDS,FILES,LEGACY_BOARDS,LEGACY_FILES,hash,digest,version,compare,validateManifest,validateReport,compatible};
+const hex16=value=>typeof value==='string'&&/^[a-f0-9]{16}$/.test(value);
+const mask=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
+const count=value=>Number.isInteger(value)&&value>=0&&value<=1000000000;
+function validateTelemetry(b,id,role) {
+ const invalid=()=>{throw new Error('invalid_telemetry');};
+ if(!exact(b,['schema','device_id','batch_id','record'])||b.schema!==1||b.device_id!==id||!hex16(b.batch_id)||
+    Buffer.byteLength(JSON.stringify(b))>49152)invalid();
+ const r=b.record;
+ if(!exact(r,['schema','role','boot_id','windows','counts','truncated_windows','epoch_uncertain','rssi'])||
+    r.schema!==1||r.role!==role||!hex16(r.boot_id)||!Array.isArray(r.windows)||r.windows.length>128||
+    !count(r.truncated_windows)||typeof r.epoch_uncertain!=='boolean'||
+    !exact(r.counts,['features','controls','skipped','rejected','native_drops','link_losses','audio_overruns','audio_discontinuities'])||
+    Object.values(r.counts).some(v=>!count(v)))invalid();
+ if(r.rssi!==null && (!exact(r.rssi,['min','max','mean'])||
+   Object.values(r.rssi).some(v=>!Number.isInteger(v)||v< -128||v>0)||
+   r.rssi.min>r.rssi.mean||r.rssi.mean>r.rssi.max))invalid();
+ if(role==='producer'&&r.rssi!==null)invalid();
+ const seen=new Set();
+ for(const w of r.windows){
+  if(!exact(w,['session','base','received','attempted','delivered','failed','controls'])||
+    !Number.isInteger(w.session)||w.session<0||w.session>0xffffffff||
+    !Number.isInteger(w.base)||w.base<0||w.base>100000000||w.base%256!==0||
+    ![w.received,w.attempted,w.delivered,w.failed,w.controls].every(mask))invalid();
+  const key=`${w.session}:${w.base}`;if(seen.has(key))invalid();seen.add(key);
+  if(role==='producer'&&w.received!== '00'.repeat(32))invalid();
+  if(role==='consumer'&&[w.attempted,w.delivered,w.failed].some(v=>v!=='00'.repeat(32)))invalid();
+  for(let i=0;i<64;i+=2){
+   const a=parseInt(w.attempted.slice(i,i+2),16),d=parseInt(w.delivered.slice(i,i+2),16),
+     f=parseInt(w.failed.slice(i,i+2),16),c=parseInt(w.controls.slice(i,i+2),16),
+     received=parseInt(w.received.slice(i,i+2),16);
+   if((d&~a)||(f&~a)||(d&f)||(role==='producer'&&(c&~a))||
+      (role==='consumer'&&(c&received)))invalid();
+  }
+ }
+ return b;
+}
+module.exports={BOARDS,LEGACY_BOARDS,LEGACY_FILES,FILES,safeAppName,hash,digest,version,compare,validateManifest,validateReport,validateTelemetry,compatible};

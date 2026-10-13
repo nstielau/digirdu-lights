@@ -596,6 +596,19 @@ needed only to place this version in the separate recovery app. The countdown
 gesture normally runs in the active app and can receive this art through OTA;
 base 1.1.5 remains sufficient.
 
+App 1.1.7 carries the bounded RF telemetry recorder to all three verified
+boards and both roles. Keep `APP_MINIMUM_BASE=1.1.4`, the first Reverse TFT
+base with the durable outbox and sleep/boot uploader. USB base 1.1.6 records
+the last upload attempt in `/telemetry/status.json` for the Reverse TFT Device
+page: uploaded/queued/failed, short safe reason, pending count. Status is an
+optional diagnostic on base 1.1.4/1.1.5; do not raise the app minimum solely
+for it. Record producer native completions separately from consumer receives,
+keep flash/Wi-Fi outside the music loop, and retain the four-batch limit and
+native ESP-NOW receive gate. Deploy the cloud schema-2 telemetry contract
+before approving a release. Older-base boards need USB service and a fresh
+fleet report before app OTA. RF history is based on uploaded sleep/boot
+snapshots, not live signal measurements.
+
 Check-in update_status schema1 includes state and optional blocked app version/
 minimum_base. Report only newer approved, non-revoked releases whose sole
 compatibility barrier is base version; respect pins/pause and preserve older

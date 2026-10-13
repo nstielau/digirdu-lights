@@ -1,16 +1,17 @@
 """USB-managed release contract, shared by device and host tooling."""
 import hashlib
 
-BASE_VERSION = "1.1.5"
-# App compatibility is independent of optional USB-base improvements.
-APP_MINIMUM_BASE = "1.1.0"
+BASE_VERSION = "1.1.6"
+# Telemetry recording needs the USB-base outbox/uploader introduced in 1.1.4.
+# The DEVICE-page attempt status is optional until base 1.1.6 is installed.
+APP_MINIMUM_BASE = "1.1.4"
 APP_API = 1
 LEGACY_BOARDS = ("unexpectedmaker_feathers2", "adafruit_feather_esp32_v2")
 LEGACY_APP_FILES = ("animation.py", "app_version.py", "audio_features.py", "audio_spectrum.py",
              "config.py", "effects.py", "lights_app.py", "radio_protocol.py",
              "sound_reactive.py", "wireless.py")
 BOARDS = LEGACY_BOARDS + ("adafruit_feather_esp32s3_reverse_tft",)
-APP_FILES = tuple(sorted(LEGACY_APP_FILES + ("dashboard.py", "device_setup.py")))
+APP_FILES = tuple(sorted(LEGACY_APP_FILES + ("dashboard.py", "device_setup.py", "telemetry.py")))
 CONTRACTS = {1: (LEGACY_BOARDS, LEGACY_APP_FILES), 2: (BOARDS, APP_FILES)}
 MAX_FILE = 65536
 MAX_TOTAL = 262144

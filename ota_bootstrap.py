@@ -12,7 +12,7 @@ from battery import read_battery
 import hardware
 import node_state
 import ota_status
-from telemetry_store import TelemetryQueue
+from telemetry_store import TelemetryQueue, write_attempt
 
 TRIAL_SECONDS = 30
 NVM_MARKER = b"DGO1"  # Reserved bytes 0..4; never store device secrets in NVM.
@@ -169,8 +169,33 @@ def upload_telemetry(client, service, limit=1):
     queue = TelemetryQueue()
     if not queue.has_pending():
         return 0
-    return queue.flush(lambda batch: client.request(
-        "telemetry", service, lambda response: response.json(), limit=256, body=batch), limit)
+    try:
+        uploaded = queue.flush(lambda batch: client.request(
+            "telemetry", service, lambda response: response.json(), limit=256, body=batch), limit)
+    except Exception as error:
+        note_telemetry_attempt(queue, "failed", ota_status.failure_reason(error, "http"))
+        raise
+    note_telemetry_attempt(queue, "uploaded" if uploaded else "failed",
+                           "" if uploaded else "ack")
+    return uploaded
+
+
+def note_telemetry_attempt(queue, state, reason=""):
+    try:
+        write_attempt(state, reason, len(queue.pending()), root=queue.root)
+    except Exception as error:
+        print("TELEMETRY status unavailable: " + type(error).__name__)
+
+
+def note_pending_boot_failure(reason):
+    """A failed check-in also prevents the queued boot upload from starting."""
+    try:
+        os.stat("/telemetry")
+        queue = TelemetryQueue()
+        if queue.has_pending():
+            note_telemetry_attempt(queue, "failed", reason)
+    except OSError:
+        pass
 
 
 def telemetry_on_sleep(record, cfg, watchdog):
@@ -178,12 +203,14 @@ def telemetry_on_sleep(record, cfg, watchdog):
     try:
         queue = TelemetryQueue()
         queue.enqueue(cfg["id"], record)
+        note_telemetry_attempt(queue, "queued")
     except Exception as error:
         print("TELEMETRY storage unavailable: " + type(error).__name__)
         return
     import wifi
     import socketpool
     deadline = time.monotonic() + 18
+    phase = "wifi"
     def service():
         if time.monotonic() >= deadline:
             raise OSError("telemetry_deadline")
@@ -193,9 +220,11 @@ def telemetry_on_sleep(record, cfg, watchdog):
         wifi.radio.enabled = True
         service()
         wifi.radio.connect(cfg["ssid"], timeout=8)
+        phase = "http"
         client = DeviceHTTP(socketpool.SocketPool(wifi.radio), cfg["id"], cfg["token"], cfg["api"])
         upload_telemetry(client, service)
     except Exception as error:
+        note_telemetry_attempt(queue, "failed", ota_status.failure_reason(error, phase))
         print("TELEMETRY queued for next boot: " + type(error).__name__)
     finally:
         try:
@@ -263,6 +292,7 @@ def network(store, cfg, version, session, sequence, watchdog, report_only=False,
     except Exception as error:
         # Never print endpoint response bodies, credentials or raw socket objects.
         reason = ota_status.failure_reason(error, phase)
+        note_pending_boot_failure(reason)
         if not report_only:ota_status.reset('unavailable', reason)
         print("OTA unavailable: %s reason=%s" % (type(error).__name__, reason))
     finally:

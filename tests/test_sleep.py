@@ -206,6 +206,7 @@ class SleepProtocolTests(unittest.TestCase):
         link.c=self.c;link.radio=Mock(send_success=0,send_failure=0)
         link.transmitter=self.tx;link.peer=object();link.next_send=0
         link.pending=False;link.completed=0;link.sleep_turn=True
+        link.completed_success=0;link.pending_sequence=None;link.telemetry=Mock()
         link.skipped=link.sent=link.errors=0
         link.publish(self.f,self.a,10,self.sleep)
         link.publish(self.f,self.a,10.1,self.sleep)  # Send still pending.
@@ -216,6 +217,9 @@ class SleepProtocolTests(unittest.TestCase):
         link.publish(self.f,self.a,10.3,self.sleep)
         self.assertEqual([call.args[0][:4] for call in link.radio.send.call_args_list],
                          [b'DGRS',b'DGRD',b'DGRS'])
+        self.assertEqual(link.telemetry.attempted.call_count,3)
+        link.telemetry.skipped.assert_called_once()
+        self.assertGreaterEqual(link.telemetry.completed.call_count,2)
 
 
 def load_app():
@@ -228,6 +232,17 @@ def load_app():
 
 
 class ShutdownTests(unittest.TestCase):
+    def test_sleep_upload_runs_after_radio_cleanup_with_wing_held_low(self):
+        app=load_app();order=[];record=Mock();record.snapshot.return_value={'schema':1}
+        class DeepSleep(BaseException):pass
+        with patch.object(app,'run_follower',side_effect=app.SleepRequested(record)), \
+             patch.object(app,'hold_wing_data_low',side_effect=lambda:order.append('hold') or object()), \
+             patch.object(app,'enter_deep_sleep',side_effect=lambda pin:order.append('alarm') or (_ for _ in ()).throw(DeepSleep)):
+            with self.assertRaises(DeepSleep):
+                app.main(on_sleep=lambda data:order.append(('upload',data)))
+        self.assertEqual(order,['hold',('upload',{'schema':1}),'alarm'])
+        record.snapshot.assert_called_once()
+
     def test_no_wake_alarms_watchdog_off_and_no_ota_failure_exception(self):
         app=load_app()
         class DeepSleep(BaseException):pass
@@ -252,10 +267,13 @@ class ShutdownTests(unittest.TestCase):
     def test_follower_blacks_out_and_deinitializes_radio_before_sleep(self):
         app=load_app();rx=Receiver(Config());rx.sleep.request(0,3)
         link=Mock(receiver=rx);link.receive.return_value=AudioFeatures()
+        link.receiver.fade_if_lost=Mock(return_value=False)
         health=Mock(trial=False)
         with patch.dict(sys.modules,{'wireless':SimpleNamespace(Wireless=lambda _:link)}), \
              patch.object(app.time,'monotonic',return_value=4):
-            with self.assertRaises(app.SleepRequested):app.run_follower(health)
+            with self.assertRaises(app.SleepRequested) as raised:app.run_follower(health)
+        self.assertIs(raised.exception.telemetry,link.telemetry)
+        link.observe_link.assert_called_once_with(False)
         self.assertEqual(app.neopixel_write.call_args.args[1],bytes(96))
         link.deinit.assert_called_once();health.assert_called_once()
 

@@ -85,6 +85,17 @@ class DashboardTests(unittest.TestCase):
 
 
 class FourPageTests(unittest.TestCase):
+    def test_device_page_shows_durable_telemetry_result_and_pending_count(self):
+        import dashboard as d
+        info={'app':'1.1.7','base':'1.1.6','role':'PRODUCER','source':'aa:bb:cc:dd:ee:ff',
+              'id':'468e33378dc3','update':{'state':'checked'},
+              'telemetry':{'state':'failed','reason':'Wi-Fi','pending':2}}
+        lines=d.device_lines(info)
+        self.assertIn('RF failed Wi-Fi / 2 pending',lines)
+        self.assertLessEqual(len(lines),8)
+        info['base']='1.1.5';info['telemetry']=None
+        self.assertIn('RF status needs base 1.1.6',d.device_lines(info))
+
     def test_cycle_and_effect_updates_do_not_navigate(self):
         import dashboard as d
         ui=d.Dashboard(Mock());self.assertEqual(ui.page,0)

@@ -7,6 +7,42 @@ import os
 
 MAX_BATCH_BYTES = 49152
 MAX_BATCHES = 4
+ATTEMPT_STATES = ("queued", "uploaded", "failed")
+
+
+def read_attempt(root="/telemetry"):
+    """Read the last bounded upload result without changing filesystem ownership."""
+    try:
+        with open(root + "/status.json") as stream:
+            raw = stream.read(129)
+        if len(raw) > 128:
+            return None
+        record = json.loads(raw)
+        if (type(record) is not dict or set(record) != {"schema", "state", "reason", "pending"}
+                or record["schema"] != 1 or record["state"] not in ATTEMPT_STATES
+                or type(record["reason"]) is not str or len(record["reason"]) > 16
+                or type(record["pending"]) is not int or not 0 <= record["pending"] <= MAX_BATCHES):
+            return None
+        return {key: record[key] for key in ("state", "reason", "pending")}
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def write_attempt(state, reason="", pending=0, root="/telemetry", sync=None):
+    """Persist one diagnostic after sleep/boot networking, never in the music loop."""
+    if (state not in ATTEMPT_STATES or type(reason) is not str or len(reason) > 16
+            or type(pending) is not int or not 0 <= pending <= MAX_BATCHES):
+        raise ValueError("invalid_telemetry_attempt")
+    synchronize = sync if sync is not None else os.sync
+    raw = json.dumps({"schema": 1, "state": state, "reason": reason,
+                      "pending": pending}, separators=(",", ":"))
+    temporary = root + "/status.json.tmp"
+    with open(temporary, "w") as stream:
+        stream.write(raw)
+        stream.flush()
+    synchronize()
+    os.rename(temporary, root + "/status.json")
+    synchronize()
 
 
 class TelemetryQueue:
