@@ -1308,4 +1308,18 @@ PR #2 merged into `feature/reverse-tft` after its checks passed. App 1.1.3
 combines the already released 1.1.2 any-button sleep and wake behavior with the
 `BASE UPDATE NEEDED` device wording. Its wire protocol remains v3 and its minimum
 device base remains 1.1.0. Base 1.1.4 is optional for this app; RF telemetry
-recording remains future work. The attached consumer still needs an app deploy.
+recording remains future work. Commit `4f66469` was tagged `firmware-v1.1.3`;
+the release is a GitHub prerelease, so the release import workflow does not
+advance OTA stable for the rest of the fleet.
+
+The attached consumer UID `468e3337ac8d` received the full USB deployment
+with `make deploy BOARD=adafruit_feather_esp32s3_reverse_tft
+PORT=/dev/cu.usbmodem468E3337AC8D1 MOUNT=/Volumes/CIRCUITPY`. The command
+preserved its node configuration, backed up previous files under
+`.artifacts/app-backups/native-usb-1791911697166704000/`, and verified 25
+base/recovery/profile files. An independent readback matched all 24 versioned
+base and recovery files byte-for-byte, and the node profile matched its backup.
+Startup reported app 1.1.3/base 1.1.4, then live producer reception reached
+23 accepted and zero rejected packets in the observed serial window. This
+confirms startup and short-range radio reception, not visual output or culvert
+coverage. The host cleanly unmounted `CIRCUITPY` (`disk5s1`) afterward.
