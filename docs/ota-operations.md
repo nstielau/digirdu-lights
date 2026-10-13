@@ -1273,7 +1273,7 @@ and `deviceApi`, `fleetOverview`, and `fleetChange` were redeployed. After a
 clean field-mode reset, the board reported app `1.1.0`, base `1.1.3`, role
 `consumer`, and battery status `out_of_range`; Firebase recorded the check-in.
 
-## October 13: Echo Go base 1.1.4 preparation
+## October 13: Echo Go USB base 1.1.4 installation
 
 The attached Reverse TFT consumer UID `468e3337ac8d` booted in USB mode with
 app/recovery files and base 1.1.3. All eleven installed base files matched the
@@ -1282,6 +1282,17 @@ bounded sleep/boot uploader for a future telemetry app, and safe manifest-listed
 app files and data assets. It retains schema-1 legacy validation and schema-2
 Reverse TFT support, boot-time update status, and the existing display boot
 animation. The app remains 1.1.1; its minimum base stays 1.1.0.
+
+Ran `make deploy-base BOARD=adafruit_feather_esp32s3_reverse_tft
+PORT=/dev/cu.usbmodem468E3337AC8D1 MOUNT=/Volumes/CIRCUITPY` on the attached
+consumer. The command passed all 226 host tests, verified the CircuitPython
+10.3.1 board identity and UID against the mounted drive, backed up the existing
+base files under `.artifacts/app-backups/native-usb-1791911013021279000/`,
+and verified 12 base file readbacks. An independent comparison found all 12
+installed files byte-identical to the source. The board then soft rebooted in
+USB maintenance mode, reported `app=1.1.1 base=1.1.4`, and logged consumer
+`LIGHTS` frames after radio initialization. This is a USB maintenance startup
+check, not a field-mode OTA check-in or visual RF reception test.
 
 Base 1.1.4 by itself does not collect RF data: a later Reverse TFT app must
 record packet windows, declare its telemetry hook, and require base 1.1.4. Cloud
