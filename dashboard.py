@@ -34,6 +34,9 @@ TFT_FIELDS = (
     ('sleep_title',12,10,18,2,0xffffff),
     ('sleep_number',178,47,1,4,0xffffff),
     ('sleep_detail',12,112,36,1,0xffffff),
+    ('maintenance_title',12,10,18,2,0xff9f43),
+    ('maintenance_number',178,47,1,4,0xff9f43),
+    ('maintenance_detail',12,112,36,1,0xffb454),
     ('level',44,91,31,1,0x8899aa), ('state',44,117,31,1,0xffb454),
 ) + tuple(field for index in range(4) for field in (
     ('k%d'%index,44,32+27*index,18,1,0x8899aa),
@@ -165,8 +168,20 @@ def sleep_overlay(holding=0, remaining=None, status=''):
     return None
 
 
+def maintenance_overlay(holding, ready=False):
+    if ready:
+        return ('maintenance','USB READY',' ','Release buttons to enter')
+    if holding > 0:
+        return ('maintenance','HOLD FOR USB',str(min(9,int(math.ceil(holding)))),'Release to cancel')
+    return None
+
+
 def page_content(state, page):
     if state.get('overlay'):
+        if state['overlay'][0] == 'maintenance':
+            _,title,number,detail=state['overlay']
+            return {'maintenance_title':title,'maintenance_number':number,
+                    'maintenance_detail':detail}
         title,number,detail=state['overlay']
         return {'sleep_title':title,'sleep_number':number,'sleep_detail':detail}
     content = {'b0':state['labels'][0], 'b1':state['labels'][1], 'b2':state['labels'][2],
@@ -400,7 +415,10 @@ class TFTBackend:
 
     def _prepare(self, state, page):
         self.back.fill(0)
-        if state.get('overlay'):
+        if state.get('overlay') and state['overlay'][0] == 'maintenance':
+            for x1,y1,x2,y2 in ((0,0,240,2),(0,133,240,135),(0,0,2,135),(238,0,240,135)):
+                self.fill_region(self.back,x1,y1,x2,y2,14)
+        elif state.get('overlay'):
             self._sleep_dog(state.get('animation_frame',0))
         elif state.get('banner') or state.get('maintenance'):
             self.fill_region(self.back,40,0,240,22,15 if state.get('maintenance') else 9)

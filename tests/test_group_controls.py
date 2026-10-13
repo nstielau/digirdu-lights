@@ -100,7 +100,8 @@ class GroupButtonTests(unittest.TestCase):
         from types import SimpleNamespace
         from effects import SleepTransition
         app=load_app();buttons=app.TFTButtons.__new__(app.TFTButtons)
-        buttons.inputs=[];buttons.logic=Mock();radio=Mock();animation=Mock();sleep=SleepTransition()
+        buttons.inputs=[Mock(value=value) for value in (True,False,False)]
+        buttons.logic=Mock();radio=Mock();animation=Mock();sleep=SleepTransition()
         with patch.object(app,'CONFIG',SimpleNamespace(radio_role='follower',sleep_fade_s=3)):
             buttons.logic.update.return_value='next'
             buttons.poll(animation,1,sleep,radio=radio)

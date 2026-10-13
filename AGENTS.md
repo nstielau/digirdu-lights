@@ -568,6 +568,20 @@ configuration. App 1.1.3 has no RF recorder; telemetry requires a later app
 and matching cloud schema-2 support. Do not claim the base update alone enables
 RF session data.
 
+Reverse TFT app 1.1.4 and device base 1.1.5 add a local D0+D1+D2 hold for USB
+maintenance. Show an orange four-second countdown, then wait for all buttons
+to be stably released before resetting: D0 held through reset can select ROM
+download. Do not broadcast this gesture or allow it during an OTA health trial
+or group sleep. The base uses one-use NVM bytes 5–8, leaving OTA bytes 0–4
+untouched. Boot consumes the marker, selects host-writable USB ownership,
+shows the orange boot border and moving matrix pixel, and preserves manual
+D0-after-RESET entry. Boards without the chord retain their reset-window
+buttons: FeatherS2 BOOT/IO0 and HUZZAH32 V2 SW38/`board.BUTTON` (not D0).
+Soft reloads retain maintenance; the next full reset
+returns to OTA. App minimum base remains 1.1.0 with an old-base warning;
+base-only deployment does not install the gesture. Verify native entry and
+exit before claiming physical behavior.
+
 Check-in update_status schema1 includes state and optional blocked app version/
 minimum_base. Report only newer approved, non-revoked releases whose sole
 compatibility barrier is base version; respect pins/pause and preserve older

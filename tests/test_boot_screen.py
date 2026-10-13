@@ -2,7 +2,7 @@ import sys
 import os
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import MagicMock, Mock, patch, mock_open
 
 import hardware as h
 
@@ -38,6 +38,24 @@ class EchoAnimationTests(unittest.TestCase):
 
 
 class BootScreenTests(unittest.TestCase):
+    def test_maintenance_border_is_exactly_two_pixels_and_idempotent(self):
+        bitmap=object();palette=MagicMock();grid=object();regions=[]
+        modules={'displayio':SimpleNamespace(Bitmap=lambda *args:bitmap,
+                                             Palette=lambda count:palette,
+                                             TileGrid=lambda *args,**kwargs:grid),
+                 'bitmaptools':SimpleNamespace(fill_region=lambda *args:regions.append(args))}
+        text=h.TextScreen.__new__(h.TextScreen)
+        text.display=SimpleNamespace(width=240,height=135)
+        text.group=[];text.border_grid=None
+        with patch.dict(sys.modules,modules):
+            text.border(0xff9f43,2)
+            text.border(0xff9f43,2)
+        self.assertEqual([item[1:] for item in regions],[
+            (0,0,240,2,1),(0,133,240,135,1),
+            (0,0,2,135,1),(238,0,240,135,1)])
+        self.assertEqual(text.group,[grid])
+        palette.make_transparent.assert_called_once_with(0)
+
     def test_stale_screen_cleanup_preserves_replacement_fault_screen(self):
         text=h.TextScreen.__new__(h.TextScreen)
         text.group=object();replacement=object()
@@ -79,6 +97,7 @@ class BootScreenTests(unittest.TestCase):
         screen.maintenance()
         text.text.assert_any_call('mode','USB MAINT')
         text.text.assert_any_call('phase','CIRCUITPY READY')
+        text.border.assert_called_once_with(0xff9f43,2)
         self.assertTrue(screen.art.maintenance)
 
     def test_no_display_has_no_graphics_allocation(self):
@@ -119,9 +138,12 @@ class BootScreenTests(unittest.TestCase):
              patch.object(h,'start_boot',return_value=screen),patch.object(h,'close_boot') as close, \
              patch.object(ota,'open',mock_open(read_data='APP_VERSION="1.2.3"')), \
              patch.object(ota,'load_app',return_value=(app,'1.2.3')), \
+             patch.object(ota,'OTAIndicator') as indicator, \
              patch.dict(os.environ,{'OTA_ENABLED':'1'}):
             with self.assertRaises(Running):ota.main()
             screen.maintenance.assert_called_once()
+            indicator.assert_called_once_with(color=(3,8,0),phase='Loading application')
+            indicator.return_value.close.assert_called_once()
             screen.version.assert_called_with('1.2.3')
             screen.phase.assert_any_call('Listening for producer')
             close.assert_called()

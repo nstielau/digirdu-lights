@@ -50,7 +50,8 @@ class BrightnessTests(unittest.TestCase):
         from test_sleep import load_app
         from effects import SleepTransition
         app=load_app();buttons=app.TFTButtons.__new__(app.TFTButtons)
-        buttons.inputs=[];buttons.logic=Mock();radio=Mock();animation=Mock();sleep=SleepTransition()
+        buttons.inputs=[Mock(value=value) for value in (True,False,False)]
+        buttons.logic=Mock();radio=Mock();animation=Mock();sleep=SleepTransition()
         with patch.object(app,'DISPLAY',Mock(page=2)):
             buttons.logic.update.return_value='next'
             buttons.poll(animation,1,sleep,radio=radio)

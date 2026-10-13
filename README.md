@@ -509,6 +509,23 @@ This means the host owns the CIRCUITPY filesystem and the network OTA check is
 paused for that boot. The TinyUF2 `FTHRS3BOOT` drive is an earlier bootloader
 state, so CircuitPython and the TFT are not running and cannot show a status.
 
+**Local maintenance shortcut (app 1.1.4 / device base 1.1.5):** On a Reverse TFT
+node, hold D0, D1 and D2 together for four seconds. The orange TFT countdown
+can be canceled by releasing early. When it says `USB READY`, release all three
+buttons; it resets itself into USB maintenance without sending a radio command.
+Releasing D0 before the reset avoids entering the Espressif ROM bootloader.
+Maintenance boot uses a two-pixel orange TFT border and a dim moving orange
+matrix pixel instead of the normal blue selection light. Host writes are then
+enabled and the OTA check is skipped. Soft reloads during deployment keep USB
+maintenance active. To leave, eject `CIRCUITPY` and press RESET without holding
+D0; the next full boot returns to normal OTA mode. D0 after RESET during the
+blue two-second window remains the recovery entry path. If the app runs on an
+older base, the chord shows `BASE UPDATE NEEDED` and stays running. It is ignored
+during an OTA health trial or an active group sleep.
+Boards without the three TFT buttons keep their existing reset-window button
+entry: BOOT/IO0 on FeatherS2 and SW38/`board.BUTTON` on HUZZAH32 V2. The
+HUZZAH32 V2 does not use D0 for maintenance.
+
 Keep the room quiet for the **first two seconds** after startup to calibrate
 the noise floor. Then play a steady drone, change mouth/tongue position, add a
 growl, vocalize, and try hard DOOTs. Watch both the feature logs and the lights.

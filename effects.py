@@ -184,12 +184,74 @@ class ReleaseGate:
 class TFTControls:
     def __init__(self, role, debounce_s, hold_s):
         self.role = role
+        self.debounce_s = debounce_s
         self.buttons = [ButtonGesture(debounce_s,hold_s) for _ in range(3)]
         self.releases = [ReleaseGate(debounce_s) for _ in range(3)]
         self.armed = [False]*3
         self.countdown = 0
+        self.maintenance_countdown = 0
+        self.maintenance_ready = False
+        self.maintenance_hold_s = 4.0
+        self.chord_phase = 'unarmed'
+        self.chord_release = ReleaseGate(debounce_s)
+        self.chord_press_since = None
+        self.chord_started = None
 
-    def update(self, levels, now):
+    def _suppress_buttons(self, now):
+        for button in self.buttons:
+            button.update(False, now)
+        self.countdown = 0
+
+    def update(self, levels, now, allow_maintenance=True):
+        pressed = (not levels[0], levels[1], levels[2])
+        all_pressed = all(pressed)
+        self.maintenance_countdown = 0
+        if self.chord_phase == 'ready_release':
+            self._suppress_buttons(now)
+            if not allow_maintenance:
+                self.maintenance_ready = False
+                self.chord_phase = 'wait_release'
+                return None
+            if self.chord_release.update(any(pressed), now):
+                self.maintenance_ready = False
+                self.chord_phase = 'unarmed'
+                self.chord_release = ReleaseGate(self.debounce_s)
+                return 'maintenance'
+            return None
+        if self.chord_phase == 'wait_release':
+            self._suppress_buttons(now)
+            self.maintenance_ready = False
+            if self.chord_release.update(any(pressed), now):
+                self.chord_phase = 'armed'
+            return None
+        if self.chord_phase == 'holding':
+            self._suppress_buttons(now)
+            if not all_pressed or not allow_maintenance:
+                self.chord_phase = 'wait_release'
+                return None
+            elapsed = now - self.chord_started
+            self.maintenance_countdown = max(0, self.maintenance_hold_s - elapsed)
+            if elapsed >= self.maintenance_hold_s:
+                self.chord_phase = 'ready_release'
+                self.maintenance_ready = True
+                self.chord_release = ReleaseGate(self.debounce_s)
+                return None
+            return None
+        if self.chord_phase == 'unarmed' and self.chord_release.update(any(pressed), now):
+            self.chord_phase = 'armed'
+        if self.chord_phase == 'armed' and all_pressed:
+            self._suppress_buttons(now)
+            if not allow_maintenance:
+                self.chord_phase = 'wait_release'
+                return None
+            if self.chord_press_since is None:
+                self.chord_press_since = now
+            if now - self.chord_press_since >= self.debounce_s:
+                self.chord_started = now
+                self.chord_phase = 'holding'
+                self.maintenance_countdown = self.maintenance_hold_s
+            return None
+        self.chord_press_since = None
         action = None
         self.countdown = 0
         for index,(level,button) in enumerate(zip(levels,self.buttons)):

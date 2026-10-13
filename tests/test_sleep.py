@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 from animation import CulvertAnimation
 from audio_features import AudioFeatures
 from config import Config
-from effects import ButtonGesture, SleepTransition
+from effects import ButtonGesture, SleepTransition, TFTControls
 from radio_protocol import Transmitter, Receiver, SLEEP_FORMAT, SLEEP_SIZE
 from test_wireless import wireless_class
 
@@ -43,6 +43,104 @@ class GestureTests(unittest.TestCase):
         b=self.button();b.update(True,0);b.update(True,.05)
         self.assertEqual(b.update(False,3.01),0)
         self.assertEqual(b.update(False,3.06),ButtonGesture.HOLD)
+
+
+class MaintenanceChordTests(unittest.TestCase):
+    IDLE=(True,False,False)
+    ALL=(False,True,True)
+
+    def armed(self):
+        controls=TFTControls('follower',.04,3)
+        controls.update(self.IDLE,0)
+        controls.update(self.IDLE,.05)
+        return controls
+
+    def test_all_three_count_down_then_request_maintenance_once(self):
+        controls=self.armed()
+        self.assertIsNone(controls.update(self.ALL,1))
+        self.assertIsNone(controls.update(self.ALL,1.05))
+        self.assertGreater(controls.maintenance_countdown,3.9)
+        self.assertIsNone(controls.update(self.ALL,4.99))
+        self.assertIsNone(controls.update(self.ALL,5.05))
+        self.assertTrue(controls.maintenance_ready)
+        self.assertIsNone(controls.update(self.ALL,6))
+        self.assertIsNone(controls.update(self.IDLE,6.1))
+        self.assertEqual(controls.update(self.IDLE,6.15),'maintenance')
+        self.assertIsNone(controls.update(self.IDLE,6.2))
+        self.assertEqual(controls.countdown,0)
+
+    def test_release_cancels_and_suppresses_individual_short_press(self):
+        controls=self.armed()
+        controls.update(self.ALL,1)
+        controls.update(self.ALL,1.05)
+        self.assertIsNone(controls.update((True,True,True),2))
+        self.assertIsNone(controls.update(self.IDLE,2.1))
+        self.assertIsNone(controls.update(self.IDLE,2.2))
+        self.assertEqual(controls.maintenance_countdown,0)
+        controls.update((False,False,False),3)
+        controls.update((False,False,False),3.05)
+        controls.update(self.IDLE,3.2)
+        self.assertEqual(controls.update(self.IDLE,3.25),'page')
+
+    def test_trial_blocks_chord_and_single_button_sleep_unchanged(self):
+        controls=self.armed()
+        for now in (1,1.05,5.1):
+            self.assertIsNone(controls.update(self.ALL,now,allow_maintenance=False))
+        self.assertEqual(controls.maintenance_countdown,0)
+        controls=self.armed()
+        for now in (1,1.05,3.99):self.assertIsNone(controls.update((False,False,False),now))
+        self.assertEqual(controls.update((False,False,False),4.05),'sleep')
+
+    def test_tft_chord_is_local_and_requests_reset_without_radio_command(self):
+        app=load_app()
+        buttons=app.TFTButtons.__new__(app.TFTButtons)
+        buttons.inputs=[SimpleNamespace(value=v) for v in self.IDLE]
+        buttons.logic=TFTControls('follower',.04,3)
+        radio=Mock();animation=Mock();sleep=SleepTransition()
+        def poll(now,levels):
+            for pin,value in zip(buttons.inputs,levels):pin.value=value
+            buttons.poll(animation,now,sleep,radio=radio)
+        with patch.object(app,'DISPLAY',None):
+            for now in (0,.05):poll(now,self.IDLE)
+            for now in (1,1.05,4.99,5.05,6):poll(now,self.ALL)
+            poll(6.1,self.IDLE)
+            with self.assertRaises(app.MaintenanceRequested):poll(6.15,self.IDLE)
+        radio.request_control.assert_not_called()
+        animation.set_effect.assert_not_called()
+        self.assertIsNone(sleep.started)
+
+    def test_local_reset_runs_after_app_unwinds(self):
+        app=load_app()
+        class Reset(BaseException):pass
+        with patch.object(app,'run_follower',side_effect=app.MaintenanceRequested), \
+             patch('hardware.reset_into_maintenance',side_effect=Reset) as reset:
+            with self.assertRaises(Reset):app.main()
+        reset.assert_called_once()
+
+    def test_failed_maintenance_marker_resumes_app_without_ota_rollback(self):
+        app=load_app()
+        class Stop(BaseException):pass
+        with patch.object(app,'run_follower',side_effect=[app.MaintenanceRequested(),Stop]) as run, \
+             patch('hardware.reset_into_maintenance',side_effect=ValueError('NVM unavailable')) as reset:
+            with self.assertRaises(Stop):app.main()
+        self.assertEqual(run.call_count,2)
+        reset.assert_called_once()
+
+    def test_old_base_shows_update_needed_without_reset(self):
+        app=load_app()
+        buttons=app.TFTButtons.__new__(app.TFTButtons)
+        buttons.inputs=[SimpleNamespace(value=v) for v in self.IDLE]
+        buttons.logic=TFTControls('follower',.04,3)
+        display=Mock(failed=False)
+        display.button_activity.return_value=False
+        with patch.object(app,'DISPLAY',display), \
+             patch('hardware.reset_into_maintenance',None):
+            for now,levels in ((0,self.IDLE),(.05,self.IDLE),(1,self.ALL),
+                               (1.05,self.ALL),(5.05,self.ALL),(5.1,self.IDLE),
+                               (5.15,self.IDLE)):
+                for pin,value in zip(buttons.inputs,levels):pin.value=value
+                buttons.poll(Mock(),now,SleepTransition(),radio=Mock())
+        display.set_banner.assert_called_once_with('BASE UPDATE NEEDED',5.15)
 
 
 class SleepProtocolTests(unittest.TestCase):

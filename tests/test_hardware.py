@@ -1,11 +1,117 @@
 import importlib.util
+import os
+import runpy
 import sys
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class HardwareTests(unittest.TestCase):
+    def test_maintenance_marker_is_one_use_and_does_not_change_ota_bytes(self):
+        import hardware
+        nvm=bytearray(b'DGO1\x01'+bytes(27))
+        hardware.set_maintenance_request(nvm)
+        self.assertEqual(nvm[:5],b'DGO1\x01')
+        self.assertTrue(hardware.consume_maintenance_request(nvm))
+        self.assertEqual(nvm[:5],b'DGO1\x01')
+        self.assertFalse(hardware.consume_maintenance_request(nvm))
+
+    def test_short_nvm_never_resets_or_claims_maintenance(self):
+        import hardware
+        nvm=bytearray(8)
+        with self.assertRaises(ValueError):hardware.set_maintenance_request(nvm)
+        self.assertFalse(hardware.consume_maintenance_request(nvm))
+
+    def test_boot_consumes_chord_request_then_next_full_boot_is_normal(self):
+        import hardware
+        nvm=bytearray(32)
+        hardware.set_maintenance_request(nvm)
+        storage=Mock()
+        frames=[]
+        class Pin:
+            value=True  # D0 is released.
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+            def switch_to_input(self,**kwargs):pass
+            def switch_to_output(self,**kwargs):pass
+        modules={'board':SimpleNamespace(board_id=hardware.S3,D0=0,D6=6),
+                 'storage':storage,
+                 'digitalio':SimpleNamespace(DigitalInOut=lambda pin:Pin(),Pull=SimpleNamespace(UP=1)),
+                 'microcontroller':SimpleNamespace(nvm=nvm),
+                 'neopixel_write':SimpleNamespace(neopixel_write=lambda pin,data:frames.append(bytes(data)))}
+        script=str(Path(__file__).parents[1]/'boot.py')
+        with patch.dict(os.environ,{'OTA_ENABLED':'1'}),patch.dict(sys.modules,modules), \
+             patch('time.monotonic',side_effect=[0,3,0,3]),patch('time.sleep'):
+            runpy.run_path(script)
+            storage.remount.assert_called_with('/',readonly=True)
+            self.assertEqual(frames[0][:3],bytes((3,8,0)))
+            self.assertEqual(frames[0][3:],bytes(93))
+            storage.reset_mock()
+            frames.clear()
+            runpy.run_path(script)
+        storage.remount.assert_called_with('/',readonly=False)
+        self.assertEqual(frames[0],bytes((0,0,12))*32)
+        self.assertFalse(hardware.consume_maintenance_request(nvm))
+
+    def test_v2_button_still_enters_maintenance_without_chord(self):
+        import hardware
+        storage=Mock()
+        frames=[]
+        class Pin:
+            value=False  # HUZZAH32 V2 SW38 user button.
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+            def switch_to_input(self,**kwargs):pass
+            def switch_to_output(self,**kwargs):pass
+        modules={'board':SimpleNamespace(board_id=hardware.V2,BUTTON=38,D32=32),
+                 'storage':storage,
+                 'digitalio':SimpleNamespace(DigitalInOut=lambda pin:Pin(),Pull=SimpleNamespace(UP=1)),
+                 'microcontroller':SimpleNamespace(nvm=bytearray(32)),
+                 'neopixel_write':SimpleNamespace(neopixel_write=lambda pin,data:frames.append(bytes(data)))}
+        script=str(Path(__file__).parents[1]/'boot.py')
+        with patch.dict(os.environ,{'OTA_ENABLED':'1'}),patch.dict(sys.modules,modules), \
+             patch('time.monotonic',side_effect=[0,0,3]),patch('time.sleep'):
+            runpy.run_path(script)
+        storage.remount.assert_called_once_with('/',readonly=True)
+        self.assertEqual(frames[0],bytes((0,0,12))*32)
+        self.assertEqual(frames[1],bytes(96))
+
+    def test_disabled_ota_clears_stale_chord_request(self):
+        import hardware
+        nvm=bytearray(32)
+        hardware.set_maintenance_request(nvm)
+        modules={'board':SimpleNamespace(board_id=hardware.S3),
+                 'storage':Mock(),
+                 'microcontroller':SimpleNamespace(nvm=nvm)}
+        script=str(Path(__file__).parents[1]/'boot.py')
+        with patch.dict(os.environ,{'OTA_ENABLED':'0'}),patch.dict(sys.modules,modules):
+            runpy.run_path(script)
+        self.assertFalse(hardware.consume_maintenance_request(nvm))
+
+    def test_local_maintenance_reset_marks_nvm_and_stops_watchdog(self):
+        import hardware
+        class Reset(BaseException):pass
+        nvm=bytearray(32)
+        mcu=SimpleNamespace(nvm=nvm,watchdog=SimpleNamespace(mode='reset'),
+                            reset=Mock(side_effect=Reset))
+        with patch.dict(sys.modules,{'microcontroller':mcu}):
+            with self.assertRaises(Reset):hardware.reset_into_maintenance()
+        self.assertIsNone(mcu.watchdog.mode)
+        self.assertEqual(nvm[:5],bytes(5))
+        self.assertTrue(hardware.consume_maintenance_request(nvm))
+        mcu.reset.assert_called_once()
+
+    def test_failed_reset_clears_request(self):
+        import hardware
+        nvm=bytearray(32)
+        mcu=SimpleNamespace(nvm=nvm,watchdog=SimpleNamespace(mode='reset'),
+                            reset=Mock(side_effect=OSError('reset failed')))
+        with patch.dict(sys.modules,{'microcontroller':mcu}):
+            with self.assertRaises(OSError):hardware.reset_into_maintenance()
+        self.assertFalse(hardware.consume_maintenance_request(nvm))
+
     def test_profiles_and_reserved_pins(self):
         self.assertIsNotNone(importlib.util.find_spec('hardware'), 'shared profiles missing')
         from hardware import profile, validate_pins

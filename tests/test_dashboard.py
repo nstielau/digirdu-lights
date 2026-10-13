@@ -174,6 +174,7 @@ class RuntimeTelemetryTests(unittest.TestCase):
         self.assertEqual(snap.call_args.kwargs['tx_failed'],2)
 
     def test_serial_diagnostics_preserve_details_at_bounded_rate(self):
+        from app_version import APP_VERSION
         from test_sleep import load_app
         from types import SimpleNamespace
         from unittest.mock import patch
@@ -185,7 +186,7 @@ class RuntimeTelemetryTests(unittest.TestCase):
             app.log_device_diagnostics(11,radio,5)
             self.assertEqual(output.call_count,1)
             line=output.call_args.args[0]
-            for item in ('TX=22','ok=20','failed=1','skipped=3','RX=9','rejected=2','overruns=4','source=','v1.1.3'):
+            for item in ('TX=22','ok=20','failed=1','skipped=3','RX=9','rejected=2','overruns=4','source=','v'+APP_VERSION):
                 self.assertIn(item,line)
             app.log_device_diagnostics(20,radio,6)
             self.assertEqual(output.call_count,2)

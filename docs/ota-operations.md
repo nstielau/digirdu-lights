@@ -74,6 +74,7 @@ that window, press the board's maintenance button:
 | --- | --- | --- |
 | Unexpected Maker FeatherS2 | BOOT, pressed **after** releasing RESET | IO0 |
 | Adafruit Feather ESP32 V2 | SW38 user button | `board.BUTTON`, GPIO38 |
+| Adafruit ESP32-S3 Reverse TFT Feather | D0, pressed **after** releasing RESET | GPIO0 |
 
 GPIO0 on ESP32 V2 is the onboard NeoPixel, not the user button. Its GPIO38
 button has an external pull-up; do not enable an unsupported internal pull-up.
@@ -1323,3 +1324,29 @@ Startup reported app 1.1.3/base 1.1.4, then live producer reception reached
 23 accepted and zero rejected packets in the observed serial window. This
 confirms startup and short-range radio reception, not visual output or culvert
 coverage. The host cleanly unmounted `CIRCUITPY` (`disk5s1`) afterward.
+
+## October 13: local USB maintenance shortcut candidate
+
+The Reverse TFT candidate app 1.1.4 and device base 1.1.5 add a local D0+D1+D2
+four-second hold. The TFT counts down in orange; after `USB READY`, release all
+buttons to trigger a software reset. D0 must be released before reset because
+holding it through reset can select ROM download. The app raises a local
+unwind request, closes I2S/ESP-NOW/GPIO through its existing `finally` blocks,
+and sends no group command. The base writes a one-use marker in NVM bytes 5–8;
+`boot.py` consumes it to give the USB host write ownership. Bytes 0–4 remain
+the OTA recovery marker. A soft reload remains in maintenance; a full reset
+returns to normal OTA unless D0 is pressed in its existing blue window.
+The reset-window button path remains on every supported board: D0 on Reverse
+TFT, BOOT/IO0 on FeatherS2, and SW38/`board.BUTTON` on HUZZAH32 V2. The
+three-button chord is specific to Reverse TFT.
+If the NVM request or reset fails, the app reports the error on serial and
+resumes lighting without triggering OTA rollback. A boot with OTA disabled
+clears a stale request rather than carrying it into a later enabled boot.
+
+Maintenance startup has a dim moving orange matrix pixel and a two-pixel orange
+TFT boot border. The app minimum base stays 1.1.0, so older boards continue
+running and show `BASE UPDATE NEEDED` for this gesture. Base-only USB deployment
+does not install the new app. The host tests exercise the gesture, cancellation,
+no-command behavior, NVM consumption, boot selection, and display states.
+Native entry/exit, visible colors, filesystem handoff, and user button feel
+remain unqualified until a Reverse TFT receives both parts.
