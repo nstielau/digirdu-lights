@@ -126,7 +126,7 @@ def device_lines(info):
     id_rows = [identifier[i:i+31] for i in range(0,len(identifier),31)]
     blocked_rows = []
     if update.get('state') == 'checked' and blocked:
-        blocked_rows = ['USB BASE NEEDED', 'App '+blocked['version'],
+        blocked_rows = ['BASE UPDATE NEEDED', 'App '+blocked['version'],
                         'Needs base '+blocked['minimum_base']]
     else:
         label = {'not_checked':'Not checked this boot',

@@ -57,7 +57,7 @@ class DevicePageTests(unittest.TestCase):
         text='\n'.join(rows)
         self.assertIn(info['app'],text);self.assertIn(info['base'],text)
         self.assertIn('ID '+'a'*32,''.join(rows))
-        self.assertIn('USB BASE NEEDED',text)
+        self.assertIn('BASE UPDATE NEEDED',text)
         self.assertIn('App 999999.999999.999999',text)
         self.assertIn('Needs base 999999.999999.999999',text)
         for name,x,y,count,scale,_ in d.TFT_FIELDS:

@@ -44,7 +44,7 @@ function compatible(m, report) {
 function validateReport(b,id) {
   const keys=['device_id','board','role','version','base_version','circuitpython','protocol_send',
     'protocol_receive','session','report_sequence','state','deployment_sequence','error','health'];
-  // Optional for older USB bases; when present, validate the complete reading.
+  // Optional for older device bases; when present, validate the complete reading.
   if (Object.hasOwn(b || {},'battery')) keys.push('battery');
   if (!exact(b,keys) || b.device_id!==id || !BOARDS.includes(b.board) || !['producer','consumer'].includes(b.role) ||
     (b.board===BOARDS[1] && b.role!=='consumer') || !version(b.version) || !version(b.base_version) ||

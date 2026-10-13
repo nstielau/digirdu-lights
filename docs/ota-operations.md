@@ -1273,11 +1273,11 @@ and `deviceApi`, `fleetOverview`, and `fleetChange` were redeployed. After a
 clean field-mode reset, the board reported app `1.1.0`, base `1.1.3`, role
 `consumer`, and battery status `out_of_range`; Firebase recorded the check-in.
 
-## October 13: Echo Go USB base 1.1.4 installation
+## October 13: Echo Glow device base 1.1.4 installation
 
 The attached Reverse TFT consumer UID `468e3337ac8d` booted in USB mode with
-app/recovery files and base 1.1.3. All eleven installed base files matched the
-Reverse TFT branch byte-for-byte. Base 1.1.4 adds the durable telemetry outbox,
+app/recovery files and device base 1.1.3. All eleven installed base files matched the
+Reverse TFT branch byte-for-byte. Device base 1.1.4 adds the durable telemetry outbox,
 bounded sleep/boot uploader for a future telemetry app, and safe manifest-listed
 app files and data assets. It retains schema-1 legacy validation and schema-2
 Reverse TFT support, boot-time update status, and the existing display boot
@@ -1297,7 +1297,7 @@ The host then cleanly unmounted `CIRCUITPY` (`disk5s1`). This device's
 `settings.toml` is empty, so `boot.py` selects USB mode; the consumer app still
 runs in that mode. No OTA enrollment or field-mode transition was performed.
 
-Base 1.1.4 by itself does not collect RF data: a later Reverse TFT app must
+Device base 1.1.4 by itself does not collect RF data: a later Reverse TFT app must
 record packet windows, declare its telemetry hook, and require base 1.1.4. Cloud
 manifest/report/telemetry handling must also support the Reverse TFT schema-2
 contract before that app is released. No current playing-loop behavior changes.

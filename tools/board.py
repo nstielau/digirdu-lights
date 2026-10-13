@@ -468,7 +468,7 @@ def main():
     parser.add_argument("--leader-mac")
     parser.add_argument("--clear-leader", action="store_true",
                         help="Consumer only: save a null producer MAC until a source is assigned")
-    parser.add_argument("--base-only", action="store_true", help="Update USB base while preserving recovery app and OTA slots")
+    parser.add_argument("--base-only", action="store_true", help="Update device base over USB while preserving recovery app and OTA slots")
     parser.add_argument("--legacy-rainbow", action="store_true", help="Deploy the original ESP32 V2 rainbow example")
     args = parser.parse_args()
     if args.base_only and (args.action != "deploy" or args.node_config or args.legacy_rainbow):

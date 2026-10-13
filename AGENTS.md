@@ -325,7 +325,7 @@ The user also reset both boards with BOOT released and confirmed both wings
 respond to sound again. The 1.0.6 visual fade/dark-state and reset-wake tests
 are complete; no further physical confirmation is required for those checks.
 
-## OTA activity indicator (USB base 1.0.3)
+## OTA activity indicator (device base 1.0.3)
 
 OTAIndicator in ota_bootstrap.py owns the verified wing GPIO only during
 network maintenance. One cyan pixel advances every half-second when service()
@@ -341,7 +341,7 @@ credentials and node configuration. App stays 1.0.6. APP_MINIMUM_BASE remains
 unnecessarily block app OTA for other nodes. Read fleet/serial reports before
 claiming the base is installed on a particular device.
 
-## Battery effect and reports (app 1.0.7 / USB base 1.0.4)
+## Battery effect and reports (app 1.0.7 / device base 1.0.4)
 
 `battery.py` is a USB-base module, imported by ota_bootstrap before load_app
 removes root from sys.path, and shared with lights_app. Keep it in BASE_FILES,
@@ -489,7 +489,7 @@ errors retain their text. A banner transition preempts a partial frame so a fast
 ACK cannot expire before slow Status/Brightness composition. No protocol/base
 change; existing OTA-capable nodes can receive these app changes in a release.
 
-EchoGlow startup: USB base1.1.3 provides a wave/reflection/light-burst animation,
+EchoGlow startup: device base 1.1.3 provides a wave/reflection/light-burst animation,
 selected app version, and actual phase text. App minimum base stays1.1.0; new
 dashboard/startup calls use getattr for backward compatibility. Do not import
 app modules before slot isolation just to get the version; read the selected
@@ -517,7 +517,7 @@ new base, but the completion/cadence revision requires base1.1.3 and matching ap
 
 ## OTA minimum base compatibility
 
-Keep `BASE_VERSION` (the installed USB base) separate from `APP_MINIMUM_BASE`
+Keep `BASE_VERSION` (the installed device base) separate from `APP_MINIMUM_BASE`
 (the oldest base the app requires), both in `ota_manifest.py`. Release tooling
 copies `APP_MINIMUM_BASE` into the app manifest's `minimum_base`. This requirement
 is maintained explicitly; tooling cannot infer base dependencies from app code.
@@ -533,10 +533,10 @@ release must leave the running app intact. Default selection may fall back to
 an older compatible approved release; pinning must not bypass compatibility.
 Keep regression coverage for incompatible base rejection and compatible fallback.
 
-Before rollout, compare each device's fleet-page `USB base` with the release's
+Before rollout, compare each device's fleet-page `device base` with the release's
 `base ...+` requirement and check `Last report` for freshness. Reports update at
 boot; missing/stale reports do not establish eligibility. A device below the
-minimum needs the matching USB base installed in maintenance mode with
+minimum needs the matching device base installed in maintenance mode with
 `make deploy-base` (use BOARD/PORT when needed), then a normal reboot and a fresh
 report. Preserve OTA slots, recovery, node configuration and credentials. Base
 updates require USB; app-only OTA does not upgrade the base or CircuitPython.
@@ -544,7 +544,7 @@ New devices also require their own OTA enrollment/credentials. Verify server
 support for any new manifest schema before publishing that release.
 
 
-## Device page and boot-time update status (USB base 1.1.3)
+## Device page and boot-time update status (device base 1.1.3)
 
 Append Device at page index3; preserve Brightness index2 and all button, idle,
 sleep and banner semantics. Actual app_version comes from the selected slot;
@@ -560,7 +560,7 @@ unchecked, maintenance, disabled, failed, paused, no-release and successful
 checks. Report-only check-ins must not overwrite it. No persistent cache or
 networking from the dashboard. Do not label missing metadata as up to date.
 
-Reverse TFT USB base 1.1.4 adds `telemetry_store.py`, boot retry upload and an
+Reverse TFT device base 1.1.4 adds `telemetry_store.py`, boot retry upload and an
 optional future sleep callback, plus bounded manifest-listed schema-2 app assets.
 Keep the schema-1 legacy contract, Reverse TFT profile, dashboard status and
 boot animation intact. Base-only USB deployment preserves app slots and node
