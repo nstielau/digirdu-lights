@@ -1385,3 +1385,29 @@ orange border during boot on another board, then reported that it disappeared
 when the dashboard loaded; no USB serial port or CIRCUITPY drive enumerated on
 the Mac during that observation. Persistent appearance remains to be checked
 after app 1.1.5 is installed.
+
+## October 13: app 1.1.7 RF telemetry PR preparation
+
+The 1.1.7 candidate ports the RAM-only producer/consumer packet recorder from
+the earlier legacy-board telemetry work into the full-fleet Reverse TFT app.
+It includes the telemetry module in the schema-2 app manifest and declares
+minimum USB base 1.1.4. The candidate USB base 1.1.6 persists a bounded local
+upload-attempt result for the Device page. Bases 1.1.4 and 1.1.5 can still
+upload RF batches without that optional display result. The cloud source
+includes the authenticated telemetry route, schema-2 manifest support, an
+administrator RF history query, and the website view. Schema-1 manifest
+validation remains strict for legacy releases. New cloud batches are limited
+to eight per device per hour; exact retries remain idempotent.
+
+Rollout order: deploy cloud functions, Firestore indexes and hosting; inspect
+fresh fleet reports; install USB base 1.1.4 or newer on each board below it;
+reboot and confirm each actual base version; then tag/import/approve app 1.1.7
+and verify app adoption. Install base 1.1.6 over USB on Reverse TFT boards that
+need the persistent local result. The presently reported Reverse TFT producer
+`468e33378dc3` has base 1.1.3 and is ineligible until USB service. The
+recently reported Reverse TFT consumers `468e3337cc40` and `468e3337ac8d`,
+and ESP32 V2 consumer `4133c5792f0a`, had base 1.1.5 and meet the app base
+minimum. These are October 13 reports and must be refreshed before release.
+The old FeatherS2 producer last reported base 1.1.0 and also needs USB
+service. No board has yet been observed uploading the 1.1.7 candidate; host
+and emulator checks do not qualify native sleep/upload latency or RF coverage.

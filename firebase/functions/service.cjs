@@ -1,5 +1,5 @@
 const crypto=require('node:crypto');
-const {hash,version,digest,compare,validateManifest,validateReport,compatible}=require('./contract.cjs');
+const {hash,version,digest,compare,validateManifest,validateReport,validateTelemetry,compatible}=require('./contract.cjs');
 function fail(code,status=400){const e=new Error(code);e.status=status;throw e;}
 const idOK=id=>typeof id==='string'&&/^[a-f0-9]{12,32}$/.test(id);
 function createService(db,now=()=>Date.now()) {
@@ -23,8 +23,8 @@ function createService(db,now=()=>Date.now()) {
       if(!r?.approved||r.revoked)continue;
       validateManifest(r.manifest);
       const m=r.manifest;
-      if(!blocked&&compare(m.version,report.version)>0&&compare(m.minimum_base,report.base_version)>0
-          &&compatible({...m,minimum_base:report.base_version},report)){
+      if(!blocked&&compare(m.version,report.version)>0&&compare(m.minimum_base,report.base_version)>0&&
+          compatible({...m,minimum_base:report.base_version},report)){
         blocked={version:m.version,minimum_base:m.minimum_base};
       }
       if(compatible(r.manifest,report)){
@@ -68,6 +68,26 @@ function createService(db,now=()=>Date.now()) {
     if(!f)fail('not_found',404);
     return {object:`releases/${r.manifest.version}/${bundle}/${name}`,size:f.size};
   }
+  async function telemetry(id,token,body) {
+    const device=await authenticate(id,token);
+    try{validateTelemetry(body,id,device.role);}catch{fail('invalid_telemetry');}
+    const fingerprint=hash(JSON.stringify(body));
+    return db.runTransaction(async tx=>{
+      const deviceRef=db.doc(`devices/${id}`),current=(await tx.get(deviceRef)).data();
+      if(!current?.enabled||current.tokenHash!==hash(token)||current.role!==body.record.role)fail('unauthorized',401);
+      const ref=db.doc(`telemetryBatches/${id}_${body.batch_id}`),prior=(await tx.get(ref)).data();
+      if(prior){if(prior.fingerprint!==fingerprint)fail('batch_conflict',409);return {accepted:body.batch_id};}
+      const receivedAt=now();
+      const sameWindow=Number.isInteger(current.telemetryWindowStart)&&
+        receivedAt>=current.telemetryWindowStart&&receivedAt-current.telemetryWindowStart<3600000;
+      const used=sameWindow?(current.telemetryWindowCount||0):0;
+      if(used>=8)fail('rate_limited',429);
+      tx.create(ref,{...body,fingerprint,receivedAt,expiresAt:new Date(receivedAt+90*86400000)});
+      tx.update(deviceRef,{telemetryWindowStart:sameWindow?current.telemetryWindowStart:receivedAt,
+        telemetryWindowCount:used+1});
+      return {accepted:body.batch_id};
+    });
+  }
   function user(request){
     const t=request.auth?.token;
     if(!request.auth?.uid||!t?.email_verified||t.firebase?.sign_in_provider!=='google.com'||typeof t.email!=='string')fail('unauthenticated',401);
@@ -88,6 +108,12 @@ function createService(db,now=()=>Date.now()) {
       enabled:d.enabled,paused:!!d.paused,pin:d.pin||null,report:d.report||null,lastCheckIn:d.lastCheckIn||null};}),
       releases:releases.docs.map(s=>({version:s.id,manifest:s.data().manifest,revoked:!!s.data().revoked})),
       stable:channel.data()||null};
+  }
+  async function telemetryOverview(request){
+    await admin(request);
+    const batches=await db.collection('telemetryBatches').orderBy('receivedAt','desc').limit(40).get();
+    return {batches:batches.docs.map(s=>{const b=s.data();return {
+      device_id:b.device_id,batch_id:b.batch_id,record:b.record,receivedAt:b.receivedAt};})};
   }
   async function change(request){
     const u=await admin(request),b=request.data;
@@ -124,6 +150,6 @@ function createService(db,now=()=>Date.now()) {
       return {ok:true};
     });
   }
-  return {authenticate,checkIn,artifact,overview,change};
+  return {authenticate,checkIn,artifact,telemetry,authorizeAdmin:admin,overview,telemetryOverview,change};
 }
 module.exports={createService,idOK};

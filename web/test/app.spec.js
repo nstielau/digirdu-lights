@@ -3,7 +3,22 @@ const fleet={stable:{version:'1.1.0'},releases:[{version:'1.1.0',manifest:{git_c
  devices:[{id:'4133c5792f0a',name:'Consumer',board:'ESP32 V2',role:'consumer',enabled:true,report:{version:'1.0.0',base_version:'1.0.0',state:'current',protocol_send:3,protocol_receive:[3]},lastCheckIn:100000}]};
 test.beforeEach(async({page})=>{
  await page.route('https://profiles.example.test/avatar.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="teal"/></svg>'}));
+ await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches:[]}}));
  await page.route('**/test-api/overview',route=>route.fulfill({json:fleet}));await page.goto('/');
+});
+test('fleet shows historical RF gaps and unobserved nodes',async({page})=>{
+ const zero='00'.repeat(32),mask='1e'+zero.slice(2),received='12'+zero.slice(2);
+ const w=(fields)=>({session:7,base:0,received:zero,attempted:zero,delivered:zero,failed:zero,controls:zero,...fields});
+ const counts={features:0,controls:0,skipped:0,rejected:0,native_drops:2,link_losses:1,audio_overruns:0,audio_discontinuities:0};
+ const batches=[
+  {device_id:'producer',receivedAt:100000,record:{role:'producer',windows:[w({attempted:mask,delivered:mask})],counts,epoch_uncertain:false,rssi:null,truncated_windows:0}},
+  {device_id:'4133c5792f0a',receivedAt:101000,record:{role:'consumer',windows:[w({received})],counts,epoch_uncertain:false,rssi:{min:-80,max:-70,mean:-75},truncated_windows:0}}
+ ];
+ await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches}}));
+ await page.getByText('Sign in with Google').click();
+ await expect(page.locator('#telemetry')).toContainText('missing 2');
+ await expect(page.locator('#telemetry')).toContainText('native drops 2');
+ await expect(page.locator('#telemetry')).toContainText('RSSI -75 dBm');
 });
 test('separates installed and desired versions; signs out cleanly',async({page})=>{
  await page.getByText('Sign in with Google').click();await expect(page.locator('#devices')).toContainText('1.0.0');

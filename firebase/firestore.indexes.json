@@ -1,1 +1,4 @@
-{"indexes":[],"fieldOverrides":[]}
+{"indexes":[],"fieldOverrides":[
+  {"collectionGroup":"telemetryBatches","fieldPath":"record","indexes":[]},
+  {"collectionGroup":"telemetryBatches","fieldPath":"expiresAt","ttl":true,"indexes":[]}
+]}

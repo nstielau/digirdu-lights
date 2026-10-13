@@ -1,6 +1,7 @@
-import {overview,change,currentUser} from './gateway.js';
+import {overview,telemetry,change,currentUser} from './gateway.js';
 import {initAccount} from './account.js';
 import {describeDevice} from './view.mjs';
+import {compareTelemetry,unmatchedTelemetry} from './telemetry.mjs';
 const $=id=>document.getElementById(id);
 let generation=0,busy=false;
 function message(text){$('status').textContent=text;}
@@ -42,11 +43,45 @@ function render(data){
   }
   $('fleet').hidden=false;
 }
-async function refresh(){const current=generation;const {data}=await overview();if(current===generation&&currentUser())render(data);}
+function renderTelemetry(data,devices){
+  const target=$('telemetry');target.replaceChildren();
+  const sessions=compareTelemetry(data.batches||[],devices);
+  const unmatched=unmatchedTelemetry(data.batches||[],devices);
+  if(!sessions.length&&!unmatched.length){target.textContent='No RF sessions uploaded yet.';return;}
+  for(const batch of unmatched){
+    const row=document.createElement('p');row.className='card telemetry-row';
+    row.textContent=`${batch.name} (${batch.role}) uploaded ${new Date(batch.receivedAt).toLocaleString()} with no accepted packets; boot totals: native drops ${batch.counts.native_drops}, rejected ${batch.counts.rejected}, link losses ${batch.counts.link_losses}. Producer session unobserved.`;
+    target.append(row);
+  }
+  for(const session of sessions){
+    const section=document.createElement('section');section.className='card telemetry-session';
+    const heading=document.createElement('h3');heading.textContent=`Producer session ${session.id.toString(16).padStart(8,'0')}`;
+    const summary=document.createElement('p');summary.textContent=`${session.producerDevice||'Producer record unavailable'} · uploaded ${new Date(session.receivedAt).toLocaleString()} · feature attempts ${session.producerAttempts}, native completions ${session.producerDelivered}, failures ${session.producerFailures}, unresolved ${session.producerUnknown}; producer boot ${session.producerBootId||'unknown'} totals: audio overruns ${session.producerOverruns}, discontinuities ${session.producerDiscontinuities}`;
+    section.append(heading,summary);
+    for(const consumer of session.consumers){
+      const row=document.createElement('p');row.className='telemetry-row';
+      const signal=consumer.rssi?`latest boot RSSI ${consumer.rssi.mean} dBm (${consumer.rssi.min} to ${consumer.rssi.max})`:'RSSI unavailable';
+      const age=consumer.receivedAt?new Date(consumer.receivedAt).toLocaleString():'no upload';
+      const examples=consumer.missing.length?` · missing IDs ${consumer.missing.slice(0,24).join(', ')}${consumer.missing.length>24?'…':''}`:'';
+      row.textContent=`${consumer.name}: received ${consumer.received}, missing ${consumer.missing.length}, unobserved ${consumer.unobserved}${consumer.ambiguous?' (wrap epoch uncertain)':''}; boot totals (${consumer.bootIds.join(', ')||'unknown'}): native drops ${consumer.nativeDrops}, rejected ${consumer.rejected}, link losses ${consumer.linkLosses}; ${signal}; uploaded ${age}${examples}`;
+      section.append(row);
+    }
+    target.append(section);
+  }
+}
+async function refresh(){
+  const current=generation;
+  const [{data},telemetryResult]=await Promise.all([overview(),telemetry().catch(()=>null)]);
+  if(current===generation&&currentUser()){
+    render(data);
+    if(telemetryResult)renderTelemetry(telemetryResult.data,data.devices);
+    else $('telemetry').textContent='RF telemetry is unavailable; refresh to retry.';
+  }
+}
 $('refresh').onclick=async()=>{locking(true);try{await refresh();message('Reports refreshed.');}catch{message('Unable to load reports. Check your connection and administrator access.');}finally{locking(false);}};
 initAccount(async user=>{
   generation++;$('refresh').hidden=!user;
-  $('fleet').hidden=true;$('devices').replaceChildren();$('releases').replaceChildren();
+  $('fleet').hidden=true;$('devices').replaceChildren();$('releases').replaceChildren();$('telemetry').replaceChildren();
   $('account').textContent=user?.email||'Sign in to manage your devices.';message('');
   if(user){try{await refresh();}catch{message('Administrator access is required, or the service is unavailable.');}}
 });

@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from telemetry_store import TelemetryQueue
+from telemetry_store import TelemetryQueue, read_attempt, write_attempt
 
 
 class QueueTests(unittest.TestCase):
@@ -41,6 +41,21 @@ class QueueTests(unittest.TestCase):
     def test_queue_is_bounded_and_preserves_newest(self):
         ids = [self.queue.enqueue('0123456789abcdef', self.sample)['batch_id'] for _ in range(5)]
         self.assertEqual([b['batch_id'] for b in self.queue.pending()], ids[1:])
+
+    def test_attempt_status_survives_reopen_and_does_not_enter_batch_queue(self):
+        self.queue.enqueue('0123456789abcdef',self.sample)
+        write_attempt('failed','Wi-Fi',1,root=self.path,sync=lambda:None)
+        self.assertEqual(read_attempt(self.path),{'state':'failed','reason':'Wi-Fi','pending':1})
+        self.assertEqual(len(TelemetryQueue(self.path,sync=lambda:None).pending()),1)
+        write_attempt('uploaded','',0,root=self.path,sync=lambda:None)
+        self.assertEqual(read_attempt(self.path),{'state':'uploaded','reason':'','pending':0})
+
+    def test_attempt_status_rejects_corrupt_and_unbounded_content(self):
+        self.assertIsNone(read_attempt(self.path))
+        with self.assertRaises(ValueError):
+            write_attempt('failed','x'*80,1,root=self.path,sync=lambda:None)
+        Path(self.path,'status.json').write_text('{')
+        self.assertIsNone(read_attempt(self.path))
 
 
 if __name__ == '__main__':

@@ -99,6 +99,11 @@ def device_information(role=None, source=None):
         from ota_manifest import BASE_VERSION
         _device_identity = {'app':APP_VERSION, 'base':BASE_VERSION,
                             'id':microcontroller.cpu.uid.hex().lower()}
+        try:
+            from telemetry_store import read_attempt
+            _device_identity['telemetry'] = read_attempt()
+        except ImportError:
+            _device_identity['telemetry'] = None
     result = dict(_device_identity)
     if role is None or source is None:
         try:
@@ -128,6 +133,19 @@ def device_lines(info):
     blocked = update.get('blocked')
     id_rows = [identifier[i:i+31] for i in range(0,len(identifier),31)]
     blocked_rows = []
+    try:
+        from ota_manifest import version_tuple
+        status_base = version_tuple(info['base']) >= (1,1,6)
+    except (KeyError, ValueError):
+        status_base = False
+    attempt = info.get('telemetry')
+    if not status_base:
+        rf_row = 'RF status needs base 1.1.6'
+    elif attempt is None:
+        rf_row = 'RF no attempt recorded'
+    else:
+        reason = (' ' + attempt['reason'][:9]) if attempt['reason'] else ''
+        rf_row = 'RF %s%s / %d pending' % (attempt['state'],reason,attempt['pending'])
     if update.get('state') == 'checked' and blocked:
         blocked_rows = ['BASE UPDATE NEEDED', 'App '+blocked['version'],
                         'Needs base '+blocked['minimum_base']]
@@ -152,11 +170,12 @@ def device_lines(info):
     # The normal UID is 12 hex characters, but keep the page bounded even for
     # a diagnostic fixture or a future longer identity. Preserve the role and
     # complete ID, dropping the optional source row only when necessary.
-    if len(rows) + len(source_rows) + len(id_rows) + len(blocked_rows) > 8:
+    if len(rows) + len(source_rows) + len(id_rows) + len(blocked_rows) + 1 > 8:
         source_rows = []
     rows.extend(source_rows)
     rows.extend(id_rows)
     rows.extend(blocked_rows)
+    rows.append(rf_row)
     return rows
 
 

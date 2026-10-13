@@ -140,6 +140,7 @@ class ControlTransportBoundsTests(unittest.TestCase):
         link.c=c;link.radio=Mock(send_success=0,send_failure=0)
         link.peer=object();link.transmitter=p.Transmitter(c,99)
         link.next_send=0;link.pending=False;link.completed=0;link.sleep_turn=True
+        link.completed_success=0;link.pending_sequence=None;link.telemetry=Mock()
         link.sent=link.errors=link.skipped=0;link.ack_turn=True
         link.ack=b'DGRA';a=CulvertAnimation(c);f=AudioFeatures()
         link.publish(f,a,1)
