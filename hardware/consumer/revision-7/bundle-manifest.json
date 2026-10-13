@@ -1,0 +1,224 @@
+{
+  "project": "Echo Glow",
+  "part": "consumer",
+  "revision": 7,
+  "fusion_document": "Echo Glow consumer v6",
+  "fusion_version": 4,
+  "files": [
+    {
+      "file": "DESIGN.md",
+      "bytes": 2441,
+      "sha256": "800b512698ee17d74a309ef1802b418a4f8729f3ecc8d5d11ea6c9c9c6c94c48"
+    },
+    {
+      "file": "Echo-Glow-consumer-revision-7.f3d",
+      "bytes": 6618371,
+      "sha256": "e34b3838a69ef24cfa12690fdaea532d962612afe443fe648ec8b9f57a0cb153"
+    },
+    {
+      "file": "PARTS.md",
+      "bytes": 2199,
+      "sha256": "6b9ec7991f687896fbdccfab20bd553410d719123d00b0ed9bf0ee7263712c7d"
+    },
+    {
+      "file": "README.md",
+      "bytes": 4518,
+      "sha256": "dc2d2a780c3a77259c50fc2b0300d8c250bbbbcfb3a69ae7181037a2382182ee"
+    },
+    {
+      "file": "baseline-verification/button-variants.json",
+      "bytes": 4139,
+      "sha256": "224b1ac9a0a937a9fa41671e1c9a3bb2a1849b3fa5b8f1e407a128e09bcc4fc8"
+    },
+    {
+      "file": "baseline-verification/consumer-revision-3.json",
+      "bytes": 12320,
+      "sha256": "5cdf5a8d921ae1135d982fa0e7747c36b0dafab0c683e205d25f0f7f9815a4d2"
+    },
+    {
+      "file": "baseline-verification/consumer-revision-4.json",
+      "bytes": 13307,
+      "sha256": "e19e13e07125bc5bca741dc8035b530f4e9ff7c34fcf470f7df47a790a33fa87"
+    },
+    {
+      "file": "baseline-verification/consumer-revision-5.json",
+      "bytes": 14391,
+      "sha256": "afd839a15346731574152dc44c5f8c17ebe05d771e63fc37d31c5c49e92a541e"
+    },
+    {
+      "file": "baseline-verification/consumer-revision-6.json",
+      "bytes": 14395,
+      "sha256": "a38826671fbf577f1f420cb018e340dbb907cb2e92f64b2d6e29f0d1b48a5ad8"
+    },
+    {
+      "file": "baseline-verification/flush-reset.json",
+      "bytes": 2201,
+      "sha256": "d76fe1780b1d46f7fa95d3895be71d05f1fb1386c03da0b26575dedf787b5b27"
+    },
+    {
+      "file": "baseline-verification/producer-revision-11.json",
+      "bytes": 3895,
+      "sha256": "3de1b54b678340570fca0de5d53457ed8c562e12647d5c03610c10fe7265c25a"
+    },
+    {
+      "file": "button-carrier-domed.stl",
+      "bytes": 6722684,
+      "sha256": "69f5d05eff7672a928852927d13ca1a39d8b00caa74e393c77cbf38a81694a0a"
+    },
+    {
+      "file": "button-carrier-flat.stl",
+      "bytes": 714884,
+      "sha256": "3cbb08e616167add2e624599b874e758aef0ee27cddbcd4543a2e3aec90fc137"
+    },
+    {
+      "file": "button-plunger-domed.stl",
+      "bytes": 516884,
+      "sha256": "26d0eede79f061fd41b71c14d7e8f1005db613c834f1ee4fc35f41a56636af3b"
+    },
+    {
+      "file": "button-plunger-flat.stl",
+      "bytes": 69484,
+      "sha256": "c22b4eec3537f8bc840ccf2f9891ffa947dce3e4114f1f130d077d2e20f159b5"
+    },
+    {
+      "file": "button-rail-domed.stl",
+      "bytes": 679684,
+      "sha256": "4694db6c035c3a4aac516c58633f0b1b04def11518263fc6780e431ec52e217e"
+    },
+    {
+      "file": "button-rail-flat.stl",
+      "bytes": 137284,
+      "sha256": "7953a74413c1c819c609c6f99daee2bd44c003574b9de74d31984690f85f25fd"
+    },
+    {
+      "file": "consumer-battery-layout.png",
+      "bytes": 193062,
+      "sha256": "baa648a3efbf2cc394c3e574b3fef7b71a616040d87faff197f833697115ec97"
+    },
+    {
+      "file": "consumer-electronics.png",
+      "bytes": 196478,
+      "sha256": "33085d36ad8cd67da3b58739391dd19fa643d5d5db7baf956ff9d344c90c8867"
+    },
+    {
+      "file": "consumer-front-elevation.png",
+      "bytes": 45593,
+      "sha256": "14941dc50498fd6a23e5fb54d5ff7568809d8efef442584ddc54369da8565c4f"
+    },
+    {
+      "file": "consumer-front-interior.png",
+      "bytes": 256956,
+      "sha256": "5e5e1ce9fe1650599355307f86147955e9ae97d3cff011fe7a526b49d8a47b93"
+    },
+    {
+      "file": "consumer-front-magnet.png",
+      "bytes": 246107,
+      "sha256": "2da352e92befb43e531c557d8877f50ad34219ca9862f82ee701c226409b5471"
+    },
+    {
+      "file": "consumer-front.png",
+      "bytes": 104949,
+      "sha256": "fe66df0374630b74332ce9d8fd64e1218ac79d880799ba2aca2c9b4d13815da0"
+    },
+    {
+      "file": "consumer-led-window-open.png",
+      "bytes": 147890,
+      "sha256": "db7e7ec6c7f4cc7ec868dd7e617d3e8d8a7539c800c5d1066ffe9fea68bd2993"
+    },
+    {
+      "file": "consumer-magnets-and-battery.png",
+      "bytes": 190252,
+      "sha256": "6f92a36b1c0fa004fabaefe90425e468ae9f43acf092324fcf359ea997252197"
+    },
+    {
+      "file": "consumer-overview.png",
+      "bytes": 104958,
+      "sha256": "c35d08b2c7fb0afc946ee12c47b69b9038dc51f68de796059ab50cb233171bd9"
+    },
+    {
+      "file": "consumer-rear-interior.png",
+      "bytes": 210276,
+      "sha256": "9f1fc922cc48449355e1c40ecab89d9d05191a0dd8364d4c04844e6abca394a6"
+    },
+    {
+      "file": "consumer-rear.png",
+      "bytes": 107955,
+      "sha256": "b51da26e916591d997e46d9351ae077ba9ac64a36a320ea964099d56d5542716"
+    },
+    {
+      "file": "consumer-snap-coupon.png",
+      "bytes": 31621,
+      "sha256": "1d239d48a3556b9f0b43c7268945689869b18ce1ce32b9c76529e5f5a5e72484"
+    },
+    {
+      "file": "consumer-stack-side.png",
+      "bytes": 31993,
+      "sha256": "0fcab516120c23715c59439f6cb108a44804297f28f29c7251da6e9054e1e277"
+    },
+    {
+      "file": "consumer-usb-closeup.png",
+      "bytes": 63127,
+      "sha256": "419189ace2e5f8ee4286e03177809700437764886b25b8211a685b9a18973bc9"
+    },
+    {
+      "file": "consumer-usb-end.png",
+      "bytes": 115008,
+      "sha256": "2ea4c61bcc6010464100cc18c7f49adfd52314d3039ff331ea655e70e36de389"
+    },
+    {
+      "file": "consumer-usb-open-closeup.png",
+      "bytes": 315745,
+      "sha256": "a9d1dfbdce05d8239c67c4e98e7eb71680cce46de87934e064a5132dd21cf932"
+    },
+    {
+      "file": "diffuser.stl",
+      "bytes": 684,
+      "sha256": "cafa68c2acbe3252747913a9a41b9ea48507b8d1091c98670fa0af6fd3c8943b"
+    },
+    {
+      "file": "plain-front-housing.stl",
+      "bytes": 287684,
+      "sha256": "1e44b99ba285892a7dcf1cecb5610adfe02dd12e849de2f9d40ed9dca291cfec"
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "bytes": 234184,
+      "sha256": "2c4e1f7f99b90bc268ae9b7b2af2d0ccdf157706b44038e2d3346aeb6c535958"
+    },
+    {
+      "file": "references/neopixel-featherwing/Adafruit NeoPixel FeatherWing.brd",
+      "bytes": 472991,
+      "sha256": "aa106941b4a1ac72dd637560f0122c04fe6613c42e962153b85a7d80002dda53"
+    },
+    {
+      "file": "references/neopixel-featherwing/README.md",
+      "bytes": 1689,
+      "sha256": "b8c24c88a70662277ec7d83eac928bfe6e29636f7b4a112778077e3737fb5eff"
+    },
+    {
+      "file": "references/neopixel-featherwing/license.txt",
+      "bytes": 22597,
+      "sha256": "1f63e1f4676a433423b2c2ff1ccd9e80093f341f10b81f0ac0106342bc7bbe89"
+    },
+    {
+      "file": "reset-plunger-flush.stl",
+      "bytes": 70084,
+      "sha256": "acb4aec3b0d587dc42df019e5dc121fad9a36cf089115598c2d9f4be1db1c616"
+    },
+    {
+      "file": "snap-coupon-receiver.stl",
+      "bytes": 4084,
+      "sha256": "5eae455aa8cb57d2ad402767121389bfa4c501d53d861f7ccfa09237cbcace17"
+    },
+    {
+      "file": "snap-coupon-spring.stl",
+      "bytes": 12884,
+      "sha256": "4644bd5113d63606bda4be38fb46a67be042ee07e51c6661dbad3f00ddc124b7"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 14069,
+      "sha256": "848b4a800e4889f0f56946a320a78460d0f2805aaad7b6f4acf4abe276c240bc"
+    }
+  ]
+}

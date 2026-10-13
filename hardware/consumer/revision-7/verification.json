@@ -1,0 +1,637 @@
+{
+  "revision": 7,
+  "fusion_document": "Echo Glow consumer v6",
+  "same_document_lineage": "urn:adsk.wipprod:dm.lineage:kBcKv3PwQ5maxenDyZNRHw",
+  "geometry": {
+    "document": "Echo Glow consumer v6 v4",
+    "board_to_board_collisions": [],
+    "reference_collisions": [],
+    "part_collisions": [],
+    "button_collisions": [],
+    "installed_main_buttons_visible": true,
+    "reset_plunger_hidden": true,
+    "rail_reports": [
+      {
+        "component": "Button rail - flat",
+        "bodies": 1,
+        "lumps": 1,
+        "solid": true,
+        "bounds_mm": [
+          [
+            4.52,
+            1.3449999999999995,
+            -4.2
+          ],
+          [
+            10.72,
+            21.515,
+            -2.0
+          ]
+        ],
+        "volume_mm3": 146.77357127270884,
+        "expected_rail_width_mm": 2.5,
+        "expected_rail_thickness_mm": 0.4
+      },
+      {
+        "component": "Button rail - domed",
+        "bodies": 1,
+        "lumps": 1,
+        "solid": true,
+        "bounds_mm": [
+          [
+            4.52,
+            1.3449999999999995,
+            -4.200000000000001
+          ],
+          [
+            10.72,
+            21.515,
+            -2.0
+          ]
+        ],
+        "volume_mm3": 124.94892710822059,
+        "expected_rail_width_mm": 2.5,
+        "expected_rail_thickness_mm": 0.4
+      }
+    ],
+    "parts": [
+      {
+        "name": "Front housing",
+        "bodies": 1,
+        "bounds_mm": [
+          [
+            11.200000000000001,
+            -6.800000000000001,
+            -3.3999999999999995
+          ],
+          [
+            143.0,
+            29.660000000000004,
+            8.200000000000001
+          ]
+        ],
+        "volume_mm3": 13834.302423368557,
+        "lumps": 1
+      },
+      {
+        "name": "Rear cover",
+        "bodies": 1,
+        "bounds_mm": [
+          [
+            11.2,
+            -6.800000000000001,
+            3.9650000000000007
+          ],
+          [
+            143.0,
+            29.660000000000004,
+            20.4
+          ]
+        ],
+        "volume_mm3": 16742.533474639324,
+        "lumps": 1
+      },
+      {
+        "name": "Optional translucent diffuser",
+        "bodies": 1,
+        "bounds_mm": [
+          [
+            17.5,
+            0.5,
+            18.799999999999997
+          ],
+          [
+            59.500000000000014,
+            22.299999999999997,
+            19.6
+          ]
+        ],
+        "volume_mm3": 732.4800000000008,
+        "lumps": 1
+      }
+    ],
+    "unconstrained": [],
+    "health": [],
+    "source_modified": null,
+    "magnet_loading_collisions": [],
+    "nominal_dimensions_mm": {
+      "pcb_face_gap": 11.0,
+      "battery_diameter": 19.0,
+      "battery_length": 69.0,
+      "case_length": 131.8,
+      "head_width": 36.46,
+      "grip_width": 36.46,
+      "max_depth": 23.8,
+      "usb_opening": [
+        9.54,
+        4.8
+      ],
+      "usb_recess": [
+        16.94,
+        12.2,
+        1.2
+      ],
+      "usb_wall": 0.8,
+      "local_seam_z": 3.865,
+      "snap_width": 13.5,
+      "snap_receiver_outer_wall": 1.0,
+      "screw_underhead_length": 16.0,
+      "screw_engagement": 6.0,
+      "screw_tip_floor_clearance": 0.7,
+      "wing_capture_allowance": 0.2,
+      "front_support_height": 2.7,
+      "front_support_raise": 0.5,
+      "pcb_seat_z": 0.7,
+      "reset_pinhole": [
+        2.0,
+        57.95,
+        11.43
+      ],
+      "zip_tie_open_groove_width": 3.2
+    }
+  },
+  "export": {
+    "document": "Echo Glow consumer v6 v3",
+    "saved": true,
+    "modified": false,
+    "exports": [
+      {
+        "file": "plain-front-housing.stl",
+        "volume_mm3": 13834.302423368557,
+        "bounds_mm": [
+          [
+            11.200000000000001,
+            -6.800000000000001,
+            -3.3999999999999995
+          ],
+          [
+            143.0,
+            29.660000000000004,
+            8.200000000000001
+          ]
+        ]
+      },
+      {
+        "file": "plain-rear-cover.stl",
+        "volume_mm3": 16742.533474639324,
+        "bounds_mm": [
+          [
+            11.2,
+            -6.800000000000001,
+            3.9650000000000007
+          ],
+          [
+            143.0,
+            29.660000000000004,
+            20.4
+          ]
+        ]
+      },
+      {
+        "file": "diffuser.stl",
+        "volume_mm3": 732.4800000000008,
+        "bounds_mm": [
+          [
+            17.5,
+            0.5,
+            18.799999999999997
+          ],
+          [
+            59.500000000000014,
+            22.299999999999997,
+            19.6
+          ]
+        ]
+      },
+      {
+        "file": "snap-coupon-receiver.stl",
+        "volume_mm3": 370.97190819374197,
+        "bounds_mm": [
+          [
+            58.0,
+            -6.800000000000001,
+            -3.3999999999999995
+          ],
+          [
+            74.15,
+            -2.8000000000000003,
+            8.2
+          ]
+        ]
+      },
+      {
+        "file": "snap-coupon-spring.stl",
+        "volume_mm3": 734.0219081937431,
+        "bounds_mm": [
+          [
+            58.0,
+            -6.800000000000001,
+            4.2
+          ],
+          [
+            74.15,
+            -2.8000000000000003,
+            20.4
+          ]
+        ]
+      }
+    ],
+    "archive": "/Users/nickstielau/depot/github.com/nstielau/digirdu-lights/hardware/consumer/revision-7/Echo-Glow-consumer-revision-7.f3d",
+    "feature_health": [],
+    "main_button_children_visible": true,
+    "reset_plunger_children_hidden": true
+  },
+  "initial_edit": {
+    "document": "Echo Glow consumer v6 v2",
+    "moved_screw_sketches": [
+      "M2 front column 0 1",
+      "M2 pilot positions 1",
+      "Rear fastener columns 1",
+      "M2 clearance 1",
+      "Socket cap recesses 1"
+    ],
+    "case_length_mm": 131.8,
+    "shorter_by_mm": 15,
+    "snap_width_mm": 13.5,
+    "receiver_remaining_wall_mm": 1,
+    "usb_seam_center_z_mm": 3.37,
+    "socket_protrusion_beyond_recess_mm": 0.113,
+    "feature_health": []
+  },
+  "final_usb_seam": {
+    "actual_socket_mouth_z_mm": [
+      2.26,
+      5.47
+    ],
+    "split_center_z_mm": 3.865,
+    "front_step_z_mm": 3.765,
+    "rear_step_z_mm": 3.965,
+    "features": [
+      "Open end notch for vertical board installation",
+      "Extend rear end wall to local USB seam"
+    ]
+  },
+  "direct_usb_and_blind_snap_audit": {
+    "closed_exterior_skin_0_mm3": 22.950000000000014,
+    "blind_pocket_empty_0_mm3": 0,
+    "closed_exterior_skin_1_mm3": 22.950000000000014,
+    "blind_pocket_empty_1_mm3": 0,
+    "usb_vertical_insertion_front_overlap_mm3": 0,
+    "plug_approach_front_overlap_mm3": 0,
+    "plug_approach_rear_overlap_mm3": 0,
+    "usb_front_faces_mm": [
+      [
+        [
+          12.287,
+          6.96,
+          2.26
+        ],
+        [
+          12.287,
+          15.9,
+          5.47
+        ]
+      ]
+    ],
+    "socket_plane_x_mm": 12.287,
+    "local_seam_z_mm": 3.865,
+    "print_qualification": "not tested"
+  },
+  "meshes": [
+    {
+      "file": "plain-front-housing.stl",
+      "triangles": 5752,
+      "vertices": 2868,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 13829.415031741904,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          131.8000030517578,
+          36.459999084472656,
+          11.59999942779541
+        ]
+      ]
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "triangles": 4682,
+      "vertices": 2337,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 16738.21354399198,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          131.8000030517578,
+          36.459999084472656,
+          16.434999465942383
+        ]
+      ]
+    },
+    {
+      "file": "diffuser.stl",
+      "triangles": 12,
+      "vertices": 8,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 732.4803127241016,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          42.0,
+          21.799999237060547,
+          0.8000003695487976
+        ]
+      ]
+    },
+    {
+      "file": "snap-coupon-receiver.stl",
+      "triangles": 80,
+      "vertices": 42,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 370.75912193777845,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          16.150001525878906,
+          4.0,
+          11.59999942779541
+        ]
+      ]
+    },
+    {
+      "file": "snap-coupon-spring.stl",
+      "triangles": 256,
+      "vertices": 130,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 733.9858809158497,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          16.150001525878906,
+          4.0,
+          16.200000762939453
+        ]
+      ]
+    },
+    {
+      "file": "button-plunger-flat.stl",
+      "triangles": 1388,
+      "vertices": 696,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 48.275373631310664,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.199999809265137,
+          6.199999809265137,
+          2.1999998092651367
+        ]
+      ]
+    },
+    {
+      "file": "button-plunger-domed.stl",
+      "triangles": 10336,
+      "vertices": 5170,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 40.99708744869286,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.199999809265137,
+          6.199999809265137,
+          2.1999998092651367
+        ]
+      ]
+    },
+    {
+      "file": "reset-plunger-flush.stl",
+      "triangles": 1400,
+      "vertices": 702,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 33.193261106596474,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.199999809265137,
+          6.199115753173828,
+          1.4000000953674316
+        ]
+      ]
+    },
+    {
+      "file": "button-carrier-flat.stl",
+      "triangles": 14296,
+      "vertices": 7148,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 202.13597012040196,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          43.029998779296875,
+          22.755001068115234,
+          2.1999998092651367
+        ]
+      ]
+    },
+    {
+      "file": "button-carrier-domed.stl",
+      "triangles": 134452,
+      "vertices": 67226,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 180.30880082295482,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          43.029998779296875,
+          22.755001068115234,
+          2.1999998092651367
+        ]
+      ]
+    },
+    {
+      "file": "button-rail-flat.stl",
+      "triangles": 2744,
+      "vertices": 1374,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 146.70376967730036,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.200000286102295,
+          20.170000076293945,
+          2.1999998092651367
+        ]
+      ]
+    },
+    {
+      "file": "button-rail-domed.stl",
+      "triangles": 13592,
+      "vertices": 6798,
+      "bad_edges": 0,
+      "bad_winding": 0,
+      "degenerate_triangles": 0,
+      "connected_components": 1,
+      "volume_mm3": 124.85939644894592,
+      "bounds_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          6.200000286102295,
+          20.170000076293945,
+          2.1999998092651367
+        ]
+      ]
+    }
+  ],
+  "button_variants": [
+    "button-plunger-flat.stl",
+    "button-plunger-domed.stl",
+    "reset-plunger-flush.stl",
+    "button-carrier-flat.stl",
+    "button-carrier-domed.stl",
+    "button-rail-flat.stl",
+    "button-rail-domed.stl"
+  ],
+  "prior_revisions_preserved": true,
+  "unchanged_button_assets": [
+    "button-plunger-flat.stl",
+    "button-plunger-domed.stl",
+    "reset-plunger-flush.stl",
+    "button-carrier-flat.stl",
+    "button-carrier-domed.stl",
+    "button-rail-flat.stl",
+    "button-rail-domed.stl"
+  ],
+  "shell_dimensions_mm": [
+    131.8,
+    36.46,
+    23.8
+  ],
+  "shortened_mm": 15,
+  "main_seam_z_mm": 8.2,
+  "usb_seam_z_mm": 3.865,
+  "usb_recess_mm": [
+    16.94,
+    12.2,
+    1.2
+  ],
+  "usb_socket_opening_mm": [
+    9.54,
+    4.8
+  ],
+  "snap_width_mm": 13.5,
+  "snap_receiver_outer_wall_mm": 1.0,
+  "front_support_height_mm": 2.7,
+  "magnet_slots_mm": [
+    60.2,
+    2.95,
+    10.2
+  ],
+  "snap_coupons": "Regenerated exact shell samples",
+  "fusion_archive_integrity": "passed",
+  "physical_print_tested": false,
+  "unverified": [
+    "Actual USB plug overmold fit and insertion",
+    "Printed snap force, release and fatigue",
+    "Slicer bridge and thin-wall behavior"
+  ],
+  "repository_checks": {
+    "make_check": "passed",
+    "unit_tests": 111
+  },
+  "previews_inspected": [
+    "consumer-usb-end.png",
+    "consumer-usb-closeup.png",
+    "consumer-usb-open-closeup.png",
+    "consumer-snap-coupon.png"
+  ],
+  "cloud_save": {
+    "document": "Echo Glow consumer v6",
+    "project": "Echo Glow",
+    "version": 4,
+    "lineage": "urn:adsk.wipprod:dm.lineage:kBcKv3PwQ5maxenDyZNRHw",
+    "saved": true,
+    "modified": false,
+    "upload_complete": true
+  }
+}

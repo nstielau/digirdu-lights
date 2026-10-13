@@ -2,11 +2,24 @@
 
 ## Mechanical design
 
-`hardware/producer/` contains the Reverse TFT Feather producer enclosure and
-its complete Revision 11 Fusion/print baseline. Read `hardware/AGENTS.md` and
-`hardware/producer/README.md` before CAD work. This enclosure is for the Adafruit
-ESP32-S3 Reverse TFT Feather; the existing FeatherS2 software deployment notes
-below describe a different board and do not establish its mechanical fit.
+`hardware/producer/` contains two distinct Reverse TFT Feather enclosures:
+the current Echo Glow producer revision 3 under `producer/echo-glow/`, and the
+historical DidgeLights microphone producer revision 11 under `producer/revision-11/`.
+Read `hardware/AGENTS.md` and `hardware/producer/README.md` before CAD work.
+These mechanical designs use the Adafruit ESP32-S3 Reverse TFT Feather; the
+FeatherS2 software deployment notes below describe a different board.
+
+`hardware/consumer/` contains the independent Echo Glow consumer revision 8:
+Reverse TFT Feather and 4x8 NeoPixel FeatherWing on removable headers, with a
+19 × 69 mm cylindrical battery handle. Revision 7 shortened the case 15 mm, exposed
+the onboard USB-C through a local stepped end seam, and widened snaps to 13.5 mm
+with blind receiver pockets and closed exterior walls. V6 magnet slots, opposing
+battery cradles and taller TFT supports remain. Revision 8 keeps that geometry
+and uses only the domed three-button rail and reset pinhole. Continue in **Echo
+Glow consumer v6**, saved cloud version 5, using Fusion versions instead of new
+documents. Read hardware/consumer/AGENTS.md before edits. Physical print
+qualification is separate. Hardware binaries are released at explicit Git tags
+per `hardware/RELEASES.md`, rather than committed as Git blobs.
 
 ## Current hardware: Unexpected Maker FeatherS2
 

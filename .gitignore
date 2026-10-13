@@ -16,8 +16,15 @@ test-results/
 
 .worktrees/
 
-# Hardware scratch, generated bundles, and machine-specific print output.
-# Keep released F3D, STL, 3MF, preview, and verification files tracked.
+# Hardware release binaries live in tagged GitHub Release ZIP assets. Keep
+# source notes, manifests, and verification JSON in Git.
+/hardware/**/*.f3d
+/hardware/**/*.stl
+/hardware/**/*.3mf
+/hardware/**/*.png
+/hardware/**/*.jpg
+/hardware/**/*.jpeg
+/hardware/**/*.brd
 /hardware/**/work/
 /hardware/**/dist/
 /hardware/**/backups/

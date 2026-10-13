@@ -1,0 +1,25 @@
+{
+  "release": "Echo Glow consumer revision 8",
+  "fusion_document": "Echo Glow consumer v6",
+  "fusion_lineage": "urn:adsk.wipprod:dm.lineage:kBcKv3PwQ5maxenDyZNRHw",
+  "fusion_cloud_version": 5,
+  "cad": {
+    "non_suppressed_unhealthy_features": 0,
+    "front_solid_bodies": 1,
+    "front_volume_mm3": 13834.302,
+    "button_rail_solid_bodies": 1,
+    "button_rail_volume_mm3": 124.949,
+    "reset_pinhole_diameter_mm": 2.0,
+    "retired_current_components_removed": 9
+  },
+  "meshes": {
+    "plain-front-housing.stl": {"triangles": 5752, "unmatched_edges": 0, "bounds_mm": [131.8, 36.46, 11.6]},
+    "plain-rear-cover.stl": {"triangles": 4682, "unmatched_edges": 0, "bounds_mm": [131.8, 36.46, 16.435]},
+    "button-rail-domed.stl": {"triangles": 13592, "unmatched_edges": 0, "bounds_mm": [6.2, 20.17, 2.2]},
+    "diffuser.stl": {"triangles": 12, "unmatched_edges": 0, "bounds_mm": [42.0, 21.8, 0.8]},
+    "snap-coupon-receiver.stl": {"triangles": 80, "unmatched_edges": 0, "bounds_mm": [16.15, 4.0, 11.6]},
+    "snap-coupon-spring.stl": {"triangles": 256, "unmatched_edges": 0, "bounds_mm": [16.15, 4.0, 16.2]}
+  },
+  "export": "All six STL meshes identical to Echo Glow consumer revision 7",
+  "physical_print_qualification": "not performed"
+}
