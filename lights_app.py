@@ -28,6 +28,11 @@ if PROFILE['mic'] is None and CONFIG.radio_role != 'follower':
 DISPLAY = None
 SAMPLE_RATE = CONFIG.sample_rate
 SAMPLE_COUNT = CONFIG.hop_size
+TFT_WAKE_BUTTONS = (
+    ('D0', False, digitalio.Pull.UP),
+    ('D1', True, digitalio.Pull.DOWN),
+    ('D2', True, digitalio.Pull.DOWN),
+)
 
 
 class EffectButtons:
@@ -120,7 +125,7 @@ class TFTButtons:
                 if DISPLAY:DISPLAY.set_banner('SETTING BRIGHTNESS',now)
             else:
                 sleep.request(now,CONFIG.sleep_fade_s)
-                print('SLEEP requested from D2; broadcasting group sleep')
+                print('SLEEP requested from any button; broadcasting group sleep')
 
     def deinit(self):
         for pin in self.inputs:pin.deinit()
@@ -172,7 +177,7 @@ def update_dashboard(now, features, animation, battery, radio, rate, spare,
     message = ''
     if sleep and sleep.started is not None:message='SLEEP / fading'
     elif buttons and hasattr(buttons,'logic') and buttons.logic.countdown:
-        message='Hold D2: %.1fs'%buttons.logic.countdown
+        message='Hold any button: %.1fs'%buttons.logic.countdown
     reading = battery.update(now)
     try:
         import ota_status
@@ -465,14 +470,28 @@ def wait_for_wake_release():
                          ('note',12,72,18,2,0xffffff)),
                         brightness=CONFIG.display_brightness,rotation=CONFIG.display_rotation)
     screen.text('title','SLEEP READY')
-    screen.text('note','Release D2')
+    screen.text('note','Release buttons')
     screen.refresh()
-    gate = ReleaseGate(CONFIG.button_debounce_s)
-    with digitalio.DigitalInOut(board.D2) as button:
-        button.switch_to_input(pull=digitalio.Pull.DOWN)
-        while not gate.update(button.value,time.monotonic()):
+    gates = [ReleaseGate(CONFIG.button_debounce_s) for _ in TFT_WAKE_BUTTONS]
+    buttons = []
+    try:
+        for name, _, pull in TFT_WAKE_BUTTONS:
+            button = digitalio.DigitalInOut(getattr(board,name))
+            button.switch_to_input(pull=pull)
+            buttons.append(button)
+        while True:
+            now = time.monotonic()
+            released = True
+            for gate, button, (_, active, _) in zip(gates,buttons,TFT_WAKE_BUTTONS):
+                if not gate.update(button.value == active,now):
+                    released = False
+            if released:
+                break
             time.sleep(.01)
-    screen.close()
+    finally:
+        for button in buttons:
+            button.deinit()
+        screen.close()
 
 
 def enter_deep_sleep():
@@ -492,7 +511,9 @@ def enter_deep_sleep():
         if DISPLAY:DISPLAY.close()
         from hardware import sleep_power
         held = sleep_power()
-        alarms = (alarm.pin.PinAlarm(pin=board.D2,value=True,pull=True),)
+        alarms = tuple(
+            alarm.pin.PinAlarm(pin=getattr(board,name),value=active,pull=True)
+            for name, active, _ in TFT_WAKE_BUTTONS)
     # Keep the powered wing's data input LOW through VM teardown and sleep.
     # Releasing it to high impedance can latch stray bits after the black frame.
     # Do not use a with/finally here: DeepSleepRequest unwinds Python contexts.
@@ -502,7 +523,7 @@ def enter_deep_sleep():
     sleep_pin.value = False
     time.sleep(0.001)  # Allow the all-black frame to latch before holding the pin.
     print("SLEEP entering deep sleep; wing data held LOW; " +
-          ("D2 or reset wakes this board" if PROFILE["display"] else "reset each board to wake"))
+          ("any button or reset wakes this board" if PROFILE["display"] else "reset each board to wake"))
     # Pin preservation is an output hold, NOT a PinAlarm or other wake source.
     alarm.exit_and_deep_sleep_until_alarms(*alarms, preserve_dios=(sleep_pin,) + held)
 

@@ -1301,3 +1301,11 @@ Device base 1.1.4 by itself does not collect RF data: a later Reverse TFT app mu
 record packet windows, declare its telemetry hook, and require base 1.1.4. Cloud
 manifest/report/telemetry handling must also support the Reverse TFT schema-2
 contract before that app is released. No current playing-loop behavior changes.
+
+## October 13: Echo Glow app 1.1.3 release preparation
+
+PR #2 merged into `feature/reverse-tft` after its checks passed. App 1.1.3
+combines the already released 1.1.2 any-button sleep and wake behavior with the
+`BASE UPDATE NEEDED` device wording. Its wire protocol remains v3 and its minimum
+device base remains 1.1.0. Base 1.1.4 is optional for this app; RF telemetry
+recording remains future work. The attached consumer still needs an app deploy.

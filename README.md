@@ -1773,8 +1773,8 @@ The Echo Glow Reverse TFT device base 1.1.4 prepares for RF telemetry by adding 
 bounded durable outbox and accepting safe manifest-listed schema-2 app modules
 or data assets. Install it with `make deploy-base BOARD=adafruit_feather_esp32s3_reverse_tft`
 over USB in maintenance mode. This preserves the installed app, OTA slots and node
-profile. App 1.1.1 does not record RF telemetry; a later app and cloud contract
+profile. App 1.1.3 does not record RF telemetry; a later app and cloud contract
 update are needed before the RF sessions page can show this board's data.
-The renamed update warning and fleet label in this source branch require a later
-app release and web deployment, respectively; the attached board still runs
-app 1.1.1 with its existing on-device wording.
+App 1.1.3 carries forward the 1.1.2 any-button sleep and wake behavior and
+changes the device update warning to **BASE UPDATE NEEDED**. The fleet label
+changes to **Device base** when the website is deployed.

@@ -21,7 +21,7 @@ class DevicePageTests(unittest.TestCase):
         for _ in range(4):ui.toggle();pages.append(ui.page)
         self.assertEqual(pages,[1,2,3,0])
         p=self.page(self.info())
-        self.assertEqual(p['page'],'4/4');self.assertEqual(p['b1'],'NEXT');self.assertEqual(p['b2'],'SLEEP')
+        self.assertEqual(p['page'],'4/4');self.assertEqual(p['b1'],'NEXT');self.assertEqual(p['b2'],'AUX')
         self.assertIn('Role CONSUMER',p.values());self.assertIn('Src 64:e8:33:73:d8:3c',p.values())
 
     def test_producer_page_shows_its_own_radio_mac(self):

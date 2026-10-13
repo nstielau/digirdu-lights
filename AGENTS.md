@@ -564,7 +564,7 @@ Reverse TFT device base 1.1.4 adds `telemetry_store.py`, boot retry upload and a
 optional future sleep callback, plus bounded manifest-listed schema-2 app assets.
 Keep the schema-1 legacy contract, Reverse TFT profile, dashboard status and
 boot animation intact. Base-only USB deployment preserves app slots and node
-configuration. App 1.1.1 has no RF recorder; telemetry requires a later app
+configuration. App 1.1.3 has no RF recorder; telemetry requires a later app
 and matching cloud schema-2 support. Do not claim the base update alone enables
 RF session data.
 

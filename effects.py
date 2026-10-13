@@ -191,17 +191,20 @@ class TFTControls:
 
     def update(self, levels, now):
         action = None
+        self.countdown = 0
         for index,(level,button) in enumerate(zip(levels,self.buttons)):
             pressed = not level if index == 0 else level
             if not self.armed[index]:
                 self.armed[index] = self.releases[index].update(pressed,now)
                 continue
             gesture = button.update(pressed,now)
-            if index == 2:
-                self.countdown = max(0,button.hold_s-(now-button.pressed_at)) if pressed and button.pressed_at is not None else 0
-                if gesture == ButtonGesture.HOLD:action='sleep'
-                elif gesture == ButtonGesture.SHORT:action='decrease'
-            elif gesture == ButtonGesture.SHORT:
+            if pressed and button.pressed_at is not None:
+                self.countdown = max(self.countdown,
+                                     max(0,button.hold_s-(now-button.pressed_at)))
+            if gesture == ButtonGesture.HOLD:
+                action = 'sleep'
+            elif gesture == ButtonGesture.SHORT and action != 'sleep':
                 if index == 0:action='page'
-                else:action='next'
+                elif index == 1:action='next'
+                else:action='decrease'
         return action

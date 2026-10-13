@@ -12,7 +12,8 @@ class DashboardTests(unittest.TestCase):
         d=self.module()
         p=d.snapshot('leader',0,rms=3276.8,volume=.8,clipped=True)
         self.assertEqual(p['level_units'],'dBFS');self.assertAlmostEqual(p['level'],-20)
-        self.assertEqual(p['state'],'CLIPPING');self.assertEqual(p['labels'],('PAGE','NEXT','SLEEP'))
+        self.assertEqual(p['state'],'CLIPPING');self.assertEqual(p['labels'],('PAGE','NEXT','AUX'))
+        self.assertNotIn('SLEEP',d.page_content(p,0).values())
         c=d.snapshot('follower',2,volume=.25,age=1)
         self.assertEqual(c['level_units'],'%');self.assertEqual(c['level'],25)
         self.assertEqual(c['state'],'LOST');self.assertEqual(c['labels'][1],'NEXT')
@@ -99,7 +100,7 @@ class FourPageTests(unittest.TestCase):
         for role in ('producer','consumer'):
             for effect in range(len(EFFECT_NAMES)):
                 for page in range(3):
-                    for message in ('','Hold D2: 2.0s','SLEEP / fading'):
+                    for message in ('','Hold any button: 2.0s','SLEEP / fading'):
                         state=d.snapshot(role,effect,fault=True,age=None,message=message)
                         content=d.page_content(state,page)
                         self.assertEqual(content['page'],'%d/4'%(page+1))
@@ -184,7 +185,7 @@ class RuntimeTelemetryTests(unittest.TestCase):
             app.log_device_diagnostics(11,radio,5)
             self.assertEqual(output.call_count,1)
             line=output.call_args.args[0]
-            for item in ('TX=22','ok=20','failed=1','skipped=3','RX=9','rejected=2','overruns=4','source=','v1.1.1'):
+            for item in ('TX=22','ok=20','failed=1','skipped=3','RX=9','rejected=2','overruns=4','source=','v1.1.3'):
                 self.assertIn(item,line)
             app.log_device_diagnostics(20,radio,6)
             self.assertEqual(output.call_count,2)

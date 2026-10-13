@@ -65,7 +65,7 @@ def snapshot(role, effect, rms=0, volume=0, clipped=False, calibrating=False,
             'effect':'%d %s' % (effect + 1, EFFECT_NAMES[effect]),
             'level':level, 'level_units':'dBFS' if producer else '%',
             'meter':max(0,min(1,(level+60)/60)) if producer else level/100,
-            'state':state, 'labels':('PAGE','NEXT','SLEEP'),
+            'state':state, 'labels':('PAGE','NEXT','AUX'),
             'spectrum':tuple(max(0,min(1,spectrum[i])) if i<len(spectrum) else 0 for i in range(8)),
             'status_rows':rows, 'message':message, 'overlay':overlay,
             'brightness':brightness, 'brightness_max':brightness_max,
@@ -179,7 +179,7 @@ def page_content(state, page):
         content.update(b1='+',b2='-',header='BRIGHTNESS',
                        effect='%d%%'%round(state['brightness']*100),
                        level='FeatherWing / max %d%%'%round(state['brightness_max']*100),
-                       state=state['message'] or (state['state'] if state['state'] in ('MIC FAULT','CLIPPING','LOST') else 'Hold D2 to sleep'))
+                       state=state['message'] or (state['state'] if state['state'] in ('MIC FAULT','CLIPPING','LOST') else 'Hold any button to sleep'))
     elif page == 1:
         critical = state['state'] if state['state'] in ('MIC FAULT','CLIPPING','LOST') else ''
         content['header'] = state['message'] or critical or state['effect']
