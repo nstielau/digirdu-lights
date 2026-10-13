@@ -1293,6 +1293,9 @@ installed files byte-identical to the source. The board then soft rebooted in
 USB maintenance mode, reported `app=1.1.1 base=1.1.4`, and logged consumer
 `LIGHTS` frames after radio initialization. This is a USB maintenance startup
 check, not a field-mode OTA check-in or visual RF reception test.
+The host then cleanly unmounted `CIRCUITPY` (`disk5s1`). This device's
+`settings.toml` is empty, so `boot.py` selects USB mode; the consumer app still
+runs in that mode. No OTA enrollment or field-mode transition was performed.
 
 Base 1.1.4 by itself does not collect RF data: a later Reverse TFT app must
 record packet windows, declare its telemetry hook, and require base 1.1.4. Cloud
