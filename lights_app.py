@@ -89,13 +89,24 @@ class TFTButtons:
 
     def poll(self, animation, now, sleep, allow_sleep=True, radio=None):
         levels=tuple(pin.value for pin in self.inputs)
-        if DISPLAY and not DISPLAY.failed and DISPLAY.button_activity(now,not levels[0] or levels[1] or levels[2]):
+        waking = (DISPLAY and not DISPLAY.failed
+                  and DISPLAY.button_activity(now,not levels[0] or levels[1] or levels[2]))
+        chord_active = ((not levels[0] and levels[1] and levels[2])
+                        or self.logic.chord_phase in ('holding','ready_release','wait_release'))
+        if waking and not chord_active:
             # Feed released levels so no wake press becomes NEXT or a long sleep.
             self.logic.update((True,False,False),now)
             return
-        action = self.logic.update(levels,now)
+        action = self.logic.update(levels,now,allow_maintenance=allow_sleep and sleep.started is None)
         if sleep.started is not None:
             return
+        if action == 'maintenance':
+            import hardware
+            if not callable(getattr(hardware,'reset_into_maintenance',None)):
+                if DISPLAY:DISPLAY.set_banner('BASE UPDATE NEEDED',now)
+                print('USB maintenance shortcut needs a newer device base')
+                return
+            raise MaintenanceRequested()
         if action == 'page' and DISPLAY:
             DISPLAY.toggle()
             print('TFT page=%d' % (DISPLAY.page + 1))
@@ -154,12 +165,18 @@ def update_dashboard(now, features, animation, battery, radio, rate, spare,
                      overruns=0, sleep=None, buttons=None, fault=False):
     if not DISPLAY or DISPLAY.failed:
         return
-    from dashboard import sleep_overlay
+    from dashboard import sleep_overlay, maintenance_overlay
     remaining=max(0,sleep.duration-sleep.elapsed(now)) if sleep and sleep.started is not None else None
     holding=buttons.logic.countdown if buttons and hasattr(buttons,'logic') else 0
+    maintenance_holding=(buttons.logic.maintenance_countdown
+                         if buttons and hasattr(buttons,'logic') else 0)
+    maintenance_ready=(buttons.logic.maintenance_ready
+                       if buttons and hasattr(buttons,'logic') else False)
     if DISPLAY.page==2 and holding>CONFIG.button_sleep_hold_s-.5:holding=0
     control=getattr(radio,'control',None) if radio else None
-    overlay=sleep_overlay(holding=holding,remaining=remaining)
+    overlay=(maintenance_overlay(maintenance_holding,maintenance_ready)
+             if remaining is None and (maintenance_holding or maintenance_ready)
+             else sleep_overlay(holding=holding,remaining=remaining))
     DISPLAY.set_overlay(overlay)
     DISPLAY.set_banner(control.status(now) if control else '',now)
     if not DISPLAY.visible(now):return
@@ -463,6 +480,10 @@ class SleepRequested(BaseException):
     """Unwind hardware contexts without triggering the OTA failure handler."""
 
 
+class MaintenanceRequested(BaseException):
+    """Unwind local hardware before resetting into USB maintenance."""
+
+
 def wait_for_wake_release():
     from effects import ReleaseGate
     from hardware import TextScreen
@@ -529,13 +550,22 @@ def enter_deep_sleep():
 
 
 def main(health=None):
-    try:
-        if CONFIG.radio_role == "follower":
-            run_follower(health=health)
-        else:
-            run(health=health)
-    except SleepRequested:
-        enter_deep_sleep()
+    while True:
+        try:
+            if CONFIG.radio_role == "follower":
+                run_follower(health=health)
+            else:
+                run(health=health)
+            return
+        except SleepRequested:
+            return enter_deep_sleep()
+        except MaintenanceRequested:
+            from hardware import reset_into_maintenance
+            try:
+                reset_into_maintenance()
+            except Exception as error:
+                # A failed NVM request is local; never let OTA roll back the app.
+                print('USB maintenance failed:',type(error).__name__)
 
 
 if __name__ == "__main__":

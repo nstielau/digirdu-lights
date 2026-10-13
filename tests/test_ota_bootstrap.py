@@ -12,6 +12,23 @@ from telemetry_store import TelemetryQueue
 
 
 class OTAIndicatorTests(unittest.TestCase):
+    def test_maintenance_loading_pixel_is_dim_orange(self):
+        for board_id,wing in (('unexpectedmaker_feathers2','IO38'),
+                              ('adafruit_feather_esp32_v2','D32'),
+                              ('adafruit_feather_esp32s3_reverse_tft','D6')):
+            with self.subTest(board_id=board_id):
+                frames=[];pin=Mock()
+                modules={'board':SimpleNamespace(board_id=board_id,**{wing:6}),
+                         'digitalio':SimpleNamespace(DigitalInOut=lambda _:pin),
+                         'neopixel_write':SimpleNamespace(neopixel_write=lambda p,b:frames.append(bytes(b)))}
+                with patch.dict(sys.modules,modules),patch('ota_bootstrap.time.monotonic',return_value=0):
+                    indicator=OTAIndicator(color=(3,8,0),phase='Loading application')
+                    self.assertEqual(frames[0][:3],bytes((3,8,0)))
+                    self.assertEqual(frames[0][3:],bytes(93))
+                    indicator.close()
+                self.assertEqual(frames[-1],bytes(96))
+                pin.deinit.assert_called_once()
+
     def test_boot_without_telemetry_has_no_storage_write(self):
         with patch('ota_bootstrap.os.stat',side_effect=OSError('absent')), \
              patch('ota_bootstrap.TelemetryQueue') as queue:

@@ -2,6 +2,41 @@
 S2 = 'unexpectedmaker_feathers2'
 V2 = 'adafruit_feather_esp32_v2'
 S3 = 'adafruit_feather_esp32s3_reverse_tft'
+MAINTENANCE_NVM_OFFSET = 5  # OTA recovery owns bytes 0..4.
+MAINTENANCE_NVM_MARKER = b'DGM1'
+
+
+def set_maintenance_request(nvm):
+    """Request USB ownership on the next hard boot without changing OTA state."""
+    end = MAINTENANCE_NVM_OFFSET + len(MAINTENANCE_NVM_MARKER)
+    if len(nvm) < end:
+        raise ValueError('Maintenance NVM unavailable')
+    nvm[MAINTENANCE_NVM_OFFSET:end] = MAINTENANCE_NVM_MARKER
+
+
+def consume_maintenance_request(nvm):
+    """Return and clear the single-use USB maintenance request."""
+    end = MAINTENANCE_NVM_OFFSET + len(MAINTENANCE_NVM_MARKER)
+    if len(nvm) < end or bytes(nvm[MAINTENANCE_NVM_OFFSET:end]) != MAINTENANCE_NVM_MARKER:
+        return False
+    nvm[MAINTENANCE_NVM_OFFSET:end] = bytes(len(MAINTENANCE_NVM_MARKER))
+    return True
+
+
+def reset_into_maintenance():
+    """Enter maintenance on the next full boot after the app has closed I/O."""
+    import microcontroller
+    set_maintenance_request(microcontroller.nvm)
+    try:
+        microcontroller.watchdog.mode = None
+        microcontroller.reset()
+    except Exception:
+        consume_maintenance_request(microcontroller.nvm)
+        raise
+    consume_maintenance_request(microcontroller.nvm)
+    raise RuntimeError('Maintenance reset returned')
+
+
 PROFILES = {
     S2: {'id': S2, 'wing': 'IO38', 'wing_gpio': 38, 'mic': ('IO5', 'IO6', 'IO9'),
          'mic_gpios': (5, 6, 9), 'display': False, 'native_usb': True,
@@ -60,6 +95,7 @@ class TextScreen:
         width, height = self.font.get_bounding_box()[:2]
         self.group = displayio.Group()
         self.fields = {}
+        self.border_grid = None
         for name, x, y, count, scale, color in fields:
             palette = displayio.Palette(2)
             palette[0] = 0x030714
@@ -73,6 +109,23 @@ class TextScreen:
             self.fields[name] = (grid, count)
             self.text(name, '')
         self.display.root_group = self.group
+
+    def border(self, color, width=2):
+        if self.border_grid is not None:
+            return
+        import displayio
+        import bitmaptools
+        w,h=self.display.width,self.display.height
+        bitmap=displayio.Bitmap(w,h,2)
+        palette=displayio.Palette(2)
+        palette[0]=0
+        palette.make_transparent(0)
+        palette[1]=color
+        for x1,y1,x2,y2 in ((0,0,w,width),(0,h-width,w,h),
+                            (0,0,width,h),(w-width,0,w,h)):
+            bitmaptools.fill_region(bitmap,x1,y1,x2,y2,1)
+        self.border_grid=displayio.TileGrid(bitmap,pixel_shader=palette)
+        self.group.append(self.border_grid)
 
     def text(self, name, value):
         grid, count = self.fields[name]
@@ -187,6 +240,7 @@ class BootScreen:
             try:
                 self.screen.text('mode','USB MAINT')
                 self.screen.text('phase','CIRCUITPY READY')
+                self.screen.border(0xff9f43,2)
                 self.art.maintenance=True
                 self.tick(force=True)
             except Exception:

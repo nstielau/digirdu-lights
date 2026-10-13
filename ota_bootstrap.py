@@ -22,12 +22,12 @@ OTA_PIXEL_STEP_S = 0.5
 
 
 class OTAIndicator:
-    """One cyan pixel advances while boot-time networking services its watchdog.
+    """One dim pixel advances during network checks or USB maintenance loading.
 
     This is activity, not a download percentage. Blocking Wi-Fi/TLS calls leave
-    the current pixel lit until they return. No application modules are loaded.
+    the current pixel lit until they return. The pin is released before app.main.
     """
-    def __init__(self):
+    def __init__(self, color=None, phase="Checking for updates"):
         import board
         import digitalio
         from neopixel_write import neopixel_write
@@ -35,8 +35,10 @@ class OTAIndicator:
         self.screen = hardware._boot_screen
         self.owns_screen = self.screen is None
         if self.owns_screen:self.screen=hardware.BootScreen()
-        self.screen.phase("Checking for updates")
+        self.screen.phase(phase)
         self.write = neopixel_write
+        level = int(255 * OTA_PIXEL_BRIGHTNESS)
+        self.color = color if color is not None else (level, 0, level)  # GRB cyan.
         self.pixels = bytearray(OTA_PIXEL_COUNT * 3)
         self.index = -1
         self.next_step = 0.0
@@ -54,10 +56,8 @@ class OTAIndicator:
             return
         self.pixels[:] = bytes(len(self.pixels))
         self.index = (self.index + 1) % OTA_PIXEL_COUNT
-        level = int(255 * OTA_PIXEL_BRIGHTNESS)
-        # GRB: a dim cyan status pixel, independent of the app's brightness.
-        self.pixels[self.index * 3] = level
-        self.pixels[self.index * 3 + 2] = level
+        # GRB: one dim status pixel, independent of the app's brightness.
+        self.pixels[self.index * 3:self.index * 3 + 3] = bytes(self.color)
         self.write(self.pin, self.pixels)
         self.next_step = now + OTA_PIXEL_STEP_S
 
@@ -354,7 +354,11 @@ def _main(screen):
         ota_status.reset('maintenance' if enabled else 'disabled')
         if enabled:
             screen.maintenance()
-        app, version = start_app('/recovery',screen)
+        indicator = OTAIndicator(color=(3,8,0),phase='Loading application') if enabled else None
+        try:
+            app, version = start_app('/recovery',screen)
+        finally:
+            if indicator:indicator.close()
         print("OTA mode=maintenance app=%s base=%s" % (version, BASE_VERSION))
         app.main()
         return

@@ -7,6 +7,27 @@ from config import Config
 
 
 class DisplayActivityTests(unittest.TestCase):
+    def test_all_three_chord_can_start_while_display_is_idle(self):
+        from test_sleep import load_app
+        from effects import TFTControls, SleepTransition
+        app=load_app();ui=d.Dashboard(Mock(),idle_s=30)
+        buttons=app.TFTButtons.__new__(app.TFTButtons)
+        buttons.inputs=[SimpleNamespace(value=v) for v in (True,False,False)]
+        buttons.logic=TFTControls('follower',.04,3)
+        sleep=SleepTransition();radio=Mock()
+        def poll(now,levels):
+            for pin,value in zip(buttons.inputs,levels):pin.value=value
+            buttons.poll(Mock(),now,sleep,radio=radio)
+        with patch.object(app,'DISPLAY',ui):
+            ui.visible(0)
+            poll(0,(True,False,False));poll(.05,(True,False,False))
+            self.assertFalse(ui.visible(30))
+            for now in (31,31.05,35.06):poll(now,(False,True,True))
+            self.assertTrue(buttons.logic.maintenance_ready)
+            poll(35.1,(True,False,False))
+            with self.assertRaises(app.MaintenanceRequested):poll(35.16,(True,False,False))
+        radio.request_control.assert_not_called()
+
     def test_idle_stops_drawing_and_wake_preserves_page(self):
         backend=Mock(pending=False)
         ui=d.Dashboard(backend,idle_s=30)
@@ -148,6 +169,27 @@ class BannerTests(unittest.TestCase):
 
 
 class SleepAnimationTests(unittest.TestCase):
+    def test_usb_countdown_uses_orange_fields_and_two_pixel_border(self):
+        overlay=d.maintenance_overlay(3.1)
+        self.assertEqual(overlay,('maintenance','HOLD FOR USB','4','Release to cancel'))
+        state=d.snapshot('consumer',0,overlay=overlay)
+        for page in range(4):
+            content=d.page_content(state,page)
+            self.assertEqual(content['maintenance_title'],'HOLD FOR USB')
+            self.assertEqual(content['maintenance_number'],'4')
+            self.assertNotIn('sleep_title',content)
+        backend=d.TFTBackend.__new__(d.TFTBackend)
+        backend.back=Mock();backend.fill_region=Mock();backend._text=Mock()
+        backend._sleep_dog=Mock()
+        backend._prepare(state,0)
+        self.assertEqual([call.args[:5] for call in backend.fill_region.call_args_list[:4]],[
+            (backend.back,0,0,240,2),(backend.back,0,133,240,135),
+            (backend.back,0,0,2,135),(backend.back,238,0,240,135)])
+        backend._sleep_dog.assert_not_called()
+        ready=d.maintenance_overlay(0,ready=True)
+        self.assertEqual(d.page_content(d.snapshot('consumer',0,overlay=ready),0)['maintenance_title'],
+                         'USB READY')
+
     def test_animated_frames_do_not_restart_incomplete_transfers(self):
         backend=d.TFTBackend.__new__(d.TFTBackend)
         backend.front=object();backend.back=object();backend.row=135
