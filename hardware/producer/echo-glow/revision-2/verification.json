@@ -1,0 +1,266 @@
+{
+  "cad": {
+    "all_unsuppressed_timeline_features_healthy": true,
+    "battery_stop_end_x_mm": 0.8,
+    "board_vertical_sweep": "USB body and PCB, Z offsets 0 through 20 mm in 2 mm steps: zero front-shell interference",
+    "case_envelope_mm": [
+      84.3,
+      36.46,
+      35.4
+    ],
+    "front_battery_envelope_interference_mm3": 0,
+    "front_rear_interference_mm3": 0,
+    "local_usb_seam_z_mm": {
+      "front_top": 3.265,
+      "gap": 0.2,
+      "rear_bottom": 3.465
+    },
+    "old_battery_end_usb_port_suppressed": true,
+    "old_front_battery_stop_suppressed": true,
+    "patterned_region_union_equals_plain_solid": {
+      "front": true,
+      "rear": true
+    },
+    "plug_recess_width_height_depth_mm": [
+      16.94,
+      12.2,
+      1.2
+    ],
+    "rear_battery_envelope_interference_mm3": 6.8183,
+    "shell_bodies": {
+      "front": 1,
+      "rear": 1
+    },
+    "shell_volume_mm3": {
+      "front": 14234.1699,
+      "rear": 12379.9242
+    },
+    "usb_body_relief_mm": [
+      9.54,
+      4.8
+    ],
+    "usb_interference_mm3": {
+      "front": 0,
+      "rear": 0
+    }
+  },
+  "fusion_archive": {
+    "compression_methods": {
+      "0": 14,
+      "93": 52
+    },
+    "entries_crc_verified": 66
+  },
+  "mesh_checks": {
+    "button-carrier-domed.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        43.03,
+        22.755,
+        2.2
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 180.309,
+      "triangles": 134452
+    },
+    "button-carrier-flat.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        43.03,
+        22.755,
+        2.2
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 202.136,
+      "triangles": 14296
+    },
+    "button-plunger-domed.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        6.2,
+        6.2,
+        2.2
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 40.997,
+      "triangles": 10336
+    },
+    "button-plunger-flat.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        6.2,
+        6.2,
+        2.2
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 48.275,
+      "triangles": 1388
+    },
+    "diffuser.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        -0.0,
+        42.0,
+        21.8,
+        0.8
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 732.481,
+      "triangles": 12
+    },
+    "front-pink.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        -0.0049,
+        -0.0,
+        84.3,
+        36.46,
+        19.4
+      ],
+      "connected_components": 21,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 2084.897,
+      "triangles": 53426
+    },
+    "front-purple.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        -0.0,
+        -0.0,
+        84.3,
+        36.46,
+        19.7
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 12148.427,
+      "triangles": 23880
+    },
+    "plain-front-housing.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        -0.0,
+        -0.0,
+        84.3,
+        36.46,
+        19.7
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 14233.278,
+      "triangles": 5220
+    },
+    "plain-rear-cover.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        84.3,
+        36.46,
+        28.535
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 12378.943,
+      "triangles": 3352
+    },
+    "rear-pink.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        84.3,
+        36.46,
+        16.0
+      ],
+      "connected_components": 23,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 1654.455,
+      "triangles": 49790
+    },
+    "rear-purple.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        84.3,
+        36.46,
+        28.535
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 10724.406,
+      "triangles": 18882
+    },
+    "reset-plunger-flush.stl": {
+      "bad_oriented_or_open_edges": 0,
+      "bounds_mm": [
+        0.0,
+        0.0,
+        0.0,
+        6.2,
+        6.1991,
+        1.4
+      ],
+      "connected_components": 1,
+      "degenerate_triangles": 0,
+      "signed_volume_mm3": 33.193,
+      "triangles": 1400
+    }
+  },
+  "model": "Echo Glow producer v1 lineage rV-ATT5yQr6LfZkcf5K2oQ; edited and saved as a new Fusion version",
+  "notes": [
+    "Rear/battery intersection is with the modeled cylinder near X=1.0\u20131.15 mm; the added stop ends at X=0.8 mm.",
+    "USB cable housing, cell wrap/terminals, seam durability, and printed fit require physical testing.",
+    "Pink region meshes contain separate closed islands; complete plain covers and button carriers are connected."
+  ],
+  "physical_print_qualified": false,
+  "revision": "Echo Glow producer revision 2 direct USB",
+  "three_mf_checks": {
+    "front-patterned.3mf": {
+      "color_parts": 2,
+      "multipart_build_object": true,
+      "triangle_counts": [
+        23880,
+        53426
+      ],
+      "unit": "millimeter",
+      "valid_package": true
+    },
+    "rear-patterned.3mf": {
+      "color_parts": 2,
+      "multipart_build_object": true,
+      "triangle_counts": [
+        18882,
+        49790
+      ],
+      "unit": "millimeter",
+      "valid_package": true
+    }
+  }
+}

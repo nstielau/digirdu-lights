@@ -1,0 +1,35 @@
+{
+  "release": "Echo Glow producer revision 3",
+  "fusion_document": "Echo Glow producer v1",
+  "fusion_lineage": "urn:adsk.wipprod:dm.lineage:rV-ATT5yQr6LfZkcf5K2oQ",
+  "fusion_cloud_version": 4,
+  "cad": {
+    "non_suppressed_unhealthy_features": 0,
+    "front_solid_bodies": 1,
+    "front_volume_mm3": 14269.305,
+    "rear_solid_bodies": 1,
+    "rear_volume_mm3": 12379.924,
+    "button_rail_solid_bodies": 1,
+    "button_rail_volume_mm3": 124.949,
+    "reset_pinhole_diameter_mm": 2.0,
+    "removed_current_components": [
+      "flat button plunger",
+      "separate domed plunger source",
+      "flush reset plunger",
+      "flat four-button carrier",
+      "domed four-button carrier"
+    ]
+  },
+  "meshes": {
+    "plain-front-housing.stl": {"triangles": 4912, "unmatched_edges": 0, "bounds_mm": [84.3, 36.46, 19.7]},
+    "plain-rear-cover.stl": {"triangles": 3352, "unmatched_edges": 0, "bounds_mm": [84.3, 36.46, 28.535]},
+    "button-rail-domed.stl": {"triangles": 13592, "unmatched_edges": 0, "bounds_mm": [6.2, 20.17, 2.2]},
+    "diffuser.stl": {"triangles": 12, "unmatched_edges": 0, "bounds_mm": [42.0, 21.8, 0.8]}
+  },
+  "export": {
+    "front": "Fusion binary STL, MeshRefinementHigh, translated +2.3,+6.8,+3.4 mm to bed origin",
+    "rear_and_diffuser": "identical to Echo Glow producer revision 2",
+    "button_rail": "identical to Echo Glow consumer revision 7"
+  },
+  "physical_print_qualification": "not performed"
+}

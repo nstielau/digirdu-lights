@@ -1,0 +1,105 @@
+{
+  "release": "Echo Glow producer revision 2 direct USB",
+  "files": [
+    {
+      "file": "Echo-Glow-producer-direct-USB-r2.f3d",
+      "bytes": 22892267,
+      "sha256": "95691a1f65391e8691ee7a6ca0cd061aad0ac2f0fd4efa4dc72da14dbd65d3a4"
+    },
+    {
+      "file": "README.md",
+      "bytes": 4749,
+      "sha256": "f3d90190c62f32d94e9ef96571c3bb0ced3b0d9106e779ce7018c9b697dba7f6"
+    },
+    {
+      "file": "assembly-overview.png",
+      "bytes": 128756,
+      "sha256": "d1c5b68694a2ba156b5424cca33ee1c06e75d3b812337a76943aa3c68ce30edb"
+    },
+    {
+      "file": "button-carrier-domed.stl",
+      "bytes": 6722684,
+      "sha256": "69f5d05eff7672a928852927d13ca1a39d8b00caa74e393c77cbf38a81694a0a"
+    },
+    {
+      "file": "button-carrier-flat.stl",
+      "bytes": 714884,
+      "sha256": "3cbb08e616167add2e624599b874e758aef0ee27cddbcd4543a2e3aec90fc137"
+    },
+    {
+      "file": "button-plunger-domed.stl",
+      "bytes": 516884,
+      "sha256": "26d0eede79f061fd41b71c14d7e8f1005db613c834f1ee4fc35f41a56636af3b"
+    },
+    {
+      "file": "button-plunger-flat.stl",
+      "bytes": 69484,
+      "sha256": "c22b4eec3537f8bc840ccf2f9891ffa947dce3e4114f1f130d077d2e20f159b5"
+    },
+    {
+      "file": "closed-battery-end.png",
+      "bytes": 26269,
+      "sha256": "14a1cab64a1322d127ddcfe941afad701d2b0d50fc5f1ffea0fde47b042019e1"
+    },
+    {
+      "file": "diffuser.stl",
+      "bytes": 684,
+      "sha256": "8ae2467545896b4965a1847bdf18d6255f6dbced2f9a29d64854688b62de5813"
+    },
+    {
+      "file": "direct-usb-end.png",
+      "bytes": 21596,
+      "sha256": "f7f69e286d64efdb56a25273ee5c86ac27e13da7ffc22798b8a7fde08d7cec87"
+    },
+    {
+      "file": "front-patterned.3mf",
+      "bytes": 986158,
+      "sha256": "1e9db59e4e6f8ea36840ef175e4e8dea21113d6ff3bf08f725bd953e849d3c7a"
+    },
+    {
+      "file": "front-pink.stl",
+      "bytes": 2671384,
+      "sha256": "90adc7339343823fa393a1771f9e53fdf6895cc4f0c2fdc161db17879f4dd357"
+    },
+    {
+      "file": "front-purple.stl",
+      "bytes": 1194084,
+      "sha256": "f6a3115726f92c3637b6e8fe895e2924169a796413819c21afb43f6144ef0cbb"
+    },
+    {
+      "file": "plain-front-housing.stl",
+      "bytes": 261084,
+      "sha256": "7d512c0cb4cc11a24ca2a3726c70c5bc3b0853ea296fa6244421d2307b2c3205"
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "bytes": 167684,
+      "sha256": "82a1b112a8123cde086a398b2fd564f8371c153e324f37b9eea2534cb4fc9ad8"
+    },
+    {
+      "file": "rear-patterned.3mf",
+      "bytes": 866833,
+      "sha256": "a927df6947a1f707d2d0bb5eb660e4da9d3fa91dafdf448642600afaf9524ffc"
+    },
+    {
+      "file": "rear-pink.stl",
+      "bytes": 2489584,
+      "sha256": "4371c1d22729692acf8b8fcd710343e53daea34762b7f0a7e2435cf278b59cbf"
+    },
+    {
+      "file": "rear-purple.stl",
+      "bytes": 944184,
+      "sha256": "cef421fd6a57066cfe98aafae64caeed1f45510324d3e095a160b2858267c153"
+    },
+    {
+      "file": "reset-plunger-flush.stl",
+      "bytes": 70084,
+      "sha256": "acb4aec3b0d587dc42df019e5dc121fad9a36cf089115598c2d9f4be1db1c616"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 6041,
+      "sha256": "f9407813c54e3d079922223107a53bad4e262e8c4f2773a4ad173917f49b7df1"
+    }
+  ]
+}

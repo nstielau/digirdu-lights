@@ -1,0 +1,51 @@
+{
+  "project": "Echo Glow",
+  "part": "producer",
+  "revision": 3,
+  "fusion_document": "Echo Glow producer v1",
+  "fusion_lineage": "urn:adsk.wipprod:dm.lineage:rV-ATT5yQr6LfZkcf5K2oQ",
+  "fusion_version": 4,
+  "tag": "hardware-echo-glow-producer-v3",
+  "files": [
+    {
+      "file": "Echo-Glow-producer-r3.f3d",
+      "bytes": 22887426,
+      "sha256": "4ad5fad6e37c90fe94c2f4acee196edc0bb9ebcb0b0e9c152a9c29cefa03dd35"
+    },
+    {
+      "file": "README.md",
+      "bytes": 2374,
+      "sha256": "8f76aaef94cdf983cf3e3bd383b7bc928a58256c64bfd8fd405ac0661c99cfbf"
+    },
+    {
+      "file": "button-rail-domed.stl",
+      "bytes": 679684,
+      "sha256": "4694db6c035c3a4aac516c58633f0b1b04def11518263fc6780e431ec52e217e"
+    },
+    {
+      "file": "diffuser.stl",
+      "bytes": 684,
+      "sha256": "8ae2467545896b4965a1847bdf18d6255f6dbced2f9a29d64854688b62de5813"
+    },
+    {
+      "file": "plain-front-housing.stl",
+      "bytes": 245684,
+      "sha256": "3b3a582a31878400430b202702a1699844229a9adb403011cbdfa2f4db944497"
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "bytes": 167684,
+      "sha256": "82a1b112a8123cde086a398b2fd564f8371c153e324f37b9eea2534cb4fc9ad8"
+    },
+    {
+      "file": "producer-pinhole-overview.png",
+      "bytes": 72149,
+      "sha256": "065282f7ec8ea8a4168b6e8be73567e8064b7074d00fbdf1d0feebc877a19d0d"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 1437,
+      "sha256": "23a752658c206b294d794007133ce5f8b077e260cb81ce1eff171a5b4d114b07"
+    }
+  ]
+}

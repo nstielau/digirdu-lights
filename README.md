@@ -9,12 +9,19 @@ stays in RAM; only normalized features and animation state are transmitted.
 
 ## Hardware designs
 
-The [producer enclosure](hardware/producer/README.md) contains the editable
-Fusion model, pink/purple print files, all button variants, and assembly notes
-for the **Adafruit ESP32-S3 Reverse TFT Feather** with an ICS43434 microphone
-and 350 mAh LiPo. Revision 11 includes removable four-button assembly carriers.
-This mechanical design targets a different board from the FeatherS2 software
-setup described below; importing the CAD does not change deployed firmware.
+The [producer designs](hardware/producer/README.md) include Echo Glow revision 3
+with direct board USB-C, domed three-button rail and reset pinhole, plus the
+separate historical DidgeLights microphone enclosure revision 11. Both target
+the **Adafruit ESP32-S3 Reverse TFT Feather**, a different board from the
+FeatherS2 software setup described below. [Hardware release kits](hardware/RELEASES.md)
+are distributed at explicit Git tags with editable Fusion archives and print files.
+
+The separate [Echo Glow consumer enclosure](hardware/consumer/README.md) adds
+a 4×8 NeoPixel FeatherWing opposite the TFT on standard removable headers,
+a cylindrical battery handle, and an optional removable diffuser. Consumer
+mechanical revision 8 has a shorter rounded shell, direct board USB-C, two
+narrow-side magnet slots and prototype snaps. Its kit contains the domed
+three-button rail, snap coupons and a 2 mm reset pinhole.
 
 ## OTA application upgrades
 

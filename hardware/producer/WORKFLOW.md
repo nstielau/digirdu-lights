@@ -8,16 +8,18 @@
 2. Work in a new revision. Preserve the last released files. Keep intermediate
    exports and safety copies in ignored `work/` or `backups/` directories.
 3. Edit the parametric covers and named dimensions. Regenerate patterned-cover
-   partitions after cover changes and carrier copies after button changes.
-   The hidden carrier components are optional prints, not extra installed parts.
+   partitions after cover changes. New Echo Glow bundles use only the domed
+   three-button rail and reset pinhole; do not reuse the stale patterned front
+   from revision 2 after changing its reset opening.
 4. Check feature health and relevant fit, button travel, screw and peg clearance.
-   For carriers, verify insertion before the PCB and independent buttons after
-   frame removal. Physical feedback is distinct from CAD checks.
-5. Export the complete F3D, both covers and color regions, every button variant,
-   preview images and verification records. Orient print files on the bed in mm;
-   keep each cover's color regions aligned. Update the assembly instructions.
-6. Generate a manifest for the new revision, verify it, build an ignored print-kit
-   ZIP, then run `make check` from the repository root and commit the release files.
+   Verify insertion before the PCB and independent buttons after removing the
+   rail links. Physical feedback is distinct from CAD checks.
+5. Export the complete F3D, current covers, domed rail, preview images and
+   verification records. Orient print files on the bed in mm; keep any current
+   color regions aligned. Update the assembly instructions.
+6. Generate and verify the manifest, build an ignored print-kit ZIP, then run
+   `make check` and commit text metadata. Publish the ZIP at an explicit
+   hardware tag following `../RELEASES.md`.
 
 The Fusion file contains the current native design; there is no supported script
 that reconstructs every historical revision from scratch. Local one-off scripts

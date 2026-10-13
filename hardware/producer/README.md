@@ -1,26 +1,37 @@
-# Producer enclosure
+# Producer enclosures
+
+Both producer designs live here. They are separate Fusion lineages and have
+different battery and port layouts:
+
+| Design | Current local revision | Controls |
+| --- | --- | --- |
+| [Echo Glow producer](echo-glow/README.md) | [3](echo-glow/revision-3/README.md) | Domed three-button rail and 2 mm reset pinhole; direct board USB-C |
+| DidgeLights handheld producer | [11](revision-11/README.md), historical | Original four-button options and rear panel USB |
+
+Download complete F3D and print kits from the tagged GitHub Releases described
+in [hardware release workflow](../RELEASES.md). Binary assets remain locally
+available in numbered revision directories when exported.
+
+## DidgeLights revision 11 reference
 
 The DidgeLights handheld producer enclosure fits an **Adafruit ESP32-S3 Reverse
 TFT Feather (product 5691)**, an **ICS43434 microphone breakout** and a **350 mAh
 LiPo**. It includes a screen window, three main buttons, a short flush reset,
 a recessed microphone port, and a rear pop-in USB opening.
 
-The mechanical baseline is **Revision 11**. The user reported saving this model
+The DidgeLights mechanical baseline is **Revision 11**. The user reported saving this model
 in Fusion on September 24, 2026. Firmware deployment and board support remain
 separate from this mechanical release; the root FeatherS2 notes describe a
 different board.
 
 ## Start here
 
-- [Complete editable Fusion model](revision-11/DidgeLights-enclosure-v11.f3d)
 - [Print choices and assembly instructions](revision-11/README.md)
 - [Revision 11 verification](revision-11/verification.json)
 - [File sizes and SHA-256 hashes](revision-11/bundle-manifest.json)
 - [Editing, verification and packaging workflow](WORKFLOW.md)
 
-![Producer enclosure, pink and purple organic stripes](revision-11/patterned-front.png)
-
-## Current design
+## DidgeLights design
 
 | Item | Design baseline |
 | --- | --- |

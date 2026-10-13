@@ -1,0 +1,76 @@
+{
+  "project": "Echo Glow",
+  "part": "consumer",
+  "revision": 8,
+  "fusion_document": "Echo Glow consumer v6",
+  "fusion_lineage": "urn:adsk.wipprod:dm.lineage:kBcKv3PwQ5maxenDyZNRHw",
+  "fusion_version": 5,
+  "tag": "hardware-echo-glow-consumer-v8",
+  "files": [
+    {
+      "file": "Echo-Glow-consumer-revision-8.f3d",
+      "bytes": 7073469,
+      "sha256": "d8e9216fb043927fef5c523b5213a701856f9690711531873801875e057dc33f"
+    },
+    {
+      "file": "PARTS.md",
+      "bytes": 976,
+      "sha256": "d53bfe5976e270c1d23606f5edf882efa7f7414c85bc5d1c647be31029ea5631"
+    },
+    {
+      "file": "README.md",
+      "bytes": 2195,
+      "sha256": "3f18ae00a1bdb43e01696e938b03c47435a2c30814ee5bf01a73e46104622d1b"
+    },
+    {
+      "file": "button-rail-domed.stl",
+      "bytes": 679684,
+      "sha256": "4694db6c035c3a4aac516c58633f0b1b04def11518263fc6780e431ec52e217e"
+    },
+    {
+      "file": "consumer-front-interior.png",
+      "bytes": 256956,
+      "sha256": "5e5e1ce9fe1650599355307f86147955e9ae97d3cff011fe7a526b49d8a47b93"
+    },
+    {
+      "file": "consumer-overview.png",
+      "bytes": 104958,
+      "sha256": "c35d08b2c7fb0afc946ee12c47b69b9038dc51f68de796059ab50cb233171bd9"
+    },
+    {
+      "file": "consumer-usb-closeup.png",
+      "bytes": 63127,
+      "sha256": "419189ace2e5f8ee4286e03177809700437764886b25b8211a685b9a18973bc9"
+    },
+    {
+      "file": "diffuser.stl",
+      "bytes": 684,
+      "sha256": "cafa68c2acbe3252747913a9a41b9ea48507b8d1091c98670fa0af6fd3c8943b"
+    },
+    {
+      "file": "plain-front-housing.stl",
+      "bytes": 287684,
+      "sha256": "1e44b99ba285892a7dcf1cecb5610adfe02dd12e849de2f9d40ed9dca291cfec"
+    },
+    {
+      "file": "plain-rear-cover.stl",
+      "bytes": 234184,
+      "sha256": "2c4e1f7f99b90bc268ae9b7b2af2d0ccdf157706b44038e2d3346aeb6c535958"
+    },
+    {
+      "file": "snap-coupon-receiver.stl",
+      "bytes": 4084,
+      "sha256": "5eae455aa8cb57d2ad402767121389bfa4c501d53d861f7ccfa09237cbcace17"
+    },
+    {
+      "file": "snap-coupon-spring.stl",
+      "bytes": 12884,
+      "sha256": "4644bd5113d63606bda4be38fb46a67be042ee07e51c6661dbad3f00ddc124b7"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 1250,
+      "sha256": "2bf646dc1834013c74cf653f4f1cd309707da23e37abfeac9d1bee010491fd82"
+    }
+  ]
+}
