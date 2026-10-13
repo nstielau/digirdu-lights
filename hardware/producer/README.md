@@ -31,8 +31,6 @@ different board.
 - [File sizes and SHA-256 hashes](revision-11/bundle-manifest.json)
 - [Editing, verification and packaging workflow](WORKFLOW.md)
 
-![Producer enclosure, pink and purple organic stripes](revision-11/patterned-front.png)
-
 ## DidgeLights design
 
 | Item | Design baseline |
