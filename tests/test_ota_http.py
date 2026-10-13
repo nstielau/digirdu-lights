@@ -33,3 +33,17 @@ class HTTPTests(unittest.TestCase):
         client=DeviceHTTP(None,'abc123','a'*64,good)
         for route in ('../settings.toml','artifacts/'+'a'*64+'/../boot.py','https://evil.example'):
             with self.assertRaises(ValueError):client.request(route,lambda:None,lambda r:None)
+
+    def test_safe_new_artifacts_and_telemetry_reach_network_layer(self):
+        class ReachedNetwork(Exception): pass
+        class Pool:
+            AF_INET = SOCK_STREAM = 1
+            def socket(self,*args): raise ReachedNetwork()
+        client=DeviceHTTP(Pool(),'abc123','a'*64,'https://digirdu-lights.firebaseapp.com/device-api/v1')
+        for route in ('telemetry','artifacts/'+'a'*64+'/new_effect2.py',
+                      'artifacts/'+'a'*64+'/palette.json','artifacts/'+'a'*64+'/intro.bmp'):
+            with self.assertRaises(ReachedNetwork):
+                client.request(route,lambda:None,lambda r:None)
+        for name in ('ota_bootstrap.py','telemetry_store.py','credentials.json','node_config.py'):
+            with self.assertRaises(ValueError):
+                client.request('artifacts/'+'a'*64+'/'+name,lambda:None,lambda r:None)

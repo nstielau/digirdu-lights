@@ -129,11 +129,11 @@ class DeviceHTTP:
         self.pool, self.device_id, self.token = pool, device_id, token
 
     def request(self, route, service, consume, limit=4096, body=None):
-        from ota_manifest import APP_FILES, is_digest
+        from ota_manifest import is_digest, safe_app_name
         pieces = route.split("/")
-        if route not in ("check-in", "report") and not (
+        if route not in ("check-in", "report", "telemetry") and not (
             len(pieces) == 3 and pieces[0] == "artifacts" and is_digest(pieces[1])
-            and pieces[2] in APP_FILES
+            and safe_app_name(pieces[2])
         ):
             raise ValueError("invalid_ota_route")
         raw = self.pool.socket(self.pool.AF_INET, self.pool.SOCK_STREAM)
@@ -147,7 +147,7 @@ class DeviceHTTP:
             sock.settimeout(5)
             service()
             sock.connect((self.host, 443))
-            payload = json.dumps(body).encode() if body is not None else b""
+            payload = json.dumps(body, separators=(",", ":")).encode() if body is not None else b""
             headers = (
                 "{} {}{} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\n"
                 "X-Device-ID: {}\r\nAccept-Encoding: identity\r\nConnection: close\r\n"

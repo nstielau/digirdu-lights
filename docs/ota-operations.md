@@ -1272,3 +1272,18 @@ function was behind the local Reverse TFT report contract. Function tests passed
 and `deviceApi`, `fleetOverview`, and `fleetChange` were redeployed. After a
 clean field-mode reset, the board reported app `1.1.0`, base `1.1.3`, role
 `consumer`, and battery status `out_of_range`; Firebase recorded the check-in.
+
+## October 13: Echo Go base 1.1.4 preparation
+
+The attached Reverse TFT consumer UID `468e3337ac8d` booted in USB mode with
+app/recovery files and base 1.1.3. All eleven installed base files matched the
+Reverse TFT branch byte-for-byte. Base 1.1.4 adds the durable telemetry outbox,
+bounded sleep/boot uploader for a future telemetry app, and safe manifest-listed
+app files and data assets. It retains schema-1 legacy validation and schema-2
+Reverse TFT support, boot-time update status, and the existing display boot
+animation. The app remains 1.1.1; its minimum base stays 1.1.0.
+
+Base 1.1.4 by itself does not collect RF data: a later Reverse TFT app must
+record packet windows, declare its telemetry hook, and require base 1.1.4. Cloud
+manifest/report/telemetry handling must also support the Reverse TFT schema-2
+contract before that app is released. No current playing-loop behavior changes.

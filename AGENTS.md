@@ -560,6 +560,14 @@ unchecked, maintenance, disabled, failed, paused, no-release and successful
 checks. Report-only check-ins must not overwrite it. No persistent cache or
 networking from the dashboard. Do not label missing metadata as up to date.
 
+Reverse TFT USB base 1.1.4 adds `telemetry_store.py`, boot retry upload and an
+optional future sleep callback, plus bounded manifest-listed schema-2 app assets.
+Keep the schema-1 legacy contract, Reverse TFT profile, dashboard status and
+boot animation intact. Base-only USB deployment preserves app slots and node
+configuration. App 1.1.1 has no RF recorder; telemetry requires a later app
+and matching cloud schema-2 support. Do not claim the base update alone enables
+RF session data.
+
 Check-in update_status schema1 includes state and optional blocked app version/
 minimum_base. Report only newer approved, non-revoked releases whose sole
 compatibility barrier is base version; respect pins/pause and preserve older

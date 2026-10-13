@@ -1762,3 +1762,10 @@ Reverse TFT report contract. Other boards may still need their individual USB
 `ota-provision` step; inspect `make ota-status` before assuming a board can
 perform a check-in. Credentials remain owner-only in the ignored OTA artifact
 directory.
+
+The Echo Go Reverse TFT USB base 1.1.4 prepares for RF telemetry by adding a
+bounded durable outbox and accepting safe manifest-listed schema-2 app modules
+or data assets. Install it with `make deploy-base BOARD=adafruit_feather_esp32s3_reverse_tft`
+in USB maintenance mode. This preserves the installed app, OTA slots and node
+profile. App 1.1.1 does not record RF telemetry; a later app and cloud contract
+update are needed before the RF sessions page can show this board's data.

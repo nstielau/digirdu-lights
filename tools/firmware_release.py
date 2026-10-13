@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import zipfile
 
-from bundle import ROOT, BASE_FILES, BASE_VERSION, application, manifest, sha256
+from bundle import ROOT, BASE_FILES, BASE_VERSION, application, manifest, full_fleet_recovery, sha256
 
 
 def build(version):
@@ -22,19 +22,20 @@ def build(version):
     m=manifest(app,head)
     if m['version']!=version:
         raise ValueError('APP_VERSION does not match tag')
-    base={name:(ROOT/name).read_bytes() for name in BASE_FILES}
-    base_metadata={'schema':1,'base_version':BASE_VERSION,'git_commit':head,
-                   'files':{name:sha256(data) for name,data in base.items()},
-                   'recovery_sha256':m['sha256']}
-    encoded=(json.dumps(base_metadata,indent=2)+'\n').encode()
-    stream=io.BytesIO()
-    with zipfile.ZipFile(stream,'w',zipfile.ZIP_DEFLATED) as archive:
-        files={**base,**{'recovery/'+n:d for n,d in app.items()},'base-manifest.json':encoded}
-        for name,data in sorted(files.items()):
-            item=zipfile.ZipInfo(name,(1980,1,1,0,0,0));item.compress_type=zipfile.ZIP_DEFLATED
-            archive.writestr(item,data)
-    artifacts={**app,'manifest.json':(json.dumps(m,indent=2)+'\n').encode(),
-               'base-manifest.json':encoded,'base-firmware.zip':stream.getvalue()}
+    artifacts={**app,'manifest.json':(json.dumps(m,indent=2)+'\n').encode()}
+    if full_fleet_recovery(m):
+        base={name:(ROOT/name).read_bytes() for name in BASE_FILES}
+        base_metadata={'schema':1,'base_version':BASE_VERSION,'git_commit':head,
+                       'files':{name:sha256(data) for name,data in base.items()},
+                       'recovery_sha256':m['sha256']}
+        encoded=(json.dumps(base_metadata,indent=2)+'\n').encode()
+        stream=io.BytesIO()
+        with zipfile.ZipFile(stream,'w',zipfile.ZIP_DEFLATED) as archive:
+            files={**base,**{'recovery/'+n:d for n,d in app.items()},'base-manifest.json':encoded}
+            for name,data in sorted(files.items()):
+                item=zipfile.ZipInfo(name,(1980,1,1,0,0,0));item.compress_type=zipfile.ZIP_DEFLATED
+                archive.writestr(item,data)
+        artifacts.update({'base-manifest.json':encoded,'base-firmware.zip':stream.getvalue()})
     out=ROOT/'.artifacts/releases'/version;out.mkdir(parents=True,exist_ok=True)
     for name,data in artifacts.items():
         path=out/name
