@@ -13,6 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Restore public Firebase client configuration
+        env:
+          FIREBASE_WEB_CONFIG_JS: ${{ vars.FIREBASE_WEB_CONFIG_JS }}
+        run: |
+          if [ -z "$FIREBASE_WEB_CONFIG_JS" ]; then
+            echo '::error::Repository variable FIREBASE_WEB_CONFIG_JS is required'
+            exit 1
+          fi
+          printf '%s\n' "$FIREBASE_WEB_CONFIG_JS" > web/firebase-config.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'

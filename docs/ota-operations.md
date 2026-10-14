@@ -199,6 +199,12 @@ Cloud Functions Admin, Firebase Hosting Admin, Firebase Rules Admin, Firestore
 Index Admin, API Keys Viewer, and Service Usage Consumer on the project, plus
 Service Account User on the `digirdu-functions` runtime identity. Keep this
 deploy identity separate from the firmware release importer and runtime identity.
+The repository variable `FIREBASE_WEB_CONFIG_JS` holds the public Firebase web
+configuration and App Check site key used by the browser build. The workflow
+writes it to ignored `web/firebase-config.js` before building. After changing
+the Firebase web app or App Check key, regenerate it locally with
+`.venv/bin/python tools/cloud.py web-config` and update the variable with
+`gh variable set FIREBASE_WEB_CONFIG_JS < web/firebase-config.js`.
 
 Google sign-in and App Check protect browser administration. Google provider
 setup requires enabling it in the Firebase console with a support email/OAuth
