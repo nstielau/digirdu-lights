@@ -2,13 +2,13 @@
   "files": [
     {
       "file": "Echo-Glow-producer-r4.f3d",
-      "bytes": 22240315,
-      "sha256": "2ea5c5d8f905bd6ccf2b9d6bcac0ccc4f1231646b8a08510bbe8508d14586b51"
+      "bytes": 22237816,
+      "sha256": "6db886d714a51b0fca52742ab94dd296a87f9c33401d64810a365c3b8ae70ab5"
     },
     {
       "file": "README.md",
-      "bytes": 3378,
-      "sha256": "d48d567fc3f89452434f8ec8f49dd0527c1d842b0deceaf9401143820ff1ca04"
+      "bytes": 3226,
+      "sha256": "3210a8337129597926b52e11e65dc5937d51d4433496ba09ccd997d71085b98e"
     },
     {
       "file": "button-rail-domed.stl",
@@ -42,8 +42,8 @@
     },
     {
       "file": "verification.json",
-      "bytes": 4653,
-      "sha256": "d644c4dadae7d4b5cabaf79b037a6f8ffa5d2835d681134cbecd80a994cf41cf"
+      "bytes": 4647,
+      "sha256": "0884618ddb53c07dbfb27b4a090e410dd192b0db8379fc22b6d8762ab37b0c54"
     }
   ]
 }

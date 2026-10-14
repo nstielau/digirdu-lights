@@ -49,9 +49,7 @@ X = 40 mm; `solid-rear-preview.png` shows the unchanged exterior.
 
 `Echo-Glow-producer-r4.f3d` is the complete editable Fusion snapshot from the
 existing **Echo Glow producer v1** lineage, including the six support ramps.
-It was exported and archive-checked on October 14, 2026. Fusion's window then
-showed **Expired Subscription – Read Only**; cloud version 4 remains the last
-confirmed version. The local F3D and STL are current, but the cloud save and
-tagged hardware release await restored Fusion write access. See
+Fusion's data panel and API confirmed cloud version **5** on October 14, 2026;
+this F3D was re-exported from that version and archive-checked. See
 `verification.json` for CAD and mesh measurements. Physical print and fit
 qualification has not been performed.
