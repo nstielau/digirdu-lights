@@ -2,13 +2,13 @@
   "files": [
     {
       "file": "Echo-Glow-producer-r4.f3d",
-      "bytes": 22182981,
-      "sha256": "bec9f4f7b5079d90767789549b733aeef6d065abc4c769600776fd9ac9828e15"
+      "bytes": 22240315,
+      "sha256": "2ea5c5d8f905bd6ccf2b9d6bcac0ccc4f1231646b8a08510bbe8508d14586b51"
     },
     {
       "file": "README.md",
-      "bytes": 2527,
-      "sha256": "19a64e889b7ab0ad31bf59042c48c0f1fd0afbe1f9f6f4535e4199eb462e6842"
+      "bytes": 3378,
+      "sha256": "d48d567fc3f89452434f8ec8f49dd0527c1d842b0deceaf9401143820ff1ca04"
     },
     {
       "file": "button-rail-domed.stl",
@@ -27,8 +27,13 @@
     },
     {
       "file": "plain-rear-cover.stl",
-      "bytes": 213084,
-      "sha256": "19a7f824edfe90b721670f09d54c0e7bb687e5202e27c096f945696a73445b0b"
+      "bytes": 225684,
+      "sha256": "931bc7d31a509dee97b7a06d521a95baf0537317df8c4afd1d7d089ea830f6dd"
+    },
+    {
+      "file": "rear-lip-section-preview.png",
+      "bytes": 107580,
+      "sha256": "646b7be119fd3e6047be7ee0dbccd81e115e86e999dc3e66a2e8b76fec2e4f85"
     },
     {
       "file": "solid-rear-preview.png",
@@ -37,8 +42,8 @@
     },
     {
       "file": "verification.json",
-      "bytes": 3921,
-      "sha256": "763089eeadd6dea8c6b84fac41ba39a6605d14327a1ee2284f97db1ba8b872d2"
+      "bytes": 4653,
+      "sha256": "d644c4dadae7d4b5cabaf79b037a6f8ffa5d2835d681134cbecd80a994cf41cf"
     }
   ]
 }
