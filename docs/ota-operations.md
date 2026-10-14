@@ -197,7 +197,10 @@ existing `github` workload identity pool admits only repository ID
 `feature/reverse-tft` ref. Its separate `digirdu-web-deploy` service account has
 Cloud Functions Admin, Firebase Hosting Admin, Firebase Rules Admin, Firestore
 Index Admin, API Keys Viewer, and Service Usage Consumer on the project, plus
-Service Account User on the `digirdu-functions` runtime identity. Keep this
+Service Account User on the `digirdu-functions` runtime identity and
+on the project's App Engine and default Compute service accounts. Firebase
+checks the App Engine identity before Functions deployment and uses the default
+Compute identity while updating these second-generation functions. Keep this
 deploy identity separate from the firmware release importer and runtime identity.
 The repository variable `FIREBASE_WEB_CONFIG_JS` holds the public Firebase web
 configuration and App Check site key used by the browser build. The workflow

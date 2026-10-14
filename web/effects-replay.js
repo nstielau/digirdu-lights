@@ -62,7 +62,7 @@ export async function initReplay() {
     play.addEventListener('click', () => {
       if (playing) return pause();
       playing = true;
-      if (index === data.frames.length - 1) index = 0;
+      if (index === data.frames.length - 1) { index = 0; draw(); }
       started = performance.now() - index / data.fps * 1000;
       play.textContent = 'Pause replay';
       request = requestAnimationFrame(tick);
