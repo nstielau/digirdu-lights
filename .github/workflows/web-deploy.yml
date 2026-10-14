@@ -1,0 +1,39 @@
+name: Deploy website
+on:
+  push:
+    branches: [feature/reverse-tft]
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: firebase-website-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix firebase/functions --no-audit --no-fund
+      - run: npm install --global firebase-tools@15.30.0 --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium webkit
+      - run: make check
+      - run: make web-test JAVA_HOME="$JAVA_HOME"
+      - run: make web-build
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/705788413480/locations/global/workloadIdentityPools/github/providers/web-deploy
+          service_account: digirdu-web-deploy@digirdu-lights.iam.gserviceaccount.com
+          project_id: digirdu-lights
+      - run: firebase deploy --project digirdu-lights --only functions,hosting,firestore --non-interactive

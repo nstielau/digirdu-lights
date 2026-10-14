@@ -183,6 +183,23 @@ make web-deploy
 make ota-status
 ```
 
+Merges into `feature/reverse-tft` automatically deploy the website through
+`.github/workflows/web-deploy.yml`. The job runs `make check` and `make web-test`
+(including the generated, administrator-protected sound review library), builds
+Hosting, then deploys Functions, Hosting, and Firestore rules/indexes to
+`digirdu-lights`. Deployments do not overlap; when several merges arrive during
+one run, GitHub retains the newest pending run. A failed run can be retried in
+GitHub Actions, and `make web-deploy` remains the local recovery command.
+
+GitHub authenticates without a stored key. The `web-deploy` provider in the
+existing `github` workload identity pool admits only repository ID
+`1371817744`, `.github/workflows/web-deploy.yml`, and the
+`feature/reverse-tft` ref. Its separate `digirdu-web-deploy` service account has
+Cloud Functions Admin, Firebase Hosting Admin, Firebase Rules Admin, Firestore
+Index Admin, API Keys Viewer, and Service Usage Consumer on the project, plus
+Service Account User on the `digirdu-functions` runtime identity. Keep this
+deploy identity separate from the firmware release importer and runtime identity.
+
 Google sign-in and App Check protect browser administration. Google provider
 setup requires enabling it in the Firebase console with a support email/OAuth
 client. Device endpoints use per-device tokens instead of App Check. Firestore
