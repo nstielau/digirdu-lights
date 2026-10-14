@@ -3,7 +3,8 @@
 ## Status
 
 The compact approach was approved on October 13, 2026 and implemented locally
-as producer revision 4. Fusion reported an offline outage during the save, so
+as producer revision 4. The approved exterior edge refinement was also saved
+and exported locally. Fusion reported an offline state during the saves, so
 cloud version 4 remains the last confirmed version. The release F3D is the
 verified editable snapshot pending cloud sync.
 

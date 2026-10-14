@@ -2,13 +2,13 @@
   "files": [
     {
       "file": "Echo-Glow-producer-r4.f3d",
-      "bytes": 22141825,
-      "sha256": "8ceba27097a89e68554827572170a032a244b93033d63c3292a238f0ba6a0735"
+      "bytes": 22182981,
+      "sha256": "bec9f4f7b5079d90767789549b733aeef6d065abc4c769600776fd9ac9828e15"
     },
     {
       "file": "README.md",
-      "bytes": 2230,
-      "sha256": "2b3df743f898b88d3064b362c406ccbeb3dc0169aa9a58d8f57ae663876bc230"
+      "bytes": 2527,
+      "sha256": "19a64e889b7ab0ad31bf59042c48c0f1fd0afbe1f9f6f4535e4199eb462e6842"
     },
     {
       "file": "button-rail-domed.stl",
@@ -17,28 +17,28 @@
     },
     {
       "file": "front-controls-preview.png",
-      "bytes": 62013,
-      "sha256": "4d8763fc00a32b5b9e6c5f928cd29be51d7d79aeaa7c64bf19ac333ecfd8a0a6"
+      "bytes": 119135,
+      "sha256": "4bb800b521c5e91e6e8e2970a7fbb890c56b26d69c7194539ee055c793aab175"
     },
     {
       "file": "plain-front-housing.stl",
-      "bytes": 245684,
-      "sha256": "3b3a582a31878400430b202702a1699844229a9adb403011cbdfa2f4db944497"
+      "bytes": 374484,
+      "sha256": "aabe629db0a353d6d936d50fc338e6836bfc37a6be57ea63db362ad3ac182cb7"
     },
     {
       "file": "plain-rear-cover.stl",
-      "bytes": 103484,
-      "sha256": "24314bd661d269e50b89b8d208829c3bab58314e1b4b95b333b862e1cac449ff"
+      "bytes": 213084,
+      "sha256": "19a7f824edfe90b721670f09d54c0e7bb687e5202e27c096f945696a73445b0b"
     },
     {
       "file": "solid-rear-preview.png",
-      "bytes": 39336,
-      "sha256": "7f9b45c1f03e3da8c92938ba1cc6cb9bad5f667716719bf90d04660f7aa4601a"
+      "bytes": 79862,
+      "sha256": "502a26e335a08232de50e1f3565c2891a95d0593e9133098861724dafd598d3c"
     },
     {
       "file": "verification.json",
-      "bytes": 3182,
-      "sha256": "046e2656e444a145b1971191aaecdfb6894a3b8e58c7040032c81bf41d3581ee"
+      "bytes": 3921,
+      "sha256": "763089eeadd6dea8c6b84fac41ba39a6605d14327a1ee2284f97db1ba8b872d2"
     }
   ]
 }

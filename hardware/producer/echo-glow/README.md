@@ -11,7 +11,8 @@ producer revision 11.
 - [Hardware release and archive workflow](../../RELEASES.md)
 
 The working Fusion document is **Echo Glow producer v1**. Cloud version 4 is
-the last confirmed version: Fusion accepted the revision 4 local save while
-reporting an offline outage. Its complete F3D was exported locally. The front
-is plain because the old striped front snapshot has the obsolete reset
-opening. Complete F3D and print assets belong in tagged release ZIPs.
+the last confirmed version: Fusion accepted the compact revision 4 and its
+exterior edge refinement locally while reporting an offline state. Its complete
+F3D was exported locally. The front is plain because the old striped front
+snapshot has the obsolete reset opening. Complete F3D and print assets belong
+in tagged release ZIPs.

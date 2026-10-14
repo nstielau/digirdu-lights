@@ -3,7 +3,7 @@
   "fusion_document": "Echo Glow producer v1",
   "fusion_lineage": "urn:adsk.wipprod:dm.lineage:rV-ATT5yQr6LfZkcf5K2oQ",
   "fusion_cloud_version_last_confirmed": 4,
-  "fusion_cloud_sync": "pending: Fusion reported an offline outage during local save on 2026-10-13",
+  "fusion_cloud_sync": "pending: Fusion reported System in offline state after local edge-refinement save on 2026-10-13",
   "cad": {
     "overall_envelope_mm": [84.3, 36.46, 31.7],
     "previous_height_mm": 35.4,
@@ -20,14 +20,14 @@
     "suppressed_wing_features": 10,
     "rear_window": "suppressed; roof visually continuous except existing screw passages",
     "front_solid_bodies": 1,
-    "front_volume_mm3": 14269.305458,
+    "front_volume_mm3": 14229.94236,
     "rear_solid_bodies": 1,
-    "rear_volume_mm3": 12203.99979,
+    "rear_volume_mm3": 12170.369479,
     "button_rail_solid_bodies": 1,
     "button_rail_volume_mm3": 124.948927,
     "feature_health": {
-      "front": {"healthy": 34, "suppressed": 3, "warnings_or_errors": 0},
-      "rear": {"healthy": 22, "suppressed": 15, "warnings_or_errors": 0},
+      "front": {"healthy": 37, "suppressed": 3, "warnings_or_errors": 0},
+      "rear": {"healthy": 24, "suppressed": 15, "warnings_or_errors": 0},
       "button_rail": {"healthy": 1, "suppressed": 0, "warnings_or_errors": 0}
     },
     "rear_suppressed_feature_note": "Includes ten wing features, the legacy end USB port, and four obsolete dependent USB features. Current USB tab, connector throat, plug recess, and battery stop are joined in the final rear solid.",
@@ -38,23 +38,34 @@
       "feather_with_front": 0.0,
       "feather_with_rear": 0.0
     },
-    "usb_region_comparison": "12,420 sampled points versus revision 3 rear mesh; 99.36% matched, with differences at the Y=3 mm mesh boundary. Physical USB-plug fit remains untested."
+    "usb_region_comparison": "The revision 4 throat and plug recess matched 99.36% of 12,420 sampled revision 3 rear-mesh points before the new 0.3 mm exterior lip chamfer. The chamfer removes material at the entrance only; physical USB-plug fit remains untested.",
+    "edge_finishing": {
+      "front_outer_perimeter_fillet_mm": 0.8,
+      "rear_roof_outer_perimeter_fillet_mm": 0.8,
+      "screen_and_three_button_outer_lip_chamfer_mm": 0.3,
+      "usb_exterior_rear_lip_chamfer_mm": 0.3,
+      "usb_exterior_front_side_lip_chamfer_mm": 0.3,
+      "local_size_exceptions": [],
+      "protected_surfaces": "mating seam, registration, screw seats/passages, board and battery supports, button running surfaces, reset pinhole and internal USB throat"
+    }
   },
   "meshes": {
-    "plain-front-housing.stl": {"triangles": 4912, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [84.3, 36.46, 19.7], "volume_mm3": 14268.355},
-    "plain-rear-cover.stl": {"triangles": 2068, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [84.3, 36.46, 24.835], "volume_mm3": 12203.53},
+    "plain-front-housing.stl": {"triangles": 7488, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [84.3, 36.46, 19.7], "volume_mm3": 14228.4021},
+    "plain-rear-cover.stl": {"triangles": 4260, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [84.3, 36.46, 24.835], "volume_mm3": 12169.3076},
     "button-rail-domed.stl": {"triangles": 13592, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [6.2, 20.17, 2.2], "volume_mm3": 124.859}
   },
   "archive": {"format": "Fusion F3D", "entries_crc_checked": 49, "compression_methods": [0, 93]},
   "export": {
-    "front_and_button_rail": "byte-identical to Echo Glow producer revision 3",
-    "rear": "Fusion binary STL, MeshRefinementHigh, rotated to outside face down and translated to bed origin"
+    "front": "Fusion binary STL, MeshRefinementHigh, translated to front face down and bed origin",
+    "rear": "Fusion binary STL, MeshRefinementHigh, rotated to outside face down and translated to bed origin",
+    "button_rail": "byte-identical to Echo Glow producer revision 3"
   },
   "unverified_fit": [
     "M2 x 20 mm screw engagement after shortening the roof",
     "wrapped battery and lead exit clearance",
     "real USB-C plug housing clearance and insertion",
-    "printed button travel and seam closure"
+    "printed button travel and seam closure",
+    "tactile edge feel and printed chamfer quality"
   ],
   "physical_print_qualification": "not performed"
 }
