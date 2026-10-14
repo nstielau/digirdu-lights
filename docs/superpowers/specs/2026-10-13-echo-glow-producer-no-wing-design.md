@@ -99,3 +99,28 @@ and that the saved version contains the edge features before claiming cloud
 save success. Recheck feature health, closed connected meshes, positive-volume
 interferences, opening access, and baseline dimensions. Physical edge feel and
 fit remain first-print checks.
+
+## Support-free rear locating lip (approved October 13, 2026)
+
+Refine the unreleased revision 4 in the existing Fusion lineage. In the rear
+cover's outside-face-down print orientation, the inset locating lip has a long
+flat underside at print Z = 11.1 mm. Replace this unsupported start with an
+additive underside ramp that grows inward at no more than 1 mm per 1 mm of
+print height (a 45-degree slope). Keep the lip's final mating edge and its
+clearance to the front shell. The approximately 1.45 mm inward reach from the
+rear wall needs approximately 1.45 mm of vertical rise. Blend or trim the ramp
+at corners and nearby features without introducing a new downward-facing ledge.
+
+Inspect the shorter rear end-tab underside at print Z = 13.8 mm and similarly
+support its exposed start if it would otherwise need support. Keep the USB-C
+mouth and connector throat clear. The earlier instruction to leave registration
+geometry unchanged applies to the mating edge and fit; the formerly exposed
+underside may gain material above the seam to enable printing.
+
+Preserve the shell envelope, exterior edge finishes, screw seats, battery and
+board clearances, and one-solid shell topology. Verify a 45-degree or steeper
+self-supporting growth profile on the exported mesh, healthy Fusion features,
+no modeled interference, closed watertight print meshes, and a refreshed hashed
+print kit. A slicer preview with supports disabled and a physical print are
+separate qualification steps; geometry inspection alone does not prove a
+particular printer or material can make every local bridge cleanly.
