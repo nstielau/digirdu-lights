@@ -36,3 +36,8 @@ export function reviewPixelChannels(pixel) {
     return Number.isFinite(channel) ? Math.max(0, Math.min(255, channel)) : 0;
   });
 }
+
+// Render the capped device RGB bytes more visibly on a monitor; keep source data intact.
+export function reviewDisplayChannels(channels) {
+  return channels.map((channel) => Math.min(255, Math.round(channel * 3)));
+}

@@ -53,3 +53,10 @@ test('review pixels clamp channels and darken malformed values',()=>{
  assert.deepEqual(reviewMode.reviewPixelChannels({red:10}),[0,0,0]);
  assert.deepEqual(reviewMode.reviewPixelChannels(null),[0,0,0]);
 });
+
+test('virtual consumer display brightens low RGB values without changing black',()=>{
+ assert.equal(typeof reviewMode.reviewDisplayChannels,'function');
+ assert.deepEqual(reviewMode.reviewDisplayChannels([0,38,1]),[0,114,3]);
+ assert.deepEqual(reviewMode.reviewDisplayChannels([0,0,0]),[0,0,0]);
+ assert.deepEqual(reviewMode.reviewDisplayChannels([100,20,0]),[255,60,0]);
+});

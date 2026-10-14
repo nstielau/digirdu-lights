@@ -65,6 +65,7 @@
     .review-metric{padding:10px;border:1px solid #46314f;border-radius:5px;background:#0b0a15;color:#f2edff;font:700 13px ui-monospace,monospace}
     .led-view{display:grid;grid-template-columns:repeat(4,minmax(20px,1fr));gap:6px;width:min(100%,220px);margin:auto;padding:14px;background:#050509;border:1px solid #46314f;border-radius:5px}
     .led-pixel{aspect-ratio:1;border-radius:50%;background:#151527;box-shadow:inset 0 0 0 1px #46314f}
+    .review-preview-note{margin:10px 0 0;color:#aebed5;font-size:12px;text-align:center}
     .review-help{font-size:13px}
     @media(max-width:700px){.review-layout{grid-template-columns:1fr}.review-consumer-rail{position:static}.review-consumer-panel{margin-bottom:0}.led-view{width:min(100%,240px)}}
     @media(max-width:600px){.review-page{padding:20px}.review-panel{padding:16px}.review-toolbar{align-items:stretch}.review-control{min-width:100%;}.review-time{padding:0}.review-data{grid-template-columns:repeat(2,minmax(0,1fr))}.led-view{gap:3px;padding:8px}}
@@ -86,6 +87,7 @@
           <select id="review-effect" disabled></select>
         </label>
         <div id="review-led" class="led-view" data-time-ms="0" data-effect="" role="img" aria-label="Virtual consumer frame"></div>
+        <p class="review-preview-note">Preview colors brightened for visibility.</p>
       </section>
     </aside>
     <div class="review-analysis">

@@ -4,6 +4,7 @@ import {
   reviewEffectFrames,
   reviewEffectNames,
   reviewPixelChannels,
+  reviewDisplayChannels,
   selectReviewEffect,
 } from './review-mode.mjs';
 import {normalizeSpectrogram, paintSpectrogram} from './spectrogram.mjs';
@@ -479,7 +480,7 @@ function renderLedFrame(timeMs) {
     const pixel = document.createElement('span');
     const channels = reviewPixelChannels(pixels[index]);
     pixel.className = 'led-pixel';
-    pixel.style.backgroundColor = `rgb(${channels.join(',')})`;
+    pixel.style.backgroundColor = `rgb(${reviewDisplayChannels(channels).join(',')})`;
     pixel.setAttribute('aria-label', `LED ${index + 1}: RGB ${channels.join(', ')}`);
     led.append(pixel);
   }
