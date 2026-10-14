@@ -27,6 +27,11 @@ verified on October 14, 2026. Historical local numbered directories remain
 intact, including their retired button options. New Echo Glow kits use only the
 domed three-button rail and reset pinhole.
 
+The [producer revision 4 release](https://github.com/nstielau/digirdu-lights/releases/tag/hardware-echo-glow-producer-v4)
+is tagged at `caaabbdd1864f16f129bd26342cc3cd16043729d`. Its downloaded
+`Echo-Glow-producer-r4-print-kit.zip` matched the local kit byte for byte;
+SHA-256 is `ad55fe80446feddcdc2d94bd14b20ef273b90a635207eb917ee10b1daa039311`.
+
 ## Prepare a release
 
 1. Save the existing Fusion document as a new cloud version. Export a complete
