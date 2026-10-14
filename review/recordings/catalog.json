@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "recordings": [
+    {
+      "id": "drone-yell-10s",
+      "name": "Generated drone/yell fixture",
+      "audio": "drone-yell-10s.wav",
+      "labels": "drone-yell-10s.labels.json"
+    },
+    {
+      "id": "high-yell-01",
+      "name": "High yell 01",
+      "audio": "high-yell-01.wav",
+      "labels": "high-yell-01.labels.json"
+    }
+  ]
+}
