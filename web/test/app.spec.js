@@ -3,8 +3,75 @@ const fleet={stable:{version:'1.1.0'},releases:[{version:'1.1.0',manifest:{git_c
  devices:[{id:'4133c5792f0a',name:'Consumer',board:'ESP32 V2',role:'consumer',enabled:true,report:{version:'1.0.0',base_version:'1.0.0',state:'current',protocol_send:3,protocol_receive:[3]},lastCheckIn:100000}]};
 test.beforeEach(async({page})=>{
  await page.route('https://profiles.example.test/avatar.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="teal"/></svg>'}));
+ await page.route('https://api.github.com/repos/nstielau/digirdu-lights/releases?per_page=100',route=>route.fulfill({json:[
+  {tag_name:'firmware-v1.1.0',published_at:'2026-10-10T12:30:00Z',body:'## Highlights\n- More reliable lighting',html_url:'https://github.com/nstielau/digirdu-lights/releases/tag/firmware-v1.1.0'}
+ ]}));
  await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches:[]}}));
  await page.route('**/test-api/overview',route=>route.fulfill({json:fleet}));await page.goto('/');
+});
+test('devices are rows sorted by check-in or app version and expand on click',async({page})=>{
+ const devices=[
+  {...fleet.devices[0],id:'aaa',name:'Older',lastCheckIn:1000,report:{...fleet.devices[0].report,version:'1.1.9'}},
+  {...fleet.devices[0],id:'bbb',name:'Newest',lastCheckIn:3000,report:{...fleet.devices[0].report,version:'1.1.10'}},
+  {...fleet.devices[0],id:'ccc',name:'Middle',lastCheckIn:2000,report:{...fleet.devices[0].report,version:'1.1.2'}}
+ ];
+ await page.route('**/test-api/overview',route=>route.fulfill({json:{...fleet,devices}}));
+ await page.getByText('Sign in with Google').click();
+ const rows=page.locator('#devices tr.device-row');
+ await expect.poll(()=>rows.evaluateAll(items=>items.map(item=>item.dataset.deviceId))).toEqual(['bbb','ccc','aaa']);
+ await expect(page.locator('#device-details-bbb')).toBeHidden();
+ await rows.first().click();
+ await expect(page.locator('#device-details-bbb')).toBeVisible();
+ await expect(page.locator('#device-details-bbb')).toContainText('RF diagnostics');
+ await page.getByRole('button',{name:'App version'}).click();
+ await expect.poll(()=>rows.evaluateAll(items=>items.map(item=>item.dataset.deviceId))).toEqual(['bbb','aaa','ccc']);
+ await page.getByRole('button',{name:'App version'}).click();
+ await expect.poll(()=>rows.evaluateAll(items=>items.map(item=>item.dataset.deviceId))).toEqual(['ccc','aaa','bbb']);
+ await page.getByRole('button',{name:'Last check-in'}).click();
+ await expect.poll(()=>rows.evaluateAll(items=>items.map(item=>item.dataset.deviceId))).toEqual(['bbb','ccc','aaa']);
+ if(await page.evaluate(()=>innerWidth<=600)){
+  await expect(page.locator('#device-details-bbb')).toBeVisible();
+  await expect.poll(()=>page.locator('#device-details-bbb .card').evaluate(card=>card.getBoundingClientRect().right<=innerWidth)).toBe(true);
+  await page.getByLabel('Sort devices').selectOption('version-asc');
+  await expect.poll(()=>rows.evaluateAll(items=>items.map(item=>item.dataset.deviceId))).toEqual(['ccc','aaa','bbb']);
+ }
+});
+test('releases list newest first with dates, GitHub links, and expandable notes',async({page})=>{
+ const releases=[fleet.releases[0],{...fleet.releases[0],version:'1.1.10'}];
+ await page.route('**/test-api/overview',route=>route.fulfill({json:{...fleet,releases}}));
+ await page.route('https://api.github.com/repos/nstielau/digirdu-lights/releases?per_page=100',route=>route.fulfill({json:[
+  {tag_name:'firmware-v1.1.10',published_at:'2026-10-13T22:14:49Z',body:'## New\n- Better RF details'},
+  {tag_name:'firmware-v1.1.0',published_at:'2026-10-10T12:30:00Z',body:'## Old\n- Lighting'}
+ ]}));
+ await page.getByText('Sign in with Google').click();
+ await page.getByRole('tab',{name:'Releases'}).click();
+ const entries=page.locator('#releases .release-entry');
+ await expect.poll(()=>entries.evaluateAll(items=>items.map(item=>item.dataset.version))).toEqual(['1.1.10','1.1.0']);
+ await expect(entries.first()).toContainText('Oct 13, 2026');
+ await expect(entries.first().getByRole('link',{name:'GitHub release'})).toHaveAttribute('href','https://github.com/nstielau/digirdu-lights/releases/tag/firmware-v1.1.10');
+ await expect(entries.first().locator('.release-notes')).toBeHidden();
+ await entries.first().getByRole('button',{name:/1.1.10/}).click();
+ await expect(entries.first().locator('.release-notes')).toContainText('Better RF details');
+ await expect(entries.first().locator('.release-notes').getByRole('heading',{name:'New'})).toBeVisible();
+ await expect(entries.first().locator('.release-notes').getByRole('listitem')).toContainText('Better RF details');
+});
+test('release metadata arrives after signing out and back in',async({page})=>{
+ let resolveRelease,requested;
+ const releaseRequested=new Promise(resolve=>{requested=resolve;});
+ await page.route('https://api.github.com/repos/nstielau/digirdu-lights/releases?per_page=100',async route=>{
+  requested();
+  await new Promise(resolve=>{resolveRelease=resolve;});
+  await route.fulfill({json:[{tag_name:'firmware-v1.1.0',published_at:'2026-10-10T12:30:00Z',body:'## New\n- Lighting'}]});
+ });
+ await page.getByText('Sign in with Google').click();
+ await releaseRequested;
+ await page.getByRole('button',{name:'Open account menu'}).click();
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();
+ await page.getByText('Sign in with Google').click();
+ await page.getByRole('tab',{name:'Releases'}).click();
+ await expect(page.locator('#releases')).toContainText('Date unavailable');
+ resolveRelease();
+ await expect(page.locator('#releases')).toContainText('Oct 10, 2026');
 });
 test('fleet subtabs sit below the hero and switch by click and keyboard',async({page})=>{
  await page.getByText('Sign in with Google').click();
@@ -20,6 +87,8 @@ test('fleet subtabs sit below the hero and switch by click and keyboard',async({
  expect(below).toBeGreaterThanOrEqual(heroBottom);
  await tabs.getByRole('tab',{name:'Session Telemetry'}).click();
  await expect(page.getByRole('tabpanel',{name:'Session Telemetry'})).toBeVisible();
+ await expect(page.locator('#telemetry')).toContainText('No sessions in the 40 most recent fleet uploads.');
+ await expect(page.locator('#panel-session-telemetry .hint')).toContainText('40 most recent fleet uploads');
  await tabs.getByRole('tab',{name:'Session Telemetry'}).press('Home');
  await expect(tabs.getByRole('tab',{name:'Releases'})).toBeFocused();
  await expect(page.getByRole('tabpanel',{name:'Releases'})).toBeVisible();
@@ -45,7 +114,7 @@ test('device card shows recent RF diagnostics and an honest missing-producer sta
  await expect(card).toContainText('Rejected packets');
  await expect(card).toContainText('52');
 });
-test('fleet shows historical RF gaps and unobserved nodes',async({page})=>{
+test('session view shows only uploaded devices, upload time, and observed loss',async({page})=>{
  const zero='00'.repeat(32),mask='1e'+zero.slice(2),received='12'+zero.slice(2);
  const w=(fields)=>({session:7,base:0,received:zero,attempted:zero,delivered:zero,failed:zero,controls:zero,...fields});
  const counts={features:0,controls:0,skipped:0,rejected:0,native_drops:2,link_losses:1,audio_overruns:0,audio_discontinuities:0};
@@ -53,13 +122,44 @@ test('fleet shows historical RF gaps and unobserved nodes',async({page})=>{
   {device_id:'producer',receivedAt:100000,record:{role:'producer',windows:[w({attempted:mask,delivered:mask})],counts,epoch_uncertain:false,rssi:null,truncated_windows:0}},
   {device_id:'4133c5792f0a',receivedAt:101000,record:{role:'consumer',windows:[w({received})],counts,epoch_uncertain:false,rssi:{min:-80,max:-70,mean:-75},truncated_windows:0}}
  ];
+ await page.route('**/test-api/overview',route=>route.fulfill({json:{...fleet,devices:[...fleet.devices,
+  {...fleet.devices[0],id:'silent',name:'Silent device'}]}}));
  await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches}}));
  await page.getByText('Sign in with Google').click();
- await expect(page.locator('#devices .device-rf')).toContainText('2/4 (50%)');
+ await expect(page.locator('#devices .device-rf').first()).toContainText('2/4 (50%)');
  await page.getByRole('tab',{name:'Session Telemetry'}).click();
+ const heading=page.locator('#telemetry .telemetry-session h3');
+ const uploaded=await page.evaluate(()=>new Date(101000).toLocaleString());
+ await expect(heading).toContainText('00000007');
+ await expect(heading).toContainText(uploaded);
  await expect(page.locator('#telemetry')).toContainText('missing 2');
+ await expect(page.locator('#telemetry')).toContainText('50%');
  await expect(page.locator('#telemetry')).toContainText('native drops 2');
  await expect(page.locator('#telemetry')).toContainText('RSSI -75 dBm');
+ await expect(page.locator('#telemetry')).toContainText('Duration unavailable');
+ await expect(page.locator('#telemetry')).not.toContainText('Silent device');
+});
+test('high loss rates are red and explain the possible cause on focus',async({page})=>{
+ const zero='00'.repeat(32),mask=ids=>{
+  const bytes=new Uint8Array(32);for(const id of ids)bytes[id>>3]|=1<<(id&7);
+  return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+ };
+ const all=Array.from({length:100},(_,index)=>index+1),delivered=all.slice(0,95);
+ const received=delivered.filter(id=>id<20||id>27);
+ const w=fields=>({session:9,base:0,received:zero,attempted:zero,delivered:zero,failed:zero,controls:zero,...fields});
+ const counts={features:0,controls:0,skipped:0,rejected:0,native_drops:0,link_losses:0,audio_overruns:0,audio_discontinuities:0};
+ const batches=[
+  {device_id:'producer',receivedAt:100000,record:{role:'producer',windows:[w({attempted:mask(all),delivered:mask(delivered),failed:mask(all.slice(95))})],counts:{...counts,features:100},epoch_uncertain:false,rssi:null,truncated_windows:0}},
+  {device_id:'4133c5792f0a',receivedAt:101000,record:{role:'consumer',windows:[w({received:mask(received)})],counts:{...counts,features:87,rejected:3,native_drops:5},epoch_uncertain:false,rssi:{min:-92,max:-84,mean:-88},truncated_windows:0}}
+ ];
+ await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches}}));
+ await page.getByText('Sign in with Google').click();
+ await page.getByRole('tab',{name:'Session Telemetry'}).click();
+ await expect(page.locator('#telemetry .metric-issue')).not.toHaveCount(0);
+ const explanation=page.getByRole('button',{name:'Explain missing feature rate'});
+ await explanation.focus();
+ await expect(page.getByRole('tooltip')).toContainText(/antenna/i);
+ await expect(page.locator('#telemetry')).toContainText('8.4%');
 });
 test('separates installed and desired versions; signs out cleanly',async({page})=>{
  await page.getByText('Sign in with Google').click();await expect(page.locator('#devices')).toContainText('1.0.0');
@@ -72,12 +172,16 @@ test('separates installed and desired versions; signs out cleanly',async({page})
 });
 test('pin sends explicit version and fresh request ID',async({page})=>{
  let request;await page.route('**/test-api/change',async route=>{request=route.request().postDataJSON();await route.fulfill({json:{ok:true}});});
- await page.getByText('Sign in with Google').click();await page.getByText('Assign release').click();
+ await page.getByText('Sign in with Google').click();
+ await page.getByRole('button',{name:'Expand Consumer'}).click();
+ await page.getByText('Assign release').click();
  await expect(page.locator('#status')).toContainText('Saved.');expect(request.action).toBe('pin');expect(request.version).toBe('1.1.0');expect(request.requestId).toHaveLength(36);
 });
 test('failed mutation is not retried automatically',async({page})=>{
  let calls=0;await page.route('**/test-api/change',route=>{calls++;return route.fulfill({status:503,body:'unavailable'});});
- await page.getByText('Sign in with Google').click();await page.getByText('Pause updates').click();
+ await page.getByText('Sign in with Google').click();
+ await page.getByRole('button',{name:'Expand Consumer'}).click();
+ await page.getByText('Pause updates').click();
  await expect(page.locator('#status')).toContainText('could not be confirmed');expect(calls).toBe(1);
 });
 test('device names render as text',async({page})=>{

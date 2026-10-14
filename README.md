@@ -1822,6 +1822,20 @@ historical boot-window diagnostics, not live signal or a full-lifetime total.
 Packet comparisons and producer send outcomes cover retained windows only;
 truncated windows are displayed when present. A missing producer upload or
 non-overlapping observation is shown without a delivery percentage.
+Devices now appear in a table ordered by newest check-in; the check-in and app
+version headings can be sorted in either direction. Expanding a row shows its
+full report, RF diagnostics, and controls. Releases are newest first and load
+their publication date and notes from this repository's public GitHub Releases;
+the direct tag link remains available if GitHub metadata cannot be fetched.
+Session Telemetry covers the 40 most recent fleet uploads and lists only devices
+with uploads for that session. Zero-packet uploads remain in a separate section.
+A session heading shows the latest upload
+time, but duration is unavailable because telemetry schema 1 has no start/end
+timestamps. Rates use retained producer feature attempts, paired observed
+feature sends, or whole-boot receive outcomes as labelled. Red diagnostic cues
+are heuristics: with at least 20 observations, 5% missing features or 2% native
+receive failures, rejections, or producer send failures; mean RSSI at or below
+-85 dBm is also flagged. The tooltips explain scope and possible causes.
 
 USB base 1.1.6 adds a persistent result for the last telemetry upload attempt:
 **uploaded**, **queued**, or **failed**, a short safe error reason, and the

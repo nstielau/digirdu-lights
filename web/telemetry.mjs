@@ -58,6 +58,7 @@ export function compareTelemetry(batches,devices){
       return {id:device.id,name:device.name||device.id,received:received.size,missing,
         unobserved,ambiguous,receivedAt:entries.length?Math.max(...entries.map(e=>e.receivedAt)):null,
         nativeDrops:entries.reduce((n,e)=>n+e.record.counts.native_drops,0),
+        rxAccepted:entries.reduce((n,e)=>n+e.record.counts.features+e.record.counts.controls,0),
         rejected:entries.reduce((n,e)=>n+e.record.counts.rejected,0),
         linkLosses:entries.reduce((n,e)=>n+e.record.counts.link_losses,0),
         bootIds:[...new Set(entries.map(e=>e.record.boot_id).filter(Boolean))],
