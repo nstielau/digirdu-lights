@@ -2,8 +2,8 @@
   "release": "Echo Glow producer revision 4",
   "fusion_document": "Echo Glow producer v1",
   "fusion_lineage": "urn:adsk.wipprod:dm.lineage:rV-ATT5yQr6LfZkcf5K2oQ",
-  "fusion_cloud_version_last_confirmed": 4,
-  "fusion_cloud_sync": "pending: the ramped model was exported locally on 2026-10-14, but Fusion showed Expired Subscription - Read Only and cloud version remained 4",
+  "fusion_cloud_version_last_confirmed": 5,
+  "fusion_cloud_sync": "confirmed: Fusion data panel and API reported producer lineage version 5 on 2026-10-14; the ramped model was re-exported from version 5",
   "cad": {
     "overall_envelope_mm": [84.3, 36.46, 31.7],
     "previous_height_mm": 35.4,

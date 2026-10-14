@@ -16,16 +16,14 @@ Current local prototypes:
 | `hardware-didgelights-producer-v11` | `producer/revision-11/` | DidgeLights enclosure |
 | `hardware-echo-glow-producer-v2` | `producer/echo-glow/revision-2/` | Echo Glow producer v1, version 3 |
 | `hardware-echo-glow-producer-v3` | `producer/echo-glow/revision-3/` | Echo Glow producer v1, version 4 |
-| `hardware-echo-glow-producer-v4` | `producer/echo-glow/revision-4/` | Echo Glow producer v1, compact case, softened edges and support ramps exported locally; version 4 last confirmed |
+| `hardware-echo-glow-producer-v4` | `producer/echo-glow/revision-4/` | Echo Glow producer v1, compact case, softened edges and support ramps; cloud version 5 |
 | `hardware-echo-glow-consumer-v7` | `consumer/revision-7/` | Echo Glow consumer v6, version 4 |
 | `hardware-echo-glow-consumer-v8` | `consumer/revision-8/` | Echo Glow consumer v6, version 5 |
 
 The cloud version is a convenience pointer. The F3D inside the release ZIP is
-the portable editable snapshot. Revision 4's ramped F3D export was verified
-locally on October 14, 2026, but its cloud save remains unconfirmed because
-Fusion showed **Expired Subscription – Read Only**. Hold its hardware tag and
-release until write access is restored and a new cloud version is confirmed.
-Historical local numbered directories remain
+the portable editable snapshot. Revision 4's ramped model was confirmed as
+**Echo Glow producer v1** cloud version 5 and its F3D was re-exported and
+verified on October 14, 2026. Historical local numbered directories remain
 intact, including their retired button options. New Echo Glow kits use only the
 domed three-button rail and reset pinhole.
 
