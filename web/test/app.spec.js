@@ -6,6 +6,45 @@ test.beforeEach(async({page})=>{
  await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches:[]}}));
  await page.route('**/test-api/overview',route=>route.fulfill({json:fleet}));await page.goto('/');
 });
+test('fleet subtabs sit below the hero and switch by click and keyboard',async({page})=>{
+ await page.getByText('Sign in with Google').click();
+ const tabs=page.getByRole('tablist',{name:'Fleet sections'});
+ await expect(tabs.getByRole('tab')).toHaveText(['Releases','Devices','Session Telemetry']);
+ await expect(tabs.getByRole('tab',{name:'Devices'})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tabpanel',{name:'Devices'})).toBeVisible();
+ await expect(page.getByRole('tabpanel',{name:'Releases'})).toBeHidden();
+ await expect(page.locator('#devices .card').first()).toContainText('No RF uploads for this device among the 40 most recent fleet uploads.');
+ await expect(tabs).toHaveJSProperty('scrollWidth',await tabs.evaluate(e=>e.clientWidth));
+ const below=await tabs.evaluate(e=>e.getBoundingClientRect().top);
+ const heroBottom=await page.locator('.page-heading').evaluate(e=>e.getBoundingClientRect().bottom);
+ expect(below).toBeGreaterThanOrEqual(heroBottom);
+ await tabs.getByRole('tab',{name:'Session Telemetry'}).click();
+ await expect(page.getByRole('tabpanel',{name:'Session Telemetry'})).toBeVisible();
+ await tabs.getByRole('tab',{name:'Session Telemetry'}).press('Home');
+ await expect(tabs.getByRole('tab',{name:'Releases'})).toBeFocused();
+ await expect(page.getByRole('tabpanel',{name:'Releases'})).toBeVisible();
+ await page.getByRole('button',{name:'Refresh reports'}).click();
+ await expect(page.getByRole('tabpanel',{name:'Releases'})).toBeVisible();
+});
+test('device card shows recent RF diagnostics and an honest missing-producer state',async({page})=>{
+ const counts={features:710,controls:182,rejected:52,native_drops:0,link_losses:22,
+  skipped:0,audio_overruns:0,audio_discontinuities:0};
+ await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches:[
+  {device_id:'4133c5792f0a',receivedAt:100000,record:{role:'consumer',windows:[],counts,
+   rssi:{mean:-81,min:-92,max:-69},truncated_windows:0,epoch_uncertain:false}}
+ ]}}));
+ await page.getByText('Sign in with Google').click();
+ const card=page.locator('#devices .card').first();
+ await expect(card).toContainText('Accepted features');
+ await expect(card).toContainText('710');
+ await expect(card).toContainText('Latest RSSI');
+ await expect(card).toContainText('-81 dBm');
+ await expect(card).toContainText('RSSI history');
+ await expect(card).toContainText('mean of 1 upload');
+ await expect(card).toContainText('Producer upload needed');
+ await expect(card).toContainText('Rejected packets');
+ await expect(card).toContainText('52');
+});
 test('fleet shows historical RF gaps and unobserved nodes',async({page})=>{
  const zero='00'.repeat(32),mask='1e'+zero.slice(2),received='12'+zero.slice(2);
  const w=(fields)=>({session:7,base:0,received:zero,attempted:zero,delivered:zero,failed:zero,controls:zero,...fields});
@@ -16,6 +55,8 @@ test('fleet shows historical RF gaps and unobserved nodes',async({page})=>{
  ];
  await page.route('**/test-api/telemetry',route=>route.fulfill({json:{batches}}));
  await page.getByText('Sign in with Google').click();
+ await expect(page.locator('#devices .device-rf')).toContainText('2/4 (50%)');
+ await page.getByRole('tab',{name:'Session Telemetry'}).click();
  await expect(page.locator('#telemetry')).toContainText('missing 2');
  await expect(page.locator('#telemetry')).toContainText('native drops 2');
  await expect(page.locator('#telemetry')).toContainText('RSSI -75 dBm');

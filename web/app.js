@@ -2,11 +2,68 @@ import {overview,telemetry,change,currentUser} from './gateway.js';
 import {initAccount} from './account.js';
 import {describeDevice} from './view.mjs';
 import {compareTelemetry,unmatchedTelemetry} from './telemetry.mjs';
+import {summarizeDeviceTelemetry} from './device-telemetry.mjs';
 const $=id=>document.getElementById(id);
 let generation=0,busy=false;
 function message(text){$('status').textContent=text;}
-function locking(value){busy=value;document.querySelectorAll('#fleet button,#fleet select,#refresh').forEach(e=>e.disabled=value||e.dataset.revoked==='true');}
-function render(data){
+function locking(value){busy=value;document.querySelectorAll('#devices button,#devices select,#refresh').forEach(e=>e.disabled=value||e.dataset.revoked==='true');}
+const fleetTabs=['releases','devices','session-telemetry'];
+function selectFleetTab(name){
+  for(const key of fleetTabs){
+    const active=key===name,tab=$('tab-'+key);
+    tab.setAttribute('aria-selected',String(active));
+    tab.tabIndex=active?0:-1;
+    $('panel-'+key).hidden=!active;
+  }
+}
+for(const [index,name] of fleetTabs.entries()){
+  const tab=$('tab-'+name);
+  tab.addEventListener('click',()=>selectFleetTab(name));
+  tab.addEventListener('keydown',event=>{
+    const next=event.key==='Home'?0:event.key==='End'?fleetTabs.length-1:
+      event.key==='ArrowRight'?(index+1)%fleetTabs.length:
+      event.key==='ArrowLeft'?(index+fleetTabs.length-1)%fleetTabs.length:-1;
+    if(next<0)return;
+    event.preventDefault();selectFleetTab(fleetTabs[next]);$('tab-'+fleetTabs[next]).focus();
+  });
+}
+function addDiagnostic(list,label,value){
+  const term=document.createElement('dt'),detail=document.createElement('dd');
+  term.textContent=label;detail.textContent=String(value);list.append(term,detail);
+}
+function renderDeviceRf(node,device,batches,sessions){
+  const section=node.querySelector('.device-rf'),list=section.querySelector('dl'),empty=section.querySelector('.rf-empty');
+  if(!batches){empty.textContent='RF telemetry unavailable; refresh to retry.';empty.hidden=false;return;}
+  const summary=summarizeDeviceTelemetry(device,batches,sessions);
+  if(!summary){empty.textContent='No RF uploads for this device among the 40 most recent fleet uploads.';empty.hidden=false;return;}
+  addDiagnostic(list,'Uploads',summary.uploads);
+  addDiagnostic(list,'Latest upload',new Date(summary.lastUpload).toLocaleString());
+  if(device.role==='consumer'){
+    addDiagnostic(list,'Accepted features',summary.features);
+    const paired=summary.matched;
+    addDiagnostic(list,'Paired delivery (retained)',paired?
+      `${paired.observed-paired.missing}/${paired.observed} (${Math.round(100*(paired.observed-paired.missing)/paired.observed)}%)`:
+      summary.producerEvidence?'No paired interval yet':'Producer upload needed');
+    addDiagnostic(list,'Latest RSSI',summary.rssi?
+      `${summary.rssi.mean} dBm (${summary.rssi.min} to ${summary.rssi.max})`:'Unavailable in latest upload');
+    const history=summary.rssiHistory;
+    addDiagnostic(list,'RSSI history',history?
+      `${history.mean} dBm (mean of ${history.uploads} upload${history.uploads===1?'':'s'}; range ${history.min} to ${history.max})`:'Unavailable');
+    addDiagnostic(list,'Native RX drops',summary.nativeDrops);
+    addDiagnostic(list,'Rejected packets',summary.rejected);
+    addDiagnostic(list,'Link losses',summary.linkLosses);
+  }else{
+    addDiagnostic(list,'Feature attempts',summary.features);
+    addDiagnostic(list,'Native completions (retained)',summary.send.completed);
+    addDiagnostic(list,'Send failures (retained)',summary.send.failed);
+    addDiagnostic(list,'Unresolved sends (retained)',summary.send.unresolved);
+    addDiagnostic(list,'Skipped sends',summary.skipped);
+    addDiagnostic(list,'Native RX drops',summary.nativeDrops);
+    addDiagnostic(list,'Audio gaps',summary.audioDiscontinuities);
+  }
+  if(summary.truncatedWindows)addDiagnostic(list,'Truncated windows',summary.truncatedWindows);
+}
+function render(data,batches,sessions){
   $('stable').textContent=`Newest stable: ${data.stable?.version||'No release published'}`;
   $('devices').replaceChildren();
   for(const d of data.devices){
@@ -16,6 +73,7 @@ function render(data){
     const dl=node.querySelector('dl');for(const [key,value]of Object.entries(v.fields)){
       const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=value;dl.append(dt,dd);
     }
+    renderDeviceRf(node,d,batches,sessions);
     const select=node.querySelector('select');for(const r of data.releases.filter(r=>!r.revoked)){
       const o=document.createElement('option');o.value=r.version;o.textContent=r.version;select.append(o);
     }
@@ -43,9 +101,8 @@ function render(data){
   }
   $('fleet').hidden=false;
 }
-function renderTelemetry(data,devices){
+function renderTelemetry(data,devices,sessions){
   const target=$('telemetry');target.replaceChildren();
-  const sessions=compareTelemetry(data.batches||[],devices);
   const unmatched=unmatchedTelemetry(data.batches||[],devices);
   if(!sessions.length&&!unmatched.length){target.textContent='No RF sessions uploaded yet.';return;}
   for(const batch of unmatched){
@@ -73,8 +130,10 @@ async function refresh(){
   const current=generation;
   const [{data},telemetryResult]=await Promise.all([overview(),telemetry().catch(()=>null)]);
   if(current===generation&&currentUser()){
-    render(data);
-    if(telemetryResult)renderTelemetry(telemetryResult.data,data.devices);
+    const batches=telemetryResult?.data?.batches||null;
+    const sessions=batches?compareTelemetry(batches,data.devices):[];
+    render(data,batches,sessions);
+    if(telemetryResult)renderTelemetry(telemetryResult.data,data.devices,sessions);
     else $('telemetry').textContent='RF telemetry is unavailable; refresh to retry.';
   }
 }
@@ -82,6 +141,7 @@ $('refresh').onclick=async()=>{locking(true);try{await refresh();message('Report
 initAccount(async user=>{
   generation++;$('refresh').hidden=!user;
   $('fleet').hidden=true;$('devices').replaceChildren();$('releases').replaceChildren();$('telemetry').replaceChildren();
+  selectFleetTab('devices');
   $('account').textContent=user?.email||'Sign in to manage your devices.';message('');
   if(user){try{await refresh();}catch{message('Administrator access is required, or the service is unavailable.');}}
 });

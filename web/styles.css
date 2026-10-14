@@ -87,6 +87,16 @@ button:hover{background:#322041;border-color:var(--laser-pink);box-shadow:0 0 14
 .profile-menu span{color:#c0b5d2}
 .card{background:linear-gradient(145deg,#19112b,#100e1e);border:1px solid #59365f;border-radius:8px;box-shadow:inset 0 2px #e340a833}
 .telemetry-session{margin:16px 0}.telemetry-session h3,.telemetry-row{overflow-wrap:anywhere}.telemetry-row{padding-top:12px;border-top:1px solid #59365f}
+.fleet-tabs{display:flex;gap:8px;overflow-x:auto;margin:22px 0 6px;padding:0 0 12px;border-bottom:1px solid #754366}
+.fleet-tabs button{flex:0 0 auto;white-space:nowrap;padding:12px 18px;font:700 12px ui-monospace,SFMono-Regular,Consolas,monospace;text-transform:uppercase;letter-spacing:.08em;color:#c0b5d2}
+.fleet-tabs button[aria-selected="true"]{color:var(--laser-cyan);border-color:var(--laser-cyan);background:#12303d;box-shadow:inset 0 -2px var(--laser-cyan),0 0 15px #59eeff22}
+[role="tabpanel"]>h2,[role="tabpanel"]>.section-head h2{margin-top:24px}
+.device-rf{margin:22px 0;padding:18px 0 4px;border-top:1px solid #59365f}
+.device-rf h4{margin:0;color:var(--laser-cyan);font:700 13px ui-monospace,SFMono-Regular,Consolas,monospace;text-transform:uppercase;letter-spacing:.07em}
+.device-rf .hint{margin:6px 0 18px;font-size:12px}
+.device-rf dl{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);font-size:14px;gap:9px 12px}
+.device-rf dd{color:#f0e5fa}.device-rf .rf-empty{margin:8px 0 16px}
+@media(max-width:600px){.fleet-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.fleet-tabs button{min-height:48px;padding:9px 5px;white-space:normal;font-size:10px;line-height:1.25}}
 .badge{color:var(--laser-cyan);background:#14303d;border-radius:4px}
 .release{border-color:#3c254d;color:#c0b5d2}.danger{color:#ff9bae}#status{color:var(--laser-cyan)}
 .effect-links a{border-color:#754366;background:#1c112b;border-radius:5px;color:#ffb3e2;font:600 13px ui-monospace,SFMono-Regular,Consolas,monospace}

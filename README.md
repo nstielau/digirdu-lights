@@ -1812,6 +1812,16 @@ four batches and never writes during the music loop. The authenticated fleet
 RF sessions view shows historical uploads and counts missing feature packets
 only between observations from one consumer boot; unobserved periods remain
 explicit. Native send completion does not establish RF delivery.
+The Fleet page groups **Releases**, **Devices**, and **Session Telemetry** in
+subtabs below the introduction. Each device card summarizes its batches from
+the 40 most recent fleet uploads: consumer accepted features, paired delivery
+when producer evidence overlaps, latest-upload RSSI, the mean of available
+upload RSSI means with their range, native drops, rejections and link losses;
+producer sends, failures, skips and audio gaps. These are
+historical boot-window diagnostics, not live signal or a full-lifetime total.
+Packet comparisons and producer send outcomes cover retained windows only;
+truncated windows are displayed when present. A missing producer upload or
+non-overlapping observation is shown without a delivery percentage.
 
 USB base 1.1.6 adds a persistent result for the last telemetry upload attempt:
 **uploaded**, **queued**, or **failed**, a short safe error reason, and the
