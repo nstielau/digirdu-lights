@@ -546,6 +546,8 @@ test('virtual consumer offers five synchronized effects in a responsive 4x8 rail
  await position.fill('500');
  await position.dispatchEvent('input');
  const spectrumColor=await page.locator('#review-led .led-pixel').first().evaluate(node=>node.style.backgroundColor);
+ await expect(page.locator('#review-led .led-pixel').nth(1)).toHaveCSS('background-color','rgb(3, 3, 3)');
+ await expect(page.locator('#review-led .led-pixel').nth(1)).toHaveAttribute('aria-label','LED 2: RGB 1, 1, 1');
  await effect.selectOption('Chroma');
  await expect(position).toHaveValue('500');
  await expect(page.locator('#review-led')).toHaveAttribute('data-effect','Chroma');
