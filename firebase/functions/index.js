@@ -3,10 +3,16 @@ const {initializeApp}=require('firebase-admin/app');
 const {getFirestore}=require('firebase-admin/firestore');
 const {getStorage}=require('firebase-admin/storage');
 const {pipeline}=require('node:stream/promises');
+const path=require('node:path');
 const {createService}=require('./service.cjs');
+const {createReviewHandlers,createReviewLibrary}=require('./reviews.cjs');
 initializeApp();
 const project=process.env.GCLOUD_PROJECT;
 const service=createService(getFirestore());
+const reviewHandlers=createReviewHandlers(
+  request=>service.authorizeAdmin(request),
+  ()=>createReviewLibrary(path.join(__dirname,'review-data'))
+);
 const options={region:'us-east1',minInstances:0,maxInstances:3,timeoutSeconds:60,memory:'256MiB',
   serviceAccount:`digirdu-functions@${project}.iam.gserviceaccount.com`};
 exports.deviceApi=onRequest({...options,cors:false},async(req,res)=>{
@@ -46,3 +52,5 @@ const browser={...options,enforceAppCheck:true,cors:[`https://${project}.firebas
 exports.fleetOverview=onCall(browser,callable(service.overview));
 exports.fleetTelemetry=onCall(browser,callable(service.telemetryOverview));
 exports.fleetChange=onCall(browser,callable(service.change));
+exports.reviewCatalog=onCall(browser,callable(reviewHandlers.catalog));
+exports.reviewRecording=onCall(browser,callable(reviewHandlers.recording));

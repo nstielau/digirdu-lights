@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sound review · Digirdu Lights</title>
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    .review-page{max-width:1120px}
+    .review-status{min-height:24px;color:var(--laser-cyan)}
+    .review-layout{display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:18px;align-items:start}
+    .review-consumer-rail{position:sticky;top:18px;align-self:start}
+    .review-consumer-panel{margin:18px 0}
+    .review-effect-control{display:grid;gap:6px;margin-bottom:14px}
+    .review-effect-control select{width:100%;min-width:0}
+    .review-analysis{min-width:0}
+    .review-library{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+    .review-library label{display:grid;gap:6px;min-width:min(100%,320px)}
+    .review-library select{min-height:42px}
+    .review-library option{background:#1b122c;color:#fff}
+    .review-selected-recording{margin:0;color:#aebed5;font:700 13px ui-monospace,monospace}
+    .review-toolbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:18px 0}
+    .review-control{display:grid;gap:6px;min-width:150px}
+    .review-control input{width:100%;accent-color:var(--laser-pink);cursor:pointer}
+    .review-time{font:700 18px ui-monospace,monospace;color:var(--laser-cyan);padding-bottom:9px}
+    .review-panel{margin:18px 0;padding:20px;border:1px solid #59365f;border-radius:8px;background:linear-gradient(145deg,#191127,#100e1e);overflow:hidden}
+    .review-panel h2{margin:0 0 14px;font-size:20px}
+    .timeline-viewport{overflow-x:auto;overflow-y:hidden;border:1px solid #46314f;border-radius:5px;background:#080612;cursor:grab;touch-action:pan-y}
+    .timeline-viewport[data-panning="true"]{cursor:grabbing;user-select:none}
+    .timeline-track{position:relative;min-height:234px;width:calc(100% * var(--timeline-zoom, 1));min-width:100%;transform-origin:left center;background:repeating-linear-gradient(90deg,#0e1830 0,#0e1830 1px,transparent 1px,transparent 10%)}
+    .waveform-region{position:relative;height:84px}
+    .wave-bar{position:absolute;bottom:12px;width:max(2px,calc(100% / var(--wave-count, 1) - 2px));border-radius:2px 2px 0 0;background:linear-gradient(#ff57bd,#59eeff);opacity:.8}
+    .label-overlay-layer{position:absolute;inset:0;z-index:1}
+    .label-overlay{position:absolute;top:10px;min-width:6px;height:18px;padding:0 4px;overflow:hidden;border:1px solid #ff57bd;border-radius:3px;background:#ff57bd55;color:#fff;font:10px ui-monospace,monospace;white-space:nowrap;text-align:left}
+    .label-overlay[data-active="true"]{background:#59eeff88;border-color:#59eeff;box-shadow:0 0 12px #59eeff66}
+    .label-overlay[data-selected="true"]{outline:1px solid #fff;outline-offset:2px}
+    .event-overlay-layer{position:absolute;inset:0;z-index:2;pointer-events:none}
+    .event-overlay{position:absolute;top:53px;min-width:6px;padding:2px 4px;transform:translateX(-50%);border:1px solid #ffc857;border-radius:3px;background:#ffc85755;color:#fff;font:10px ui-monospace,monospace;white-space:nowrap;pointer-events:auto}
+    .event-overlay[data-active="true"]{background:#ffc857aa;border-color:#fff;box-shadow:0 0 12px #ffc85788}
+    .spectrogram-region{position:relative;height:150px;border-top:1px solid #46314f;background:#070b23}
+    .spectrogram-canvas{display:block;width:100%;height:100%}
+    .spectrogram-axis{position:absolute;inset:5px auto 5px 6px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;color:#fff;font:10px ui-monospace,monospace;text-shadow:0 1px 3px #000}
+    .spectrogram-legend{position:absolute;right:7px;bottom:5px;display:flex;align-items:center;color:#fff;font:10px ui-monospace,monospace;text-shadow:0 1px 3px #000}
+    .spectrogram-legend::before{content:"";display:inline-block;width:72px;height:8px;margin-right:5px;background:linear-gradient(90deg,#070b23,#165d75,#d45b72,#ffcf6a)}
+    .spectrogram-empty{display:grid;height:100%;place-items:center;margin:0;padding:0 18px;color:#aebed5;font:13px ui-monospace,monospace;text-align:center}
+    .timeline-viewport[data-track-cursor]{position:relative}
+    .track-cursor{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 10px #59eeff;pointer-events:none;z-index:2}
+    .track-cursor-label{position:absolute;top:4px;left:6px;white-space:nowrap;color:#fff;font:11px ui-monospace,monospace}
+    .review-list{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+    .review-list button{font-size:13px;padding:7px 9px}
+    .review-list button[aria-pressed="true"]{border-color:var(--laser-cyan);box-shadow:0 0 12px #59eeff33}
+    #review-events.review-list{display:grid;grid-template-columns:minmax(0,1fr)}
+    #review-events.review-list>li{width:100%;box-sizing:border-box}
+    #review-events.review-list>li>button{width:100%;border-color:#46314f;background:#0b0a15;text-align:left}
+    #review-events.review-list>li.event-active>button{border-color:#ffc857;box-shadow:0 0 12px #ffc85733}
+    .review-event-filters{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border:1px solid #46314f;border-radius:5px}
+    .review-event-filters[hidden]{display:none}
+    .review-event-filters legend{padding:0 5px;color:#aebed5;font-size:12px}
+    .review-event-filters label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+    .review-event-filters input{accent-color:var(--laser-pink);cursor:pointer}
+    .review-empty{margin:0;color:#aebed5}
+    .review-data{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0}
+    .review-data div{padding:10px;border:1px solid #46314f;border-radius:5px;background:#0b0a15}
+    .review-data dt{font-size:11px}.review-data dd{margin:4px 0 0;color:#f2edff;font:700 15px ui-monospace,monospace}
+    .review-metric{padding:10px;border:1px solid #46314f;border-radius:5px;background:#0b0a15;color:#f2edff;font:700 13px ui-monospace,monospace}
+    .led-view{display:grid;grid-template-columns:repeat(4,minmax(20px,1fr));gap:6px;width:min(100%,220px);margin:auto;padding:14px;background:#050509;border:1px solid #46314f;border-radius:5px}
+    .led-pixel{aspect-ratio:1;border-radius:50%;background:#151527;box-shadow:inset 0 0 0 1px #46314f}
+    .review-help{font-size:13px}
+    @media(max-width:700px){.review-layout{grid-template-columns:1fr}.review-consumer-rail{position:static}.review-consumer-panel{margin-bottom:0}.led-view{width:min(100%,240px)}}
+    @media(max-width:600px){.review-page{padding:20px}.review-panel{padding:16px}.review-toolbar{align-items:stretch}.review-control{min-width:100%;}.review-time{padding:0}.review-data{grid-template-columns:repeat(2,minmax(0,1fr))}.led-view{gap:3px;padding:8px}}
+  </style>
+</head>
+<body>
+  <header><a class="brand" href="/">DIGIRDU LIGHTS</a><div id="account-control"></div><nav aria-label="Main"><a href="/">Fleet</a><a href="/effects.html">Effects</a><a href="/review.html" aria-current="page">Review</a></nav></header>
+  <main class="review-page">
+    <p class="eyebrow">NIC-8 · DETERMINISTIC AUDIO REVIEW</p>
+    <h1>Sound Analysis</h1>
+    <p id="review-status" class="review-status" role="status" aria-live="polite">Loading review…</p>
+
+    <div id="review-protected" hidden>
+    <div class="review-layout">
+    <aside class="review-consumer-rail">
+      <section class="review-panel review-consumer-panel" aria-labelledby="led-title">
+        <h2 id="led-title">Virtual consumer</h2>
+        <label class="review-effect-control" for="review-effect">Effect
+          <select id="review-effect" disabled></select>
+        </label>
+        <div id="review-led" class="led-view" data-time-ms="0" data-effect="" role="img" aria-label="Virtual consumer frame"></div>
+      </section>
+    </aside>
+    <div class="review-analysis">
+    <section class="review-panel" aria-labelledby="recording-title">
+      <h2 id="recording-title">Recording library</h2>
+      <div class="review-library">
+        <label for="review-recording">Recording
+          <select id="review-recording"></select>
+        </label>
+        <button id="review-retry" type="button" hidden>Retry recording</button>
+        <p id="review-selected-recording" class="review-selected-recording"></p>
+      </div>
+    </section>
+
+    <section class="review-panel" aria-labelledby="review-controls-title">
+      <h2 id="review-controls-title">Playback</h2>
+      <audio id="review-audio" preload="auto" aria-label="Reviewed audio"></audio>
+      <div class="review-toolbar">
+        <button id="review-play" type="button" disabled>Play</button>
+        <button id="review-replay" type="button" disabled>Replay label</button>
+        <label class="review-control" for="review-position">Position
+          <input id="review-position" aria-label="Position" type="range" min="0" max="0" value="0" step="1" disabled>
+        </label>
+        <label class="review-control" for="review-zoom">Zoom
+          <input id="review-zoom" aria-label="Zoom" type="range" min="1" max="8" value="1" step="1" disabled>
+        </label>
+        <output id="review-time" class="review-time" for="review-position">0.00 s</output>
+      </div>
+      <p class="review-help">Click the waveform to seek. Drag a zoomed waveform to pan. Select a human label, then use Replay label to hear the surrounding half-second.</p>
+    </section>
+
+    <section class="review-panel" aria-labelledby="waveform-title">
+      <h2 id="waveform-title">Waveform and spectrogram</h2>
+      <div id="review-waveform" class="timeline-viewport" data-zoom="1" data-track-cursor="waveform" data-time-ms="0" aria-label="Audio waveform and log-frequency spectrogram timeline">
+        <div class="timeline-track"><span class="track-cursor-label">playhead</span></div>
+      </div>
+    </section>
+
+    <section class="review-panel" aria-labelledby="labels-title">
+      <h2 id="labels-title">Human labels</h2>
+      <p id="review-selected-label" class="review-empty">No label selected.</p>
+      <ul id="review-labels" class="review-list" aria-label="Human labels"></ul>
+    </section>
+
+    <section class="review-panel" aria-labelledby="events-title">
+      <h2 id="events-title">Detected events</h2>
+      <fieldset id="review-event-filters" class="review-event-filters" hidden>
+        <legend>Show detector events</legend>
+      </fieldset>
+      <ul id="review-events" class="review-list" aria-label="Detected events"></ul>
+    </section>
+
+    <section class="review-panel" aria-labelledby="features-title">
+      <h2 id="features-title">Derived features</h2>
+      <dl id="review-features" class="review-data" data-time-ms="0"></dl>
+    </section>
+
+    <section class="review-panel" aria-labelledby="comparison-title">
+      <h2 id="comparison-title">Human/detector comparison</h2>
+      <ul id="review-comparison" class="review-list" aria-label="Comparison metrics"></ul>
+    </section>
+
+    </div>
+    </div>
+    </div>
+  </main>
+  <script type="module" src="./review-page.js"></script>
+</body>
+</html>

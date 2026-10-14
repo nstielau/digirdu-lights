@@ -24,10 +24,12 @@ Manage enrolled devices at [Digirdu Lights](https://digirdu-lights.firebaseapp.c
 view their reported versions, follow the latest release, pin a version, or pause
 updates. Each board needs a one-time USB bootstrap and its own credential.
 Your Google profile photo opens the account menu in the top right; sign out
-from that menu. The public [Effects guide](https://digirdu-lights.firebaseapp.com/effects.html)
-describes Spectrum, Ember, Aurora, Ripple, Chroma and Battery for app 1.0.7, including frequency
+from that menu. Allowlisted administrators can also use the authenticated
+[Sound review](https://digirdu-lights.firebaseapp.com/review.html) library. The
+public [Effects guide](https://digirdu-lights.firebaseapp.com/effects.html)
+links to that review and describes Spectrum, Ember, Aurora, Ripple, Chroma and Battery for app 1.0.7, including frequency
 bands, musical layers, BOOT selection and the mirrored number indicator.
-Both web pages use a cyan/hot-pink 1980s laser theme with the supplied horizon
+The web pages use a cyan/hot-pink 1980s laser theme with the supplied horizon
 artwork, bundled locally in `web/assets/laser-horizon.png`.
 Updates preserve the node's role, wiring and settings. A failing candidate
 rolls back to the previous app; CircuitPython and the OTA base remain USB-managed.
@@ -1103,6 +1105,124 @@ The original board's rainbow was deployed and visually confirmed on September
 - BOOT input was verified directly (ten accepted presses), then the running
   audio app logged all three requested changes: Ember, Aurora, Ripple. This
   establishes the producer's button-to-effect path independently of appearance.
+
+## Human-reviewed sound library
+
+`review/recordings/` is the canonical, intentionally committed review library.
+It currently contains two ten-second, 16 kHz, mono, signed 16-bit WAVs and their
+authoritative human-label JSON:
+
+- `drone-yell-10s.wav`, SHA-256
+  `efa8b234ee94c014437b7d48fd6f612cd8aed68bb49764d009c5cb97f7cfafa2`:
+  drone 2250–10000 ms and yell 4250–4750 ms.
+- `high-yell-01.wav`, SHA-256
+  `d96ef870ca8fe8a96dff2867de41d47002a7700ff73c6fe66d56637bef6a72bb`:
+  drone 1020–6950 ms and yell 2950–3050 ms.
+
+These recordings are approved exceptions to the normal rule against committed
+recordings. They are review evidence, not hi-fi references or proof of general
+classifier accuracy. Human labels are authoritative; detector output may be
+compared with them but must never rewrite them. Transient markers are unlabelled
+attack observations, not substitutes for yell or drone labels.
+
+The online [Sound review](https://digirdu-lights.firebaseapp.com/review.html)
+reuses the fleet site's Google sign-in, App Check, and existing administrator
+allowlist. The page requests the catalog, derived bundle, and WAV bytes through
+authenticated Firebase callables. Raw recordings and bundles are not copied to
+public Hosting, and the review controls remain hidden until authorization
+succeeds. The dropdown switches between recordings and resets the playhead,
+selected label, zoom, pan, replay bounds, and event filters.
+
+The waveform is a normalized peak-amplitude preview; each bar summarizes one
+1024-sample hop, about 64 ms at 16 kHz. Directly beneath it, the aligned
+spectrogram shows 64 logarithmic frequency bands from 31.25 Hz to 8 kHz. Its
+dark-blue-to-yellow colors use a fixed -90 to 0 dBFS range, so intensity remains
+comparable when switching recordings. The spectrogram, waveform, labels and
+detector markers share one playhead, zoom and horizontal pan. Detected events
+are listed one per line.
+
+Recheck CoreAudio device indexes immediately before capture because connected
+devices can reorder them:
+
+```sh
+ffmpeg -f avfoundation -list_devices true -i ""
+make record-review AUDIO_INPUT=1
+```
+
+The reviewed takes used the MacBook Air microphone at index 1 on the capture
+machine. `AUDIO_INPUT` is uppercase and Make variable names are case-sensitive.
+The recorder writes exactly ten seconds of PCM and atomically replaces
+`REVIEW_AUDIO`, so use a unique ignored path for experiments rather than
+overwriting a committed recording:
+
+```sh
+make record-review AUDIO_INPUT=1 \
+  REVIEW_AUDIO=.artifacts/samples/review/growl-high-01.wav
+```
+
+After creating a matching human-authored labels file, generate the ignored
+feature, event, comparison, effect and run artifacts with:
+
+```sh
+make sound-review \
+  REVIEW_AUDIO=review/recordings/drone-yell-10s.wav \
+  REVIEW_LABELS=review/recordings/drone-yell-10s.labels.json
+python3 -m http.server 8765 --directory .artifacts/sound-review
+```
+
+Then open
+`http://127.0.0.1:8765/review.html?catalog=/recordings/catalog.json`. The local
+catalog dropdown contains every approved recording from
+`review/recordings/catalog.json`. The page keeps the
+audio, waveform, labels, detected events, derived features and virtual LEDs on
+one playhead. It supports play/pause, scrubbing, zoom and replay around a
+selected label. Local `?catalog=` and single-bundle `?data=` loading are
+accepted only on `localhost` and `127.0.0.1`; production always uses the
+authenticated catalog. Edit labels in the JSON file and regenerate the bundle.
+Everything under `.artifacts/sound-review/` is derived and remains ignored.
+
+For a custom `REVIEW_AUDIO` and `REVIEW_LABELS` inside this repository, serve
+the repository root with `python3 -m http.server 8765`, then open
+`http://127.0.0.1:8765/.artifacts/sound-review/review.html?data=/.artifacts/sound-review/review.json`.
+This opens the custom analysis and resolves its source WAV relative to the
+generated bundle. The `?catalog=` view always shows only approved recordings
+listed in `review/recordings/catalog.json`.
+
+To browse and play both approved recordings through the local Recording
+selector, generate the protected review-library staging and serve the repository
+root:
+
+```sh
+make review-library
+python3 -m http.server 8765
+```
+
+Then open
+`http://127.0.0.1:8765/web/review.html?catalog=/firebase/functions/review-data/catalog.json`.
+Local `?catalog=` loading is also restricted to loopback hosts. It reads the
+ignored generated bundles and WAVs directly from
+`firebase/functions/review-data/`; those recordings are not copied into the
+public web build or Firebase Hosting.
+
+To add an approved recording, put its WAV and matching labels JSON in
+`review/recordings/`, add the ordered entry to `catalog.json`, and run:
+
+```sh
+make review-library
+make web-deploy
+```
+
+`make review-library` validates IDs, WAV format, file associations, label
+bounds, and deterministic analysis before replacing the ignored deployment
+staging under `firebase/functions/review-data/`. `make web-test` depends on that
+build, so invalid or stale library data stops `make web-deploy` before Firebase
+changes. The committed WAVs are published by the site only through the
+administrator-protected callable; do not add them to `web/` or public Hosting.
+
+These takes verify deterministic analysis and the human-review plumbing. They
+do not establish generalized yell, growl, rhythm or vocalization accuracy, live
+hardware replay equivalence, or culvert RF coverage. Exploratory recordings
+remain local and ignored until explicitly approved for this library.
 
 
 ## References
