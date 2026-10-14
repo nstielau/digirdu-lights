@@ -11,16 +11,27 @@ The handled outer front and rear perimeter has a **0.8 mm fillet**. Selected
 exposed screen, button and USB opening edges have **0.3 mm chamfers**. Mating and
 internal fit edges retain their original shape.
 
+The rear inset locating lip and battery-end tab now rise from the side wall on
+angled underside ramps for printing with the outside face on the bed. The long
+lip previously began as approximately 242 mm² of flat underside at print
+Z = 11.1 mm; the revised mesh has approximately 11.8 mm² of narrow residual
+strips there. The end tab's flat start at Z = 13.8 mm fell from 18.5 to
+0.75 mm². The ramps add material above the mating seam while keeping the lip's
+fit edge, battery clearance and USB opening. A slicer preview with supports
+disabled and a physical print are still needed to confirm print behavior.
+
 | Print file | Quantity |
 | --- | ---: |
 | `plain-front-housing.stl` | 1 |
 | `plain-rear-cover.stl` | 1 |
 | `button-rail-domed.stl` | 1, yielding three buttons |
 
-Each STL is in millimeters with its print face at Z = 0. Both shell meshes are
-newly exported from the edge-refined parametric model; the domed button rail
-remains byte-identical to revision 3. The old diffuser and patterned rear
-snapshots are deliberately excluded.
+Each STL is in millimeters with its print face at Z = 0. The rear mesh is
+exported from the ramped parametric model; the front shell and domed button
+rail remain byte-identical to the previous revision 4 kit. The old diffuser
+and patterned rear snapshots are deliberately excluded.
+`rear-lip-section-preview.png` compares actual before/after STL sections at
+X = 40 mm; `solid-rear-preview.png` shows the unchanged exterior.
 
 ## Assembly
 
@@ -37,9 +48,10 @@ snapshots are deliberately excluded.
    screw fit and the feel of the softened edges on the first print.
 
 `Echo-Glow-producer-r4.f3d` is the complete editable Fusion snapshot from the
-existing **Echo Glow producer v1** lineage. Fusion accepted a local save on
-October 13, 2026, including the edge refinement, but its data panel reported
-"System in offline state"; cloud version 4 remains the last confirmed version.
-The F3D and STL files were exported and verified locally. See
-`verification.json` for CAD and mesh measurements.
-Physical print and fit qualification has not been performed.
+existing **Echo Glow producer v1** lineage, including the six support ramps.
+It was exported and archive-checked on October 14, 2026. Fusion's window then
+showed **Expired Subscription – Read Only**; cloud version 4 remains the last
+confirmed version. The local F3D and STL are current, but the cloud save and
+tagged hardware release await restored Fusion write access. See
+`verification.json` for CAD and mesh measurements. Physical print and fit
+qualification has not been performed.

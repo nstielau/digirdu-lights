@@ -3,7 +3,7 @@
   "fusion_document": "Echo Glow producer v1",
   "fusion_lineage": "urn:adsk.wipprod:dm.lineage:rV-ATT5yQr6LfZkcf5K2oQ",
   "fusion_cloud_version_last_confirmed": 4,
-  "fusion_cloud_sync": "pending: Fusion reported System in offline state after local edge-refinement save on 2026-10-13",
+  "fusion_cloud_sync": "pending: the ramped model was exported locally on 2026-10-14, but Fusion showed Expired Subscription - Read Only and cloud version remained 4",
   "cad": {
     "overall_envelope_mm": [84.3, 36.46, 31.7],
     "previous_height_mm": 35.4,
@@ -22,12 +22,12 @@
     "front_solid_bodies": 1,
     "front_volume_mm3": 14229.94236,
     "rear_solid_bodies": 1,
-    "rear_volume_mm3": 12170.369479,
+    "rear_volume_mm3": 12430.903608,
     "button_rail_solid_bodies": 1,
     "button_rail_volume_mm3": 124.948927,
     "feature_health": {
       "front": {"healthy": 37, "suppressed": 3, "warnings_or_errors": 0},
-      "rear": {"healthy": 24, "suppressed": 15, "warnings_or_errors": 0},
+      "rear": {"healthy": 30, "suppressed": 15, "warnings_or_errors": 0},
       "button_rail": {"healthy": 1, "suppressed": 0, "warnings_or_errors": 0}
     },
     "rear_suppressed_feature_note": "Includes ten wing features, the legacy end USB port, and four obsolete dependent USB features. Current USB tab, connector throat, plug recess, and battery stop are joined in the final rear solid.",
@@ -47,11 +47,21 @@
       "usb_exterior_front_side_lip_chamfer_mm": 0.3,
       "local_size_exceptions": [],
       "protected_surfaces": "mating seam, registration, screw seats/passages, board and battery supports, button running surfaces, reset pinhole and internal USB throat"
+    },
+    "support_free_ramps": {
+      "rear_locating_lip": "additive angled ramps on both long sides and end runs; mating edge retained",
+      "rear_battery_end_tab": "additive angled ramp; USB throat retained",
+      "maximum_designed_horizontal_growth_per_vertical_growth": 1.0,
+      "rear_lip_flat_underside_mm2_before": 241.883,
+      "rear_lip_flat_underside_mm2_after": 11.752,
+      "end_tab_flat_underside_mm2_before": 18.546,
+      "end_tab_flat_underside_mm2_after": 0.749,
+      "remaining_flat_faces": "narrow mesh strips and short corner transitions; slicer preview and physical print not yet checked"
     }
   },
   "meshes": {
     "plain-front-housing.stl": {"triangles": 7488, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [84.3, 36.46, 19.7], "volume_mm3": 14228.4021},
-    "plain-rear-cover.stl": {"triangles": 4260, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [84.3, 36.46, 24.835], "volume_mm3": 12169.3076},
+    "plain-rear-cover.stl": {"triangles": 4512, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [84.3, 36.46, 24.835], "volume_mm3": 12429.8289},
     "button-rail-domed.stl": {"triangles": 13592, "connected_components": 1, "watertight": true, "consistent_winding": true, "bounds_mm": [6.2, 20.17, 2.2], "volume_mm3": 124.859}
   },
   "archive": {"format": "Fusion F3D", "entries_crc_checked": 49, "compression_methods": [0, 93]},
@@ -65,7 +75,8 @@
     "wrapped battery and lead exit clearance",
     "real USB-C plug housing clearance and insertion",
     "printed button travel and seam closure",
-    "tactile edge feel and printed chamfer quality"
+    "tactile edge feel and printed chamfer quality",
+    "support-free printing of the rear locating lip and end tab"
   ],
   "physical_print_qualification": "not performed"
 }
