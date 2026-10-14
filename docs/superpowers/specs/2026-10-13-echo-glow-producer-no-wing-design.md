@@ -3,7 +3,8 @@
 ## Status
 
 The compact approach was approved on October 13, 2026 and implemented locally
-as producer revision 4. Fusion reported an offline outage during the save, so
+as producer revision 4. The approved exterior edge refinement was also saved
+and exported locally. Fusion reported an offline state during the saves, so
 cloud version 4 remains the last confirmed version. The release F3D is the
 verified editable snapshot pending cloud sync.
 
@@ -72,3 +73,29 @@ consistently wound print meshes. Record the height reduction and demonstrate
 that no wing opening or wing-only cavity remains. Run the repository checks.
 Real USB-plug fit, battery tolerance, button travel, thermal behavior, and
 print strength remain physical prototype checks, not CAD results.
+
+## Exterior edge refinement (approved October 13, 2026)
+
+Refine the still-unreleased revision 4 in the same Fusion document. Soften the
+hand-contact exterior perimeter of both plain shells with modest fillets,
+targeting a 0.8 mm radius where the existing wall and adjacent features allow
+it. Add small 0.3 mm, 45-degree chamfers to exposed opening lips that a finger
+can touch, including the screen and button openings and accessible USB edge.
+Use a smaller local size if a specific edge fails or would intersect a nearby
+feature, and record the actual sizes and selected edge groups.
+
+Leave the shell mating seam, registration lips, screw seats and passages,
+internal board and battery supports, button running surfaces, reset pinhole,
+and USB connector clearance geometry unchanged. The fillets and chamfers must
+not create new openings, split a shell, or reduce the documented 0.5 mm radial
+battery-to-roof gap. Keep the overall case envelope and the model's existing
+component clearances within the measured revision 4 dimensions.
+
+Save this as a new cloud version of **Echo Glow producer v1** and export a fresh
+editable F3D and affected STL meshes for the revision 4 kit. Update the
+manifest, verification record, and assembly notes. Fusion cloud version 4 is
+the last previously confirmed version; verify that the new version increments
+and that the saved version contains the edge features before claiming cloud
+save success. Recheck feature health, closed connected meshes, positive-volume
+interferences, opening access, and baseline dimensions. Physical edge feel and
+fit remain first-print checks.
